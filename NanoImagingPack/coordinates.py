@@ -40,7 +40,7 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
     #np.seterr(divide ='ignore');
     miniramp = np.reshape(miniramp,minisize)
     res*=miniramp;
-    return(res);
+    return(image(res));  # RH casted to image
 
 
 def xx(mysize = (256,256), mode = 'center'):
@@ -82,9 +82,9 @@ def zz(mysize = (256,256), mode = 'center'):
     '''
     return(ramp(mysize,2,mode))
 
-def rr(mysize=(256,256), offset = (0,0),scale = None):
+def rr2(mysize=(256,256), offset = (0,0),scale = None):
     '''
-    creates a ramp in r direction 
+    creates a square of a ramp in r direction 
     standart size is 256 X 256
     mode is always "center"
     offset -> x/y offset in pixels (number, list or tuple)
@@ -108,7 +108,20 @@ def rr(mysize=(256,256), offset = (0,0),scale = None):
         scale = list(scale[0:2]);
     else:
         raise TypeError('Wrong data type for scale -> must be integer, list, tuple or none')
-    return(np.sqrt(((ramp(mysize,0,'center')-offset[0])*scale[0])**2+((ramp(mysize,1,'center')-offset[1])*scale[1])**2))
+    res=((ramp(mysize,0,'center')-offset[0])*scale[0])**2
+    for d in range(1,len(mysize)):
+        res+=((ramp(mysize,d,'center')-offset[d])*scale[d])**2
+    return res
+
+def rr(mysize=(256,256), offset = (0,0),scale = None):
+    '''
+    creates a ramp in r direction 
+    standart size is 256 X 256
+    mode is always "center"
+    offset -> x/y offset in pixels (number, list or tuple)
+    scale is tuple, list, none or number of axis scale
+    '''
+    return np.sqrt(rr2(mysize,offset,scale))
    
 def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     '''

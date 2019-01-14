@@ -8,6 +8,7 @@ Created on Thu Jul 27 16:35:07 2017
 import numpy as np;
 from .config import DBG_MSG,__DEFAULTS__;
 from .util import get_type;
+from .image import image;
 
 __REAL_AXIS__ = 0;
 
@@ -179,14 +180,14 @@ def ft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = 
         pass;
     if shift_before == True: 
         if shift == True:
-            return(__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes));
+            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
         else:
-            return(__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT'));
+            return image((__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
     else:
         if shift == True:
-            return(__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes));
+            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
         else:
-            return(__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT'));
+            return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
 
 def rft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT', real_return = 'DEFAULT', real_axis = None):
     '''
@@ -275,31 +276,31 @@ def rft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes =
                     s_axes = axes[:-1];
             ret_im = __ret_val__(ret_im, ret);
             ret_im = np.swapaxes(ret_im, real_axis, axes[-1]);
-            return(__check_type__(ret_im, axes, im, 'FT', shift_axes = s_axes));
+            return image((__check_type__(ret_im, axes, im, 'FT', shift_axes = s_axes)))
         else:
             
             if shift_before == True: 
                 if shift == True:
-                    return(__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes));
+                    return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
                 else:
-                    return(__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT'));
+                    return image((__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
             else:
                 if shift == True:
-                    return(__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes));
+                    return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
                 else:
-                    return(__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT'));
+                    return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
     else:
         DBG_MSG('Complex data. rft not possible. Doing FFT',2);
         if shift_before == True: 
             if shift == True:
-                return(__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes));
+                return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
             else:
-                return(__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT'));
+                return image((__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
         else:
             if shift == True:
-                return(__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes));
+                return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
             else:
-                return(__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT'));
+                return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
 
 
 def ift(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT'):
@@ -338,14 +339,14 @@ def ift(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = N
     
     if shift_before == True: 
         if shift == True:
-            return(__check_type__(__ret_val__(np.fft.ifftshift((np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes));
+            return image((__check_type__(__ret_val__(np.fft.ifftshift((np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
         else:
-            return(__check_type__(__ret_val__(np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'IFT'));
+            return image((__check_type__(__ret_val__(np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
     else:
         if shift == True:
-            return(__check_type__(__ret_val__(np.fft.ifftshift((np.fft.ifftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes));
+            return image((__check_type__(__ret_val__(np.fft.ifftshift((np.fft.ifftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
         else:
-            return(__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT'));
+            return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
         
 
 def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT', real_axis = 'DEFAULT'):
@@ -412,10 +413,10 @@ def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = 
                 s_axes = axes;
             else:
                 iftim = __ret_val__(np.fft.irfftn(im, norm = norm, axes = axes, s = s), ret);
-        return(__check_type__(iftim.swapaxes(axes[-1], real_axis),axes,im, 'IRFT', axes[-1], shift_axes = s_axes))
+        return image(__check_type__(iftim.swapaxes(axes[-1], real_axis),axes,im, 'IRFT', axes[-1], shift_axes = s_axes))
     else:
         print('Real axis not in ift axes list -> Performing normal ifft!')
-        return(ift(im, shift = shift,shift_before = shift_before, ret =ret, axes = axes, s = s, norm =norm))
+        return image(ift(im, shift = shift,shift_before = shift_before, ret =ret, axes = axes, s = s, norm =norm))
      
 
 #def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT', real_axis = 'DEFAULT'):

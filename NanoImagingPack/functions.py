@@ -11,7 +11,8 @@ make sure, x is always the first argument
 """
 import numpy as np;
 from .util import get_type;
-
+from .coordinates import rr2;
+import numbers
 
 def gauss(x,tau = 1, A = 1,x0 = 0,y0 = 0):
     '''
@@ -23,18 +24,40 @@ def gauss(x,tau = 1, A = 1,x0 = 0,y0 = 0):
     '''
     return A*np.exp(-4*np.log(2)*(x-x0)**2/tau**2)+y0;
 
+def gaussian(myshape,sigma):
+    '''
+        n-dimensional gaussian function
+    '''
+    if isinstance(sigma,numbers.Number):
+        sigma=len(myshape)*[sigma]
+    return np.exp(-rr2(myshape,scale=tuple(1/(np.sqrt(2)*np.array(sigma)))))
 
-def cossqr(x, length=10, x0=0, A =1, y0 = 0):
+
+def cossqr(x, length=10, x0=0):
     '''
         cos^2 
                 x0          - point of one maximum;
                 lenght      - distance from first maximum to first minimum (0)
-                A           - Amplitude
-                y0          - offste
     '''
     return((np.cos((x-x0)/length*np.pi/2))**2)
 
-def gauss_norm(x, sigma=1, x0=0,  y0 =0, A =1):
+def coshalf(x, length=10, x0=0):
+    '''
+        cos(x) from 1.0 to zero
+                x0          - point of one maximum;
+                lenght      - distance from first maximum to first minimum (0)
+    '''
+    return((np.cos((x-x0)/length*np.pi/2)))
+
+def linear(x, length=10, x0=0):
+    '''
+        (1-x) from 1.0 to zero
+                x0          - point of one maximum;
+                lenght      - distance from first maximum to first minimum (0)
+    '''
+    return(1.0-(x-x0))
+
+def gauss_norm(x, sigma=1.0, x0=0,  y0 =0, A =1):
     '''
         1 Dimensional gaussian function   form normal distribution
         A         Amplitude

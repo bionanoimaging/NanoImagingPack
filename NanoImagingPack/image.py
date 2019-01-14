@@ -22,9 +22,8 @@ import numpy as np;
 from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
-from .functions import cossqr;
-from .util import make_damp_ramp;
-from .util import get_type;
+from .functions import cossqr, gaussian, coshalf, linear;
+from .util import make_damp_ramp,get_type,subslice,expanddim;
 #class roi:
 #    def __init__(im):
 #    '''
@@ -760,28 +759,40 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0):
     return(final_im.swapaxes(0,1).view(image));
     
     
-def DampEdge(im, width = 10, axes =(0,1), func = cossqr):
+def DampEdge(im, width = None, rwidth=0.1, axes =None, func = coshalf, method="damp", sigma=4.0):
     '''
         Dampedge function 
         
         im  image to damp edges 
         
-        width 
-            -> characteristic width for damping
+        rwidth : relative width (default : 0.1 meaning 10%)
+            width in relation to the image size along this dimenions. Can be a single number or a tuple
+            
+        width (None: rwidht is used, else width takes precedence)
+            -> characteristic absolute width for damping
             -> can be integer, than every (given) axis is damped by the same size
             -> can be list or tupel -> than individual damping for given axis
             
         axes-> which axes to be damped (default is (0,1))
 
         func   - which function shall be used for damping -> some are stated in functions.py, first element should be x, second one the length (Damping length!)
+                e.g. cossqr, coshalf, linear
+                default: coshalf
+        
         method -> which method should be used?
-                -> right now: only cosine squared availabel        
+                -> "zero" : dims down to zero
+                -> "damp" : blurs to an averaged mean (default)
     
         return image with damped edges
         
         TODO in FUTURE: padding of the image before damping
     '''
     res = np.ones(im.shape);    
+    if width==None:
+        width=tuple(np.round(np.array(im.shape)*np.array(rwidth)).astype("int"))
+        
+    if axes==None:
+        axes=np.arange(0,im.ndim).tolist()
     if type(width) == int:
         width = [width];
     if type(width) == tuple:
@@ -789,24 +800,34 @@ def DampEdge(im, width = 10, axes =(0,1), func = cossqr):
     if len(width) < len(axes):
         ext = np.ones(len(axes)-len(width))*width[-1];
         width.extend(list(ext.astype(int)));
-
+        
+    res=im
     for i in range(len(im.shape)):
         if i in axes:
             line = np.arange(0,im.shape[i],1);
             ramp = make_damp_ramp(width[i],func);
-            line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]),ramp),0);
+            if method=="zero":
+                line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]),ramp),0);
+                goal=0.0 # dim down to zero
+            else:
+                line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]+1),ramp[:-1]),0);  # to make it perfectly cyclic
+                top=subslice(im,i,0)
+                bottom=subslice(im,i,-1)
+                goal = (top+bottom)/2.0
+                kernel=gaussian(goal.shape,sigma)
+                goal = convolve(goal,kernel,norm2nd=True)
             #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-            res = res.swapaxes(len(im.shape)-1,i); # The broadcasting works only for Python versions >3.5
+#            res = res.swapaxes(len(im.shape)-1,i); # The broadcasting works only for Python versions >3.5
+            line = expanddim(line,im.ndim).swapaxes(0,i); # The broadcasting works only for Python versions >3.5
             try:
-                res *= line;
+                res = res*line + (1.0-line)*goal;
             except ValueError:
                 print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
                 from numpy.matlib import repmat;
                 res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
-            res = res.swapaxes(len(im.shape)-1,i);
         
     #return(res)
-    return(im*res.view(image));
+    return(res.view(image));
 
 def __check_complex__(im):
     '''
@@ -1135,7 +1156,7 @@ def cat(imlist, ax):
         if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != ax):
             imlist = [match_size(im, imlist[np.argmax(shapes[:,i])], i, padmode ='constant', odd = False)[0] for im in imlist] 
     #return(np.concatenate((imlist),ax).squeeze());
-    return(np.concatenate((imlist),ax));
+    return image(np.concatenate((imlist),ax));  #RH
     
     
 def histogram(im,name ='', bins=65535, range=None, normed=False, weights=None, density=None):
@@ -1237,7 +1258,7 @@ def shift_center(M,x,y):
     New[mom(x):non(x), mom(y):non(y)] = M[mom(-x):non(-x), mom(-y):non(-y)]
     return(New)
     
-def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False):
+def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False, norm2nd=False):
     '''
         Correlator for images
         
@@ -1276,7 +1297,10 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
         else:
             FT1 = rft(M1, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes, real_return = None);
             FT2 = rft(M2, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes, real_return = None);
-        
+
+        if norm2nd == True:
+            FT2 = FT2 / np.abs(FT2.flat[0])
+            
         if mode == 'convolution':
             if phase_only:
                 cor = np.exp(1j*(np.angle(FT1)+np.angle(FT2)))
@@ -1314,7 +1338,7 @@ def correl(M1,M2,  axes = None,phase_only = False):
     '''
     return(__correllator__(M1,M2, axes = axes, mode = 'correlation', phase_only = phase_only))
 
-def convolve(M1,M2, full_fft = False, axes = None,phase_only = True):
+def convolve(M1,M2, full_fft = False, axes = None,phase_only = False, norm2nd=False):  
     '''
         Convolve two images for images
         
@@ -1322,9 +1346,10 @@ def convolve(M1,M2, full_fft = False, axes = None,phase_only = True):
          M1,M2: Images
          full_fft: apply full fft? or is real enough
          axes:   along which axes
-         phase only: Phase correlation
+         phase only: Phase correlation (default: False)
+         norm2nd : normalizes the second argument to one (keeps the mean of the first argument after convolution), (default: False)
     '''
-    return(__correllator__(M1,M2, axes = axes, mode = 'convolution', phase_only = phase_only ))
+    return(__correllator__(M1,M2, axes = axes, mode = 'convolution', phase_only = phase_only, norm2nd=norm2nd))
 
     
 def rot_2D_im(M, angle):

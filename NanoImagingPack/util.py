@@ -189,7 +189,21 @@ def expand(vector, size, transpose = False):
         return(np.transpose(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) )));
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
-        
+
+def expanddim(img,ndims):
+    return np.reshape(img,img.shape + (ndims-len(img.shape))*(1,))
+
+def subslice(img,mydim,start):
+    '''
+        extracts an N-1 dimensional subslice at dimension dim and position start        
+        It keeps empty slices as singleton dimensions
+    '''
+    if start!=-1:
+        end=start+1
+    else:
+        end=None
+    coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
+    return img[tuple(coords)]
 
 def pairwise_arith(a, mode = 'sum'):
     '''

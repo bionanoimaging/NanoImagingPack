@@ -110,6 +110,8 @@ class view:
                 self.image = image.astype(np.complex64);
             elif np.issubdtype(image.dtype, np.floating):
                 self.image = image.astype(np.float32);
+            elif np.issubdtype(image.dtype, np.bool):
+                self.image = image.astype(np.uint8);
             else:
                 self.image = image;
         else:
@@ -129,6 +131,10 @@ class view:
         else:
             self.title =title;
         self.curr_title = title;
+
+        if image.dtype==np.bool:
+            self.image = image.astype(np.uint8)
+
         if np.issubdtype(self.image.dtype, np.complexfloating):
             self.glob_lims = [[np.min(np.abs(self.image)), np.max(np.abs(self.image))],
                               [np.min(np.angle(self.image)), np.max(np.angle(self.image))],
@@ -519,9 +525,10 @@ class view:
         '''
             Draw the image in the figure
         '''
-        self.fig.canvas.set_window_title(self.__make_title__());
+        self.fig.canvas.set_window_title(self.__make_title__());        
         if image is not None:
             self.im_to_draw = image;
+
         #self.ax.set_xlim([0,self.image.shape[1]]);
         #self.ax.set_ylim([self.image.shape[0],0]);
         #self.imgplot = self.ax.imshow(self.im_to_draw, cmap = 'gray',interpolation = 'none');

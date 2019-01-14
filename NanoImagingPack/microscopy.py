@@ -420,9 +420,9 @@ class transfer():
         self.TEST1 = ret
         # add aplanatic factor
         if self.aplanar == 'illumination':
-            ret *=  (1-self.s**2*self.r**2)**0.25;   # RH: Please fix this, yield rundtime warning
+            ret *=  (1-self.s**2*self.r**2)**0.25;   # RH: Please fix this, yield runtime warning
         elif self.aplanar == 'detection':
-            ret*= 1/((1-self.s**2*self.r**2)**0.25);  # RH: Please fix this, yield rundtime warning
+            ret*= 1/((1-self.s**2*self.r**2)**0.25);  # RH: Please fix this, yield runtime warning
         # add focal distance
         if off_focal_dist !=0:
             np.seterr(invalid = 'ignore');
