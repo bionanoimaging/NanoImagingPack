@@ -19,11 +19,13 @@ Created on Thu Jul 27 17:21:21 2017
 
 import tifffile as tif;
 import numpy as np;
+import NanoImagingPack as nip
 from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
 from .functions import cossqr, gaussian, coshalf, linear;
 from .util import make_damp_ramp,get_type,subslice,expanddim;
+
 #class roi:
 #    def __init__(im):
 #    '''
@@ -237,7 +239,9 @@ class image(np.ndarray):
     
     def mid(self, ax = None):
         '''
-            returns the midpos of the given axis (as tuple)
+            returns the midpos of the given axis (as tuple) as seen for ft, i.e. im.shape//2
+            ----
+            ax : which axes (list of all axes)
             If nothing given, it returns the mid pos for all axis
         '''
         import numbers;
@@ -782,6 +786,7 @@ def DampEdge(im, width = None, rwidth=0.1, axes =None, func = coshalf, method="d
         method -> which method should be used?
                 -> "zero" : dims down to zero
                 -> "damp" : blurs to an averaged mean (default)
+                -> "moisan" : HF/LF split method according to Moisan, J Math Imaging Vis (2011) 39: 161–179, DOI 10.1007/s10851-010-0227-1
     
         return image with damped edges
         
@@ -802,29 +807,48 @@ def DampEdge(im, width = None, rwidth=0.1, axes =None, func = coshalf, method="d
         width.extend(list(ext.astype(int)));
         
     res=im
+    mysum=im*0.0
+    sz=im.shape;
+    den=-2*len(set(axes)); # use only the counting dimensions
     for i in range(len(im.shape)):
         if i in axes:
             line = np.arange(0,im.shape[i],1);
-            ramp = make_damp_ramp(width[i],func);
+            ramp = make_damp_ramp(width[i],func);            
             if method=="zero":
                 line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]),ramp),0);
                 goal=0.0 # dim down to zero
-            else:
+            elif method=="moisan":
+#                for d=1:ndims(img)
+                top=nip.subslice(im,i,0)
+                bottom=nip.subslice(im,i,-1)
+                mysum=nip.subsliceAsg(mysum,i,0,bottom-top + nip.subslice(mysum,i,0));
+                mysum=nip.subsliceAsg(mysum,i,sz[i]-1,top-bottom + nip.subslice(mysum,i,sz[i]-1));
+                den=den+2*np.cos(2*np.pi*nip.ramp(nip.dimVec(i,sz[i],len(sz)),i,freq='freq'))
+            elif method=="damp":
                 line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]+1),ramp[:-1]),0);  # to make it perfectly cyclic
-                top=subslice(im,i,0)
-                bottom=subslice(im,i,-1)
+                top=nip.subslice(im,i,0)
+                bottom=nip.subslice(im,i,-1)
                 goal = (top+bottom)/2.0
                 kernel=gaussian(goal.shape,sigma)
                 goal = convolve(goal,kernel,norm2nd=True)
+            else:
+                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
             #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
 #            res = res.swapaxes(len(im.shape)-1,i); # The broadcasting works only for Python versions >3.5
-            line = expanddim(line,im.ndim).swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-            try:
-                res = res*line + (1.0-line)*goal;
-            except ValueError:
-                print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-                from numpy.matlib import repmat;
-                res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
+    if method=="moisan":
+        den=nip.MidValAsg(den,1);  # to avoid the division by zero error
+        den=nip.ft(mysum)/den;
+        den=nip.MidValAsg(den,0);  # kill the zero frequency
+        den=nip.ift(den)
+        res=im-den
+    else:
+        line = expanddim(line,im.ndim).swapaxes(0,i); # The broadcasting works only for Python versions >3.5
+        try:
+            res = res*line + (1.0-line)*goal
+        except ValueError:
+            print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+            from numpy.matlib import repmat;
+            res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
         
     #return(res)
     return(res.view(image));

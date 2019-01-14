@@ -1,7 +1,7 @@
 import numpy as np;
 from .util import get_type;
 
-def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
+def ramp(mysize=(256,256), ramp_dim=0, corner='center', freq=None):
     '''
     creates a ramp in the given direction direction 
     standart size is 256 X 256
@@ -11,7 +11,8 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
                     e.g. size_x = 100 -> goes from -50 to 49
                          size_x = 101 -> goes from -50 to 50
         negative : goes from negative size_x to 0
-        positvie : goes from 0 size_x to positive
+        positive : goes from 0 size_x to positive
+        freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
         int number: is the index where the center is!
     '''
     from .image import image;
@@ -39,11 +40,15 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center'):
     minisize[ramp_dim] = mysize[ramp_dim];
     #np.seterr(divide ='ignore');
     miniramp = np.reshape(miniramp,minisize)
-    res*=miniramp;
+    if freq=="freq":
+        res*=(miniramp/(mysize[ramp_dim]//2)/2.0)
+    elif freq=="radfreq":
+        res*=(miniramp/(mysize[ramp_dim]//2/2.0)*2*np.pi)
+    else:
+        res*=miniramp
     return(image(res));  # RH casted to image
 
-
-def xx(mysize = (256,256), mode = 'center'):
+def xx(mysize = (256,256), mode = 'center', freq=None):
     '''
     creates a ramp in x direction 
     standart size is 256 X 256
@@ -54,9 +59,9 @@ def xx(mysize = (256,256), mode = 'center'):
         negative : goes from negative size_x to 0
         positvie : goes from 0 size_x to positive
     '''
-    return(ramp(mysize,0,mode))
+    return(ramp(mysize,0,mode,freq))
 
-def yy(mysize = (256,256), mode = 'center'):
+def yy(mysize = (256,256), mode = 'center', freq=None):
     '''
     creates a ramp in y direction 
     standart size is 256 X 256
@@ -67,9 +72,9 @@ def yy(mysize = (256,256), mode = 'center'):
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     '''
-    return(ramp(mysize,1,mode))
+    return(ramp(mysize,1,mode,freq))
  
-def zz(mysize = (256,256), mode = 'center'):
+def zz(mysize = (256,256), mode = 'center', freq=None):
     '''
     creates a ramp in z direction 
     standart size is 256 X 256
@@ -82,7 +87,7 @@ def zz(mysize = (256,256), mode = 'center'):
     '''
     return(ramp(mysize,2,mode))
 
-def rr2(mysize=(256,256), offset = (0,0),scale = None):
+def rr2(mysize=(256,256), offset = (0,0),scale = None, freq=None):
     '''
     creates a square of a ramp in r direction 
     standart size is 256 X 256
@@ -108,12 +113,12 @@ def rr2(mysize=(256,256), offset = (0,0),scale = None):
         scale = list(scale[0:2]);
     else:
         raise TypeError('Wrong data type for scale -> must be integer, list, tuple or none')
-    res=((ramp(mysize,0,'center')-offset[0])*scale[0])**2
+    res=((ramp(mysize,0,'center',freq)-offset[0])*scale[0])**2
     for d in range(1,len(mysize)):
-        res+=((ramp(mysize,d,'center')-offset[d])*scale[d])**2
+        res+=((ramp(mysize,d,'center',freq)-offset[d])*scale[d])**2
     return res
 
-def rr(mysize=(256,256), offset = (0,0),scale = None):
+def rr(mysize=(256,256), offset = (0,0),scale = None, freq=None):
     '''
     creates a ramp in r direction 
     standart size is 256 X 256
@@ -121,7 +126,7 @@ def rr(mysize=(256,256), offset = (0,0),scale = None):
     offset -> x/y offset in pixels (number, list or tuple)
     scale is tuple, list, none or number of axis scale
     '''
-    return np.sqrt(rr2(mysize,offset,scale))
+    return np.sqrt(rr2(mysize,offset,scale,freq))
    
 def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     '''
@@ -145,9 +150,6 @@ def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     phi[phi.shape[0]//2,phi.shape[1]//2]=0;
     np.seterr(divide='warn', invalid = 'warn');
     return(phi)
-
-
-
 
 def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_axes = None, return_axes = 'all'):
         

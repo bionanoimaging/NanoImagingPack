@@ -191,7 +191,25 @@ def expand(vector, size, transpose = False):
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
 def expanddim(img,ndims):
+    '''
+        expands an nd image to the necessary number of dimension
+        ----------
+        img: input image to expand
+        ndims: number of dimensions to expand to        
+    '''
     return np.reshape(img,img.shape + (ndims-len(img.shape))*(1,))
+
+def dimVec(d,mysize,ndims):
+    '''
+        creates a vector of ndims dimensions with all entries equalt to one except the one at d which is mysize
+        ----------
+        d: dimension to specify entry for
+        mysize : entry for res[d]        
+        ndims: length of the result vector
+    '''
+    res=ndims*[1]
+    res[d]=mysize
+    return tuple(res)
 
 def subslice(img,mydim,start):
     '''
@@ -204,6 +222,36 @@ def subslice(img,mydim,start):
         end=None
     coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
     return img[tuple(coords)]
+
+def subsliceAsg(img,mydim,start,val):
+    '''
+        assigns val to an N-1 dimensional subslice at dimension dim and position start
+        -----
+        img : input image to assign to
+        mydim : dimension into which the subslice is chosen
+        start : offset along this dimension
+        val : value(s) to assign into the array
+        It keeps empty slices as singleton dimensions
+    '''
+    if start!=-1:
+        end=start+1
+    else:
+        end=None
+    coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
+    img[tuple(coords)]=val
+    return img
+
+def MidValAsg(img,val):
+    '''
+        assigns val to the middle position of an image (where ft has its zero frequency)
+        -----
+        img : input image to assign to
+        mydim : dimension into which the subslice is chosen
+        start : offset along this dimension
+    '''
+    img[img.mid()]=val
+    return img
+
 
 def pairwise_arith(a, mode = 'sum'):
     '''
