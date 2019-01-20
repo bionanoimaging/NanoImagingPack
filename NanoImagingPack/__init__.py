@@ -24,6 +24,8 @@ from .config import *;
 from .DeviceControll import *;
 from .functions import *;
 
+from .view5d import *; # rainer's java viewer
+
 
 ## packages
 from . import resources;

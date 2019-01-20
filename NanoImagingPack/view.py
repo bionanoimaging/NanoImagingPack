@@ -7,8 +7,10 @@ Created on Mon Jul 10 10:32:38 2017
 """
 import numpy as np;
 import matplotlib.pyplot as plt;
+import matplotlib;
 import time;
 from matplotlib.widgets import Slider;
+
 try:
     from .config import __DEFAULTS__;
     __VIEWER_MAX_CLICK_TIME__= __DEFAULTS__['VIEWER_MAX_CLICK_TIME'];             # Click time for recognizing marker
@@ -103,7 +105,7 @@ class view:
                  
                  
         '''
-
+#        matplotlib.use('Qt5Agg', warn=False) # RH, to make the plot work interactively
         #from matplotlib.widgets import Slider;
         if __VIEWER_DOWNCONVERT_DATA__:
             if np.issubdtype(image.dtype, np.complexfloating):
