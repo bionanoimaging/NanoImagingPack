@@ -5,6 +5,7 @@ Created on Fri Aug 10 15:45:37 2018
 @author: pi96doc
 """
 from pkg_resources import resource_filename
+from NanoImagingPack import expanddim
 
 global JNIUS_RUNNING
 if ~('JNIUS_RUNNING' in globals()):
@@ -28,15 +29,21 @@ import jnius as jn
 #import view 
 
 def v5(data,SX=1200,SY=1200):
-    data=np.transpose(data) # force a cast to np.array
+#    data=np.transpose(data) # force a cast to np.array
     print("Lauching View5D: with datatype: "+str(data.dtype))
     VD = jn.autoclass('view5d.View5D')
-    sz=np.append(data.shape,np.ones(5-len(data.shape)));
+    data=expanddim(data,5) # casts all arrays to 5D
+    sz=data.shape
+#    sz=sz[::-1] # reverse
+#    sz=np.append(sz,np.ones(5-len(data.shape)));
+    data=np.transpose(data) # reverts all axes to common display direction
+#    data=np.moveaxis(data,(4,3,2,1,0),(0,1,2,3,4)) # reverts axes to common display direction
     if (data.dtype=='complex'):
         dcr=data.real.flatten();
         dci=data.imag.flatten();
         #dc=np.concatenate((dcr,dci)).tolist();
         dc=np.stack((dcr,dci),axis=1).flatten().tolist();
+#        dc.reverse()
         # dc=data.flatten().tolist();
         out = VD.Start5DViewerC(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY);
         out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");
