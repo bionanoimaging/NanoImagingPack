@@ -29,7 +29,16 @@ import numpy as np
 
 lastviewer=None
 
-def v5(data,SX=1200,SY=1200):
+def v5(data,SX=1200,SY=1200,multicol=None):
+    '''
+        lauches a java-based viewer view5d
+        Since the viewer is based on calling java via the pyjnius Java bridge, it runs in its own thread each time. This causes overhead and may be not advisable for large
+        datasets, but it is nice for debugging purposes as it can also display the data within the pdg debugger.
+        -----
+        data : multidimensional data to display. This can be up to 5d data
+        SX,SY : size of the total viewer in pixels to use (default: 1200,1200)
+        mulitcolor : If not None or False, the viewer will be launched in a multicolor (RGB) mode by default. Default: None
+    '''
 #    data=np.transpose(data) # force a cast to np.array
     import jnius as jn
 
@@ -72,6 +81,8 @@ def v5(data,SX=1200,SY=1200):
         else:
             print("View5D: unknown datatype: "+str(data.dtype))
             return Null
+    if (multicol is None or multicol is False) and (sz[3] > 1 and sz[3] < 5):  # reset the view to single colors
+        out.ProcessKeyMainWindow("C");out.ProcessKeyMainWindow("G");out.ProcessKeyMainWindow("e");out.ProcessKeyMainWindow("G");out.ProcessKeyMainWindow("e");out.ProcessKeyMainWindow("G");out.ProcessKeyMainWindow("E");out.ProcessKeyMainWindow("E");
     out.ProcessKeyMainWindow("1");
     out.ProcessKeyMainWindow("2");
     out.UpdatePanels()
