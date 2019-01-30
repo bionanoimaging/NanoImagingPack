@@ -38,6 +38,10 @@ def v5(data,SX=1200,SY=1200,multicol=None):
         data : multidimensional data to display. This can be up to 5d data
         SX,SY : size of the total viewer in pixels to use (default: 1200,1200)
         mulitcolor : If not None or False, the viewer will be launched in a multicolor (RGB) mode by default. Default: None
+        
+        Example:
+        import NanoImagingPack as nip
+        v=nip.v5(np.random.rand(10,10,10,4),multicol=True)
     '''
 #    data=np.transpose(data) # force a cast to np.array
     import jnius as jn
