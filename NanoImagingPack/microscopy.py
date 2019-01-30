@@ -11,6 +11,7 @@ Also SIM stuff
 """
 
 import numpy as np;
+import NanoImagingPack as nip;
 from .image import image;
 from .util import get_type;
 from .transformations import rft,irft;
@@ -928,7 +929,7 @@ def PSF2ROTF(psf):
     '''
         Transforms a real-valued PSF to a half-complex RFT, at the same time precompensating for the fftshift
     '''
-    o = image(rft(psf,shift_before=True))  # accounts for the PSF to be placed correctly
+    o = image(rft(psf,shift_before=True,real_axis=0))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
     return o.astype('complex64')
 
@@ -937,4 +938,4 @@ def convROTF(img,otf): # should go into nip
     '''
         convolves with a half-complex OTF, which can be generated using PSF2ROTF
     '''
-    return irft(rft(img,shift_before=False,shift=False) * otf,shift_before=False,shift=False);
+    return irft(rft(img,shift_before=False,shift=False,real_axis =0) * nip.expanddim(otf,img.ndim),shift_before=False,shift=False,real_axis =0);

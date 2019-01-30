@@ -25,11 +25,14 @@ if (JNIUS_RUNNING==0):
 # jnius_config.set_classpath()
 # , 'C:/Users/pi96doc/Documents/Programming/PythonScripts/*'
 import numpy as np
-import jnius as jn
 #import view 
+
+lastviewer=None
 
 def v5(data,SX=1200,SY=1200):
 #    data=np.transpose(data) # force a cast to np.array
+    import jnius as jn
+
     print("Lauching View5D: with datatype: "+str(data.dtype))
     VD = jn.autoclass('view5d.View5D')
     data=expanddim(data,5) # casts all arrays to 5D
@@ -72,6 +75,19 @@ def v5(data,SX=1200,SY=1200):
     out.ProcessKeyMainWindow("1");
     out.ProcessKeyMainWindow("2");
     out.UpdatePanels()
+    out.repaint()
     jn.detach();
+    lastviewer=out
     return out
 
+def getMarkers(myviewer=None,ListNo=0, OnlyPos=True):
+    markers=[]
+    if myviewer == None:
+        myviewer = lastviewer
+        
+    if myviewer != None:
+        markers=myviewer.ExportMarkers(ListNo)
+        markers=np.array(markers)
+        if OnlyPos:
+            markers=markers[:,0:5] # extract only position information
+    return markers

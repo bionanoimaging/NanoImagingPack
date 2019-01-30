@@ -23,7 +23,7 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center', freq=None):
    
     if corner == 'negative':
         miniramp = np.arange(-mysize[ramp_dim]+1,1,1);
-    elif corner == 'positive':
+    elif corner == 'positive' or corner == 'corner':
         miniramp = np.arange(0,mysize[ramp_dim],1);
     elif corner == 'center':
         miniramp = np.arange(-mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),1);
@@ -34,7 +34,6 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center', freq=None):
             if np.issubdtype(corner.dtype, np.number):
                 miniramp = np.arange(0,mysize[ramp_dim],1)-corner;
         except AttributeError:
-           
             pass;
     minisize = list(np.ones(len(mysize)).astype(int));
     minisize[ramp_dim] = mysize[ramp_dim];
