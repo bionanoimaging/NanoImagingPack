@@ -1,12 +1,12 @@
 import numpy as np;
 from .util import get_type;
 
-def ramp(mysize=(256,256), ramp_dim=0, corner='center', freq=None):
+def ramp(mysize=(256,256), ramp_dim=-1, corner='center', freq=None):
     '''
     creates a ramp in the given direction direction 
     standart size is 256 X 256
     mode: 
-        center: 0 is at cetner
+        center: 0 is at center
                 if x is even, it has one more value in the positve:
                     e.g. size_x = 100 -> goes from -50 to 49
                          size_x = 101 -> goes from -50 to 50
@@ -33,8 +33,10 @@ def ramp(mysize=(256,256), ramp_dim=0, corner='center', freq=None):
         try: 
             if np.issubdtype(corner.dtype, np.number):
                 miniramp = np.arange(0,mysize[ramp_dim],1)-corner;
+            else:
+                raise ValueError('ramp: unknown corner value. allowed are negative, positive, corner, and center or an offset value as an np.number')
         except AttributeError:
-            pass;
+            raise ValueError('ramp: unknown corner value. allowed are negative, positive, corner, and center or an offset value as an np.number')
     minisize = list(np.ones(len(mysize)).astype(int));
     minisize[ramp_dim] = mysize[ramp_dim];
     #np.seterr(divide ='ignore');
@@ -58,7 +60,7 @@ def xx(mysize = (256,256), mode = 'center', freq=None):
         negative : goes from negative size_x to 0
         positvie : goes from 0 size_x to positive
     '''
-    return(ramp(mysize,0,mode,freq))
+    return(ramp(mysize,-1,mode,freq))
 
 def yy(mysize = (256,256), mode = 'center', freq=None):
     '''
@@ -71,7 +73,7 @@ def yy(mysize = (256,256), mode = 'center', freq=None):
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     '''
-    return(ramp(mysize,1,mode,freq))
+    return(ramp(mysize,-2,mode,freq))
  
 def zz(mysize = (256,256), mode = 'center', freq=None):
     '''
@@ -84,34 +86,34 @@ def zz(mysize = (256,256), mode = 'center', freq=None):
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     '''
-    return(ramp(mysize,2,mode))
+    return(ramp(mysize,-3,mode))
 
 def rr2(mysize=(256,256), offset = (0,0),scale = None, freq=None):
     '''
     creates a square of a ramp in r direction 
     standart size is 256 X 256
     mode is always "center"
-    offset -> x/y offset in pixels (number, list or tuple)
-    scale is tuple, list, none or number of axis scale
+    offset -> x/y offset in pixels (number, list or tuple). It signifies the offset in pixel coordinates
+    scale is tuple, list, none or number. It defines the pixelsize .
     '''
     import numbers;
     if offset is None:
-        scale = [0,0];
+        offset = len(mysize)*[0];  # RH 3.2.19
     elif isinstance(offset, numbers.Number):
-        offset = [offset, 0];
-    elif type(offset)  == list or type(offset) == tuple:
-        offset = list(offset[0:2]);
+        offset = [offset, (len(mysize)-1)*[0]];  # RH 3.2.19
+    elif type(offset)  == list or type(offset) == tuple or type(scale) == np.ndarray:  # RH 3.2.19
+        offset = list(offset);  # RH 3.2.19
     else:
-        raise TypeError('Wrong data type for offset -> must be Number, list, tuple or none')
+        raise TypeError('rr2: Wrong data type for offset -> must be Number, list, tuple or none')
         
     if scale is None:
-        scale = [1,1];
-    elif isinstance(scale, numbers.Integral):
-        scale = [scale, scale];
-    elif type(scale)  == list or type(scale) == tuple:
-        scale = list(scale[0:2]);
+        scale = len(mysize)*[1]; # RH 3.2.19
+    elif isinstance(scale, numbers.Number):
+        scale = len(mysize)*[scale]; # RH 3.2.19
+    elif type(scale)  == list or type(scale) == tuple or type(scale) == np.ndarray:   # RH 3.2.19
+        scale = list(scale); # RH 3.2.19
     else:
-        raise TypeError('Wrong data type for scale -> must be integer, list, tuple or none')
+        raise TypeError('rr2: Wrong data type for scale -> must be Numbers, list, tuple or none')
     res=((ramp(mysize,0,'center',freq)-offset[0])*scale[0])**2
     for d in range(1,len(mysize)):
         res+=((ramp(mysize,d,'center',freq)-offset[d])*scale[d])**2
@@ -169,15 +171,15 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
                     E.g. for a 3D Volume with MyShape = (256,256,256) and MyCenter= 'Center':
                           With MyStretch = (1,2,0.5): first dimension goes from -127 to 128, second from -254 to 256 and third from -63.5 to 64
         
-        polar_axes:  Which axes should be in polar coordinates?
+        polar_axes:  Which axis should be in polar coordinates?
                         -> None - only Cartesian axes
-                        -> Tuple or list:  tuple or list, including the axes which should be polar
+                        -> Tuple or list:  tuple or list, including the axis which should be polar
                         -> 'all', all axes will be in polar coordinates
                         
                                           
-                        -> either None (default), or more than two, becasue one polar axes is senseless!
+                        -> either None (default), or more than two, because one polar axis is senseless!
                         
-                        -> First polar axes is r, second is phi, third is theta_1, every next one is higher theta
+                        -> First polar axis is r, second is phi, third is theta_1, every next one is higher theta
              
                 Note: Using this option wiht Mystrech makes it possible to easily create an n-dimensional hyperellipsoid!
                         
@@ -185,9 +187,9 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
                        
                         E.g. 4 axes:
                             
-                            x1 = r * cos(phi) * sin(theta_1) * sin(theta_2)   (= x -Axes)
-                            x2 = r * sin(phi) * sin(theta_1) * sin(theta_2)   (= y -Axes)
-                            x3 = r            * cos(theta_1) * sin(theta_2)   (= z -Axes)
+                            x1 = r * cos(phi) * sin(theta_1) * sin(theta_2)   (= x -Axis)
+                            x2 = r * sin(phi) * sin(theta_1) * sin(theta_2)   (= y -Axis)
+                            x3 = r            * cos(theta_1) * sin(theta_2)   (= z -Axis)
                             x4 = r                           * cos(theta_2)   
             
         return_axes: Which axes should be returned by the function?
@@ -204,10 +206,10 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
                 VolumeList((256,256), MyCenter = (30, 20), MyStretch = 10, polar_axes = None, return_axes = 0)
                 
             
-            Cylindrical coordinates with x -Direction being the cylinder axes, only the phi - axis returned    
+            Cylindrical coordinates with x -Direction being the cylinder axis, only the phi - axis returned    
                 VolumeList((64,128,128), MyCenter = 'center', MyStretch = 1, polar_axes = (1,2), return_axes = 2)
                 
-            Cylindrical coordinates with x -Direction being the cylinder axes, only the whole volume returned
+            Cylindrical coordinates with x -Direction being the cylinder axis, only the whole volume returned
                 VolumeList((64,128,128), MyCenter = 'center', MyStretch = 1, polar_axes = (1,2), return_axes = 'all')
     
      
@@ -217,7 +219,7 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
 
 
     
-    # Boiler plate for checking input and defining the axes
+    # Boiler plate for checking input and defining the axis
     def __check_para__(MyPara, Name, default):
         if (type(MyPara) == list or type(MyPara) == tuple):
             if len(MyPara) > len(MyShape):
@@ -318,9 +320,9 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
 
 
     
-def freq_ramp(M, pxs = 50,  shift = True, real = False, ax =0):
+def freq_ramp(M, pxs = 50,  shift = True, real = False, axis =0):
     '''
-        This function returns the frequency ramp along a given axes of the image M
+        This function returns the frequency ramp along a given axis of the image M
         
         M is the image (or the function)
         pxs is the pixelsize in the given direction
@@ -330,7 +332,7 @@ def freq_ramp(M, pxs = 50,  shift = True, real = False, ax =0):
                 if you have an image with a pixelsize of 80 nm, which is 100 pixel along the axis you wanna create the ramp
                 you will get a ramp runnig up to 0.006125 1/nm in steps of 0.0001251  1/nm
         
-        ax is the axes in which the ramp points
+        axis is the axis in which the ramp points
         shift: use true if the ft is shifted (default setup)
         real: use true if it is a real ft (default is false)
     '''
@@ -343,23 +345,23 @@ def freq_ramp(M, pxs = 50,  shift = True, real = False, ax =0):
         mysize = M.shape;
     elif type(M) == image:
         mysize = M.shape;
-        pxs = M.pixelsize[ax];
+        pxs = M.pixelsize[axis];
     else:
         print('Wrong data type for M');
         return(M);
     res = np.ones(mysize);
     if shift:
         if real:
-            miniramp =  np.fft.fftshift(np.fft.rfftfreq(mysize[ax],pxs));
+            miniramp =  np.fft.fftshift(np.fft.rfftfreq(mysize[axis],pxs));
         else:
-            miniramp =  np.fft.fftshift(np.fft.fftfreq(mysize[ax],pxs));
+            miniramp =  np.fft.fftshift(np.fft.fftfreq(mysize[axis],pxs));
     else:
         if real:
-            miniramp =  np.fft.rfftfreq(mysize[ax],pxs);
+            miniramp =  np.fft.rfftfreq(mysize[axis],pxs);
         else:
-            miniramp =  np.fft.fftfreq(mysize[ax],pxs);
+            miniramp =  np.fft.fftfreq(mysize[axis],pxs);
     minisize = list(np.ones(len(mysize)).astype(int));
-    minisize[ax] = mysize[ax];
+    minisize[axis] = mysize[axis];
     
     #np.seterr(divide ='ignore');
     miniramp = np.reshape(miniramp,minisize)
@@ -475,7 +477,7 @@ def k_to_coords(im = (256,256) ,pxs = 62.5, parameters = (0,1)):
 
 
     
-def bfp_coords(M, pxs, wavelength, focal_length,  shift = True, real = False, ax =0):
+def bfp_coords(M, pxs, wavelength, focal_length,  shift = True, real = False, axis =0):
     '''
         This function returns the coordinate map of the fourier image in the back focal plane
         
@@ -494,7 +496,7 @@ def bfp_coords(M, pxs, wavelength, focal_length,  shift = True, real = False, ax
             Note: the result will have the same unit as the focal_length (e.g. cm)
             
             
-        ax is the axes in which the ramp points
+        axis is the axis in which the ramp points
         shift: use true if the ft is shifted (default setup)
         real: use true if it is a real ft (default is false)    
         
@@ -506,4 +508,4 @@ def bfp_coords(M, pxs, wavelength, focal_length,  shift = True, real = False, ax
         
         
     '''
-    return(freq_ramp(M, pxs, shift, real, ax)*wavelength*focal_length);
+    return(freq_ramp(M, pxs, shift, real, axis)*wavelength*focal_length);

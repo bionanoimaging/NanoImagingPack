@@ -139,6 +139,7 @@ class image(np.ndarray):
         return(obj);
 
     def _repr_pretty_(self, p, cycle):
+#        print("Here is _repr_pretty_  !!! "+__DEFAULTS__['IMG_VIEWER']);
         if cycle:
             p.text('An image');
         else:
@@ -149,9 +150,12 @@ class image(np.ndarray):
                     if len(self.shape) == 1:
                         from .view import graph;
                         graph(self, title = self.name);
-                    else:
+                    else:                        
                         from .view import view;
                         self.v = view(self);
+                elif __DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':  # RH 3.2.19
+                    from .view5d import v5;
+                    self.v = v5(self);
                 elif __DEFAULTS__['IMG_VIEWER'] == 'INFO':
                     print('Image :'+self.name);
                     print('Shape: '+str(self.shape));
@@ -601,10 +605,10 @@ def imsave(img, path, form = 'tif', rescale = True, BitDepth = 16, Floating = Fa
                     img = np.int64(img);
                         
     if form in __DEFAULTS__['IMG_TIFF_FORMATS']:
-        tif.imsave(path,img.transpose(), metadata = metadata);
+        tif.imsave(path,img, metadata = metadata);   # RH 2.2.19 deleted: np.transpose
     else:
         import PIL;
-        img = np.transpose(img);
+        img = np;   # RH 2.2.19 deleted: np.transpose
         img = PIL.Image.fromarray(img)
         if BitDepth == 1:
             img=img.convert("1");
@@ -631,33 +635,23 @@ def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif")
                          'Mito_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
              which is  which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
     '''
-    if path == 'lena':
-        path=resource_filename("NanoImagingPack","resources/lena.tif");
-    if path == 'orka':
-        path=resource_filename("NanoImagingPack","resources/orka.tif");
-    if path == 'erika':
-        path=resource_filename("NanoImagingPack","resources/erika.tif");
-    if path == 'house':
-        path=resource_filename("NanoImagingPack","resources/house.tif");
-    if path == 'deathstar':    
-       path =resource_filename("NanoImagingPack","resources/todesstern.tif")
-    if path == 'resolution':    
-       path =resource_filename("NanoImagingPack","resources/resolution_fine.tif")
-    if path == 'resolution_512':    
-       path =resource_filename("NanoImagingPack","resources/resolution_512.tif")
-    if path == 'Mito_SIM':
-       path =resource_filename("NanoImagingPack","resources/MITO_SIM.tif")    
+#    if path == 'lena':  ... # RH 3.2.19
     #from .config import __IMAGE_FORMATS__;
     from os.path import splitext, isfile;
+    if not isfile(path): # Try to find the file either directly or in the resource directory ...
+        path =resource_filename("NanoImagingPack","resources/"+path)
+        if not isfile(path):
+            path =resource_filename("NanoImagingPack","resources/"+path+".tif")
+
     if isfile(path):
         ext = splitext(path)[-1][1:];
         
         if ext in __DEFAULTS__['IMG_TIFF_FORMATS']:
             
             if which == None:
-                img = np.transpose(tif.imread(path));
+                img = (tif.imread(path)); # RH 2.2.19 deleted: np.transpose
             else:
-                img = np.transpose(tif.imread(path, key = which));
+                img = (tif.imread(path, key = which));  # RH 2.2.19 deleted: np.transpose
             img = img.view(image);
             #img.pixelsize = pixelsize;
             img.set_pixelsize(pixelsize);
@@ -666,10 +660,10 @@ def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif")
             from .EXTERNAL.Gohlke_czi_reader import imread as cziread;
             if __DEFAULTS__['IMG_SQUEEZE_ZEISS']:
                 img, meta = cziread(path);
-                img = img.squeeze().transpose().view(image);
+                img = img.squeeze().view(image);  # RH 2.2.19 deleted: np.transpose
             else:
                 img, meta = cziread(path);
-                img = img.transpose().view(image);
+                img = img.view(image);  # RH 2.2.19 deleted: np.transpose
             img = img.view(image, pixelsize);
             img.metadata = meta;
             # TODO: Pixelsizes aus Metadaten fischen
@@ -677,7 +671,7 @@ def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif")
         else:
             try:
                 import PIL.Image as IM;
-                img = np.transpose(np.array(IM.open(path)));
+                img = (np.array(IM.open(path)));  # RH 2.2.19 deleted: np.transpose
                 img = img.view(image);
                 img.set_pixelsize(pixelsize);
             except OSError:
@@ -1094,7 +1088,7 @@ def adjust_dims(imlist, maxdim = None):
     
     def __exp_dims__(im):
         for i in range(im.ndim, maxdim):
-            im = np.expand_dims(im, i);
+            im = np.expand_dims(im, 0);  # i RH 2.2.19
         return(im);    
 
     err = False;
@@ -1157,7 +1151,7 @@ def toClipboard(im, separator = '\t', decimal_delimiter = '.', transpose = False
     clipboard.SetClipboardText(s);
     clipboard.CloseClipboard()
     
-def cat(imlist, ax):
+def cat(imlist, ax=None):
     '''
         This function takes a list or a tuple of images and stacks them at the given axis.
         If the images have different dimensions the dimensions will be adjusted (using adjust_dims)
@@ -1166,7 +1160,8 @@ def cat(imlist, ax):
         
         If the images do have different sizes, the sizes will also be adjusted by using the match_size function
         
-        Be aware that axis count starts at 0!
+        Be aware that axis count is according to the numpy convention, e.g. Z,Y,X meaning ax=0 for Z!
+        default: ax=-(numdims+1), meaning the unused dimension (before the first)
     '''
     imlist = list(imlist);
     imlist = [x for x in imlist if x is not None];
@@ -1174,13 +1169,20 @@ def cat(imlist, ax):
         if type(imlist[i]) != np.ndarray:
             imlist[i] = np.asarray(imlist[i]);
     imlist = tuple(imlist);
-    imlist = adjust_dims(imlist, ax+1);
+    shapes = np.asarray([list(im.shape) for im in imlist])    
+    if ax == None:
+        ax = -shapes.shape[1]-1
+    if ax >= 0:
+        maxdims=ax+1
+    else:
+        maxdims=-ax
+    imlist = adjust_dims(imlist, maxdims);
     shapes = np.asarray([list(im.shape) for im in imlist])    
     for i in range(shapes.shape[1]):
         if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != ax):
             imlist = [match_size(im, imlist[np.argmax(shapes[:,i])], i, padmode ='constant', odd = False)[0] for im in imlist] 
     #return(np.concatenate((imlist),ax).squeeze());
-    return image(np.concatenate((imlist),ax));  #RH
+    return image(np.concatenate((imlist),ax));  #RH  2.2.19
     
     
 def histogram(im,name ='', bins=65535, range=None, normed=False, weights=None, density=None):

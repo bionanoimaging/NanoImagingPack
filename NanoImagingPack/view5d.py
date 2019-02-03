@@ -13,8 +13,8 @@ if ~('JNIUS_RUNNING' in globals()):
 
 if (JNIUS_RUNNING==0):
     fn=resource_filename("NanoImagingPack","resources/View5D_.jar")
-    import jnius_config
     try:
+        import jnius_config
         jnius_config.add_classpath(fn)
 #        jnius_config.add_classpath('C:/Users/pi96doc/Documents/Programming/PythonScripts/view5d.jar')
     except:
@@ -29,7 +29,7 @@ import numpy as np
 
 lastviewer=None
 
-def v5(data,SX=1200,SY=1200,multicol=None):
+def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
     '''
         lauches a java-based viewer view5d
         Since the viewer is based on calling java via the pyjnius Java bridge, it runs in its own thread each time. This causes overhead and may be not advisable for large
@@ -38,7 +38,9 @@ def v5(data,SX=1200,SY=1200,multicol=None):
         data : multidimensional data to display. This can be up to 5d data
         SX,SY : size of the total viewer in pixels to use (default: 1200,1200)
         mulitcolor : If not None or False, the viewer will be launched in a multicolor (RGB) mode by default. Default: None
-        
+        gammaC   :  gamma to use for the display of the complex valued magnitude (default: 0.15)
+        showPhases : if True, the phases are shown in multiplicative color overlay with a cyclic colormap
+          
         Example:
         import NanoImagingPack as nip
         v=nip.v5(np.random.rand(10,10,10,4),multicol=True)
@@ -48,13 +50,13 @@ def v5(data,SX=1200,SY=1200,multicol=None):
 
     print("Lauching View5D: with datatype: "+str(data.dtype))
     VD = jn.autoclass('view5d.View5D')
-    data=expanddim(data,5) # casts all arrays to 5D
+#    data=expanddim(data,5) # casts all arrays to 5D
     sz=data.shape
-#    sz=sz[::-1] # reverse
-#    sz=np.append(sz,np.ones(5-len(data.shape)));
-    data=np.transpose(data) # reverts all axes to common display direction
+    sz=sz[::-1] # reverse
+    sz=np.append(sz,np.ones(5-len(data.shape)));
+#    data=np.transpose(data) # reverts all axes to common display direction
 #    data=np.moveaxis(data,(4,3,2,1,0),(0,1,2,3,4)) # reverts axes to common display direction
-    if (data.dtype=='complex'):
+    if (data.dtype=='complex' or data.dtype=='complex128' or data.dtype=='complex64'):
         dcr=data.real.flatten();
         dci=data.imag.flatten();
         #dc=np.concatenate((dcr,dci)).tolist();
@@ -62,9 +64,16 @@ def v5(data,SX=1200,SY=1200,multicol=None):
 #        dc.reverse()
         # dc=data.flatten().tolist();
         out = VD.Start5DViewerC(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY);
-        out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");
-        out.SetGamma(0,0.3)
+#        out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");
+        out.SetGamma(0,gammaC)
         out.UpdatePanels()
+        if showPhases and sz[3]==1:
+            phases = (np.angle(data)+np.pi)/np.pi*128
+            out.AddElement(phases.flatten().tolist(),sz[0],sz[1],sz[2],sz[3],sz[4])
+            out.ProcessKeyMainWindow("E");
+            for n in range(12):
+                out.ProcessKeyMainWindow("c");
+            out.ProcessKeyMainWindow("v");out.ProcessKeyMainWindow("V");out.ProcessKeyMainWindow("C");out.ProcessKeyMainWindow("e");
     else:
         dc=data.flatten().tolist();
         out=None

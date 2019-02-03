@@ -197,7 +197,7 @@ def expanddim(img,ndims):
         img: input image to expand
         ndims: number of dimensions to expand to        
     '''
-    return np.reshape(img,img.shape + (ndims-len(img.shape))*(1,))
+    return np.reshape(img,(ndims-len(img.shape))*(1,)+img.shape)   # RH 2.2.19
 
 def dimVec(d,mysize,ndims):
     '''
@@ -252,6 +252,8 @@ def MidValAsg(img,val):
     img[img.mid()]=val
     return img
 
+def abssqr(img):
+    return img*np.conjugate(img)
 
 def pairwise_arith(a, mode = 'sum'):
     '''

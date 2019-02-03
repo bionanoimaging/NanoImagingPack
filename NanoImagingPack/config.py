@@ -56,7 +56,7 @@ __DEFAULTS__ ={
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
         'IMG_TIFF_FORMATS': ['tif', 'tiff','TIF', 'TIFF'],
         'IMG_ZEISS_FORMATS': ['czi', 'CZI'],
-        'IMG_VIEWER': 'NIP_VIEW',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
+        'IMG_VIEWER': 'VIEW5D',  # RH 3.2.19         # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!
         
@@ -105,16 +105,6 @@ __DEFAULTS__ ={
         
         }
 
-
-
-
-
-
-
-
-
-
-
 def DBG_MSG(text, level):
     if level < __DEFAULTS__['DEBUG']:
         print(text);
@@ -135,6 +125,14 @@ def set_cfg():
         __FFTW__ = True;
     except ImportError:
         __FFTW__ = False;
+    if (__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D'):
+        try:
+            import jnius_config
+            import jnius as jn
+        except ImportError:
+            print("WARNING! Image viewer View5D could not be used as a default, since pyjnius is not properly installed. Reverting to NIP_VIEW as the default.")
+            __DEFAULTS__['IMG_VIEWER'] ='NIP_VIEW'
+            
     if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:
         print('WARNING: Default pixelsize is not 3 dimensional add default values of 100');
         __DEFAULTS__['IMG_PIXELSIZES'] +=[100 for i in range(3-len(__DEFAULTS__['IMG_PIXELSIZES']))];

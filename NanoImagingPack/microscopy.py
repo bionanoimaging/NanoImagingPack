@@ -13,8 +13,9 @@ Also SIM stuff
 import numpy as np;
 import NanoImagingPack as nip;
 from .image import image;
-from .util import get_type;
-from .transformations import rft,irft;
+from .util import get_type,abssqr;
+from .transformations import rft,irft,ft2d,ift2d;
+from .coordinates import rr, ramp
 
 class transfer():
     '''
@@ -327,42 +328,42 @@ class transfer():
         
         if method == 'kz':
             # Transposing is necessary for broadcasting
-            fx = freq_ramp((field.shape[0],field.shape[1]),self.pixelsize[0], ax =0).transpose();
-            fy = freq_ramp((field.shape[0],field.shape[1]),self.pixelsize[1], ax =1).transpose();
-            z = zz(self.shape).transpose();
+            fx = freq_ramp((field.shape[0],field.shape[1]),self.pixelsize[0], axis =-1); # .transpose();   # RH 2.2.19
+            fy = freq_ramp((field.shape[0],field.shape[1]),self.pixelsize[1], axis =-2); # .transpose();
+            z = zz(self.shape); # .transpose();
             
             np.seterr(invalid = 'ignore');
             kz = np.nan_to_num(2*np.pi*np.sqrt(self.n**2/self.wavelength**2-(fx**2+fy**2)))   
             np.seterr(invalid = 'warn');
             propagator = kz * z*self.axial_pixelsize; 
-            ret = (field.transpose()*np.exp(-1j*propagator)).transpose();
+            ret = (field.np.exp(-1j*propagator));  # RH 2.2.19
             
         elif method == 'angle':
-            z = zz(self.shape).transpose();
+            z = zz(self.shape); # .transpose();
             np.seterr(invalid = 'ignore');
 
             propagator = self.n*np.pi*2/self.wavelength*np.sqrt(1-self.r**2*self.s**2)* self.axial_pixelsize*z;
             np.seterr(invalid = 'warn');
-            ret = (field.transpose()*np.exp(-1j*propagator)).transpose();      
+            ret = (field*np.exp(-1j*propagator));      # RH 2.2.19   .transpose()   field.transpose()*np.exp(-1j*propagator.transpose()
         
         np.nan_to_num(ret,copy = False);
         if ret_val == 'field':
-            ret = ift(ret, shift = True, shift_before = True, norm = None, axes=(0,1));
+            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
         elif ret_val == 'intensity':
-            ret = ift(ret, shift = True, shift_before = True, norm = None,axes=(0,1));
+            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
             ret = (np.abs(ret)**2).astype(np.float64);
             if self.vectorial:
-                ret = np.sum(ret, axis = 3).squeeze();
+                ret = np.sum(ret, axis = -4).squeeze();
             ret = ret/ret.max();
             ret = ret/ret.sum();
                 
         elif ret_val == 'ctf':
-            ret = ft(ret, shift = True, shift_before = True, norm = None, axes=(2));
+            ret = ft(ret, shift = True, shift_before = True, norm = None, axes=(-3));
         elif ret_val == 'otf':
-            ret = ift(ret, shift = True, shift_before = True, norm = None,axes=(0,1));
+            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
             ret = np.abs(ret)**2;
             if self.vectorial:
-                ret = np.sum(ret, axis = 3);
+                ret = np.sum(ret, axis = -4);
                 ret = ret.squeeze();
             ret = ret/ret.max();
             ret = ret/ret.sum();
@@ -408,7 +409,7 @@ class transfer():
 
         if self.foc_field_mode == 'theoretical':
             np.seterr(divide ='ignore', invalid ='ignore');
-            arg = 2*np.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
+            arg = rr(shape,scale=np.array(self.pixelsize)*2*np.pi*self.NA/self.wavelength) #  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
             ret = 2*j1(arg)/arg;
             ret[shape[0]//2, shape[1]//2] = 1;
             np.seterr(divide='warn', invalid ='warn');  
@@ -420,85 +421,79 @@ class transfer():
         ret = ft(ret, shift = True, shift_before =True, norm = None);
         self.TEST1 = ret
         # add aplanatic factor
+        oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
+        validmask=oms2r2>0
+        oms2r2[~validmask]=0.0;
         if self.aplanar == 'illumination':
-            ret *=  (1-self.s**2*self.r**2)**0.25;   # RH: Please fix this, yield runtime warning
+            ret[validmask] *=  (oms2r2[validmask])**0.25;   # RH 3.2.19
         elif self.aplanar == 'detection':
-            ret*= 1/((1-self.s**2*self.r**2)**0.25);  # RH: Please fix this, yield runtime warning
+            ret[validmask] *=  1/(oms2r2[validmask])**0.25;   #RH 3.2.19
         # add focal distance
         if off_focal_dist !=0:
             np.seterr(invalid = 'ignore');
-            propagator = self.n*np.pi*2/self.wavelength*np.sqrt(1-self.r**2*self.s**2)* self.axial_pixelsize*off_focal_dist;
+            propagator = self.n*np.pi*2* self.axial_pixelsize*off_focal_dist/self.wavelength*np.sqrt(oms2r2);
             np.seterr(invalid = 'warn');
             ret*= np.exp(-1j*propagator);
            
-        # add aberation
+        # add aberration
         ret *= np.exp(1j*self.aberration_map);
         # add vectorlial effects
         if self.vectorial:
             def __make_components__(pol, phase):
                 phase = np.exp(1j*phase*np.pi/2);
+                oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
+                oms2r2[oms2r2<0]=0.0;
+                soms2r2=np.sqrt(oms2r2)  # sqrt(one minus s^2*r^2)
                 if pol == 'x':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)**2*np.sqrt(1-self.s**2*self.r**2)+np.sin(theta)**2)*phase;
-                    Ey = ( np.sin(theta)*np.cos(theta)*(np.sqrt(1-self.s**2*self.r**2)-1) )*phase;
-                    Ez = np.cos(theta)*self.r*self.s*phase;
+                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase; Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase; Ez = np.cos(theta)*self.r*self.s*phase;
                 elif pol == 'y':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.sin(theta)*np.cos(theta)*(np.sqrt(1-self.s**2*self.r**2)-1))*phase;
-                    Ey = (np.sin(theta)**2*np.sqrt(1-self.s**2*self.r**2)+np.cos(theta)**2)*phase;
-                    Ez = np.sin(theta)*self.r*self.s*phase;
+                    Ex = (np.sin(theta)*np.cos(theta)*(soms2r2-1))*phase;Ey = (np.sin(theta)**2*soms2r2+np.cos(theta)**2)*phase; Ez = np.sin(theta)*self.r*self.s*phase;
                 elif pol == 'radial':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)*np.sqrt(1-self.s**2*self.r**2))*phase;
-                    Ey = (np.sin(theta)*np.sqrt(1-self.s**2*self.r**2))*phase;
-                    Ez = self.r*self.s*phase;
-                
+                    Ex = (np.cos(theta)*soms2r2)*phase; Ey = (np.sin(theta)*soms2r2)*phase; Ez = self.r*self.s*phase;                
                 elif pol == 'azimuthal':
                     theta = phiphi(shape, offset = 0);
-                    Ex = -np.sin(theta)*phase;
-                    Ey =  np.cos(theta)*phase;
-                    Ez = np.zeros_like(theta);
+                    Ex = -np.sin(theta)*phase; Ey =  np.cos(theta)*phase; Ez = np.zeros_like(theta);
                 else:
                     theta = phiphi(shape, offset = pol*np.pi/180);
-                    Ex = (np.cos(theta)**2*np.sqrt(1-self.s**2*self.r**2)+np.sin(theta)**2)*phase;  # RH: Please fix this, yield rundtime warning
-                    Ey = ( np.sin(theta)*np.cos(theta)*(np.sqrt(1-self.s**2*self.r**2)-1) )*phase;  # RH: Please fix this, yield rundtime warning
+                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase;  # RH: Please fix this, yield rundtime warning
+                    Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase;  # RH: Please fix this, yield rundtime warning
                     Ez = np.cos(theta)*self.r*self.s*phase;
                 return(Ex,Ey,Ez);
+            nfac=1/np.sqrt(2);
             if self.pol_type == 'lin':
                 Ex,Ey,Ez = __make_components__(self.pol, 0);
             elif self.pol_type == 'circ':
                 Exx, Eyx, Ezx = __make_components__('x',0);
                 Exy, Eyy, Ezy = __make_components__('y',self.pol_phase);
-                Ex = 1/np.sqrt(2)*(Exx+Exy);
-                Ey = 1/np.sqrt(2)*(Eyx+Eyy);
-                Ez = 1/np.sqrt(2)*(Ezx+Ezy);
+                Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
             elif self.pol_type == 'unpolarized':
                 print('Waring: Unpolarized light is modelled by overlaying azimuthally and radially')
                 Exx, Eyx, Ezx = __make_components__('azimuthal',0);
                 Exy, Eyy, Ezy = __make_components__('radial',0);
-                Ex = 1/np.sqrt(2)*(Exx+Exy);
-                Ey = 1/np.sqrt(2)*(Eyx+Eyy);
-                Ez = 1/np.sqrt(2)*(Ezx+Ezy);
-            ret = cat((ret*Ex, ret*Ey, ret*Ez),3);
+                Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
+            ret = cat((ret*Ex, ret*Ey, ret*Ez),-4);
         
         np.nan_to_num(ret,copy = False);
 
         if ret_val == 'field':
-            ret = ift(ret, shift = True, shift_before = True, norm = None, axes=(0,1));
+            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
         elif ret_val == 'intensity':
-            ret = ift(ret, shift = True, shift_before = True, norm = None,axes=(0,1));
-            ret = (np.abs(ret)**2).astype(np.float64);
+            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = np.real(abssqr(ret)) # RH 3.2.19  .astype(np.float64);
             if self.vectorial:
-                ret = np.sum(ret, axis = 3).squeeze();
-            ret = ret/ret.max();
-            ret = ret/ret.sum();
+                ret = np.sum(ret, axis = -4).squeeze();
+#            ret = ret/ret.max();
+            ret = ret/ret.sum(); # RH 2.2.19
         elif ret_val == 'ctf':
             pass;
         elif ret_val == 'otf':
-            ret = ift(ret, shift = True, shift_before = True, norm = None,axes=(0,1));
-            ret = np.abs(ret)**2;
+            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = abssqr(ret);
             if self.vectorial:
-                ret = np.sum(ret, axis = 3);
+                ret = np.sum(ret, axis = -4);
                 ret = ret.squeeze();
             ret = ret/ret.max();
             ret = ret/ret.sum();
@@ -765,7 +760,8 @@ def perfect_psf(im, NA, n, wavelength, pixelsize, mode = 'lateral'):
         pixelsize = [pixelsize, pixelsize];
     if type(im) == image:
         pixelsize = im.pixelsize;
-    arg = 2*np.pi*np.sqrt((xx(im)*pixelsize[0])**2+(yy(im)*pixelsize[1])**2)/(wavelength*NA);
+    arg = rr(im,scale=(2*pi*np.array(pixelsize)/wavelength/NA));   # RH 3.2.19
+#    arg = 2*np.pi*np.sqrt((xx(im)*pixelsize[0])**2+(yy(im)*pixelsize[1])**2)/(wavelength*NA);
     atf = 2*j1(arg)/arg;
     return(atf)
     
@@ -866,14 +862,13 @@ def PSF3D(im = (256,256,32), px_size=[50,50,100], wavelength=500, NA=1.0,n = 1.0
     if ret_val == 'FIELD':
         return(field);
     elif ret_val == 'PSF':
-        return(np.real(field*np.conjugate(field)))
+        return(np.real(abssqr(field)))
     elif ret_val == 'OTF':
-        return(ft(np.fft.fftshift(field)*np.conjugate(np.fft.fftshift(field))));
+        return (ft(abssqr(field),shift_before=True));
     elif ret_val == 'CTF':
-        return(ft(np.fft.fftshift(field)));
+        return (ft(field,shift_before=True));
     elif ret_val == 'ALL':
-        return([field,np.real(field*np.conjugate(field)), ft(np.fft.fftshift(field)*np.conjugate(np.fft.fftshift(field))), ft(np.fft.fftshift(field))])
-    
+        return ([field,np.real(abssqr(field)), ft(abssqr(field),shift_before=True), ft(field,shift_before=True)])
     
 def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_space = 'fourier_space', wavelength= 500, refractive_index = 1):
     '''
@@ -907,9 +902,9 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
         field = ft(field);
     
     #atf_focus = nip.otf_support((shape[0], shape[1]), pixel_size_x, NA = NA/2, l= l);
-    fx = freq_ramp((field.shape[0],field.shape[1]),pixel_sizes[0], ax =0);
-    fy = freq_ramp((field.shape[0],field.shape[1]),pixel_sizes[1], ax =1);
-    z = np.rollaxis(zz((field.shape[0], field.shape[1],z_shape)),2,0);
+    fx = freq_ramp((field.shape[0],field.shape[1]),pixel_sizes[0], axis =-1);
+    fy = freq_ramp((field.shape[0],field.shape[1]),pixel_sizes[1], axis =-2);
+    z = zz((field.shape[0], field.shape[1],z_shape)) # np.rollaxis(zz((field.shape[0], field.shape[1],z_shape)),2,0);  # RH 3.2.19
     np.seterr(invalid = 'ignore');
     kz = np.nan_to_num(2*np.pi*np.sqrt(refractive_index**2/wavelength**2-(fx**2+fy**2)))   
     np.seterr(invalid = 'warn');
@@ -918,18 +913,19 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
 #    ang_x = np.arctan(fx*l);
 #    ang_y = np.arctan(fy*l);
 #    kz = 2*np.pi*n/(l*np.cos(ang_x)*np.cos(ang_y));
-
     
     propagator = kz * z*pixel_sizes[2];
-    field_spectrum_at_z = np.rollaxis(field*np.exp(-1j*propagator),0,3);
-    return(np.fft.fftshift(ift(field_spectrum_at_z, axes =(0,1)), axes = (0,1)))
+#    field_spectrum_at_z = np.rollaxis(field*np.exp(-1j*propagator),0,3);
+    field_spectrum_at_z = field*np.exp(-1j*propagator) # np.rollaxis(field*np.exp(-1j*propagator),0,3);
+    return ift2d(field_spectrum_at_z,shift=True) # changed to use the ft2d routines. RH 3.2.19
+#    return(np.fft.fftshift(ift(field_spectrum_at_z, axes =(-1,-2)), axes = (-1,-2)))
 
 
 def PSF2ROTF(psf):
     '''
         Transforms a real-valued PSF to a half-complex RFT, at the same time precompensating for the fftshift
     '''
-    o = image(rft(psf,shift_before=True,real_axis=0))  # accounts for the PSF to be placed correctly
+    o = image(rft(psf,shift_before=True))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
     return o.astype('complex64')
 
@@ -938,4 +934,4 @@ def convROTF(img,otf): # should go into nip
     '''
         convolves with a half-complex OTF, which can be generated using PSF2ROTF
     '''
-    return irft(rft(img,shift_before=False,shift=False,real_axis =0) * nip.expanddim(otf,img.ndim),shift_before=False,shift=False,real_axis =0);
+    return irft(rft(img,shift_before=False,shift=False) * nip.expanddim(otf,img.ndim),shift_before=False,shift=False);

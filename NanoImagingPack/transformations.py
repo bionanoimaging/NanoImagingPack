@@ -20,7 +20,7 @@ def ft2d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = 
         print('Too less dimensions');
         return(im);
     else:
-        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (0,1),  s = s, norm = norm));
+        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-1,-2),  s = s, norm = norm));
 
 def ift2d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
     '''
@@ -31,7 +31,7 @@ def ift2d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = No
         print('Too less dimensions');
         return(im);
     else:
-        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (0,1), s = s, norm = norm));
+        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-1,-2), s = s, norm = norm));
 
 
 def ft3d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = None, norm = 'DEFAULT'):
@@ -42,7 +42,7 @@ def ft3d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = 
         print('Too less dimensions');
         return(im);
     else:
-        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (0,1,2),  s = s, norm = norm));
+        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-1,-2,-3),  s = s, norm = norm));
         
 
 
@@ -55,7 +55,7 @@ def ift3d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = No
         print('Too less dimensions');
         return(im);
     else:
-        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (0,1), s = s, norm = norm));
+        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-1,-2), s = s, norm = norm));
 
 def __ret_val__(im, mode):
     if mode == 'abs':
@@ -81,18 +81,18 @@ def __fill_real_return__(im, ax, real_return, origi_shape):
         axis = ax[-1];       # axis of rfft;
         ax = ax[:-1];        # axis of fft
 
-        half = im.swapaxes(axis, 0);
+        half = im.swapaxes(axis, -1);
         if np.mod(origi_shape[axis],2) == 0:     
             half = np.flipud(np.conjugate(half[1:-1]));
         else:
             half = np.flipud(np.conjugate(half[1:]));
-        half = half.swapaxes(axis, 0);
+        half = half.swapaxes(axis, -1);
         if len(ax)>0:
             for a in ax:
-                half = half.swapaxes(a,0);
+                half = half.swapaxes(a,-1);
                 half = half[::-1];              # Reverse the other axis since the real fft is point symmetric
                 half = np.roll(half, 1,0);      # for some reason one has to roll the axis, otherwise there will be one point wrong :(
-                half = half.swapaxes(a,0);
+                half = half.swapaxes(a,-1);
         return(np.concatenate((im,half), axis));
     else:
         return(im);
@@ -200,7 +200,7 @@ def rft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes =
         ret - What to return 
                 (string values: complex (default), abs (default), phase, real, imag)
         axes - axes over which to compute the FT -> give as tupel, list or int 
-                    e.g. axes = (0,2) computes over axes 0 and 2
+                    e.g. axes = (-1,-3) computes over axes -1 (x) and -3 (z)
         s - Shape (length of each transformed axis) of the output (s[0] referes to axis 0, s[1] to axis 1 etc.)
             Along any axis if the given shape is smaller than tht of the input the input is cropped, if larger its padded with zeros
             If not given, the shape of the input axes specified by axes is used
@@ -522,7 +522,7 @@ def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = 
 #        ret - What to return 
 #                (string values: abs (default), phase, real, imag, complex)
 #        axes - axes over which to compute the FT -> give as tupel 
-#                    e.g. axes = (0,2) computes over axes 0 and 2
+#                    e.g. axes = (-1,-3) computes over axes -1 (x) and -3 (z)
 #        s - Shape (length of each transformed axis) of the output (s[0] referes to axis 0, s[1] to axis 1 etc.)
 #            Along any axis if the given shape is smaller than tht of the input the input is cropped, if larger its padded with zeros
 #            If not given, the shape of the input axes specified by axes is used

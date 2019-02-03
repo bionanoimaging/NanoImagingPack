@@ -118,7 +118,7 @@ class view:
                 self.image = image;
         else:
             self.image = image;
-        self.image = np.swapaxes(self.image,0,1)
+#        self.image = np.swapaxes(self.image,0,1)  # RH removed this 2.2.19
         self.image = np.nan_to_num(self.image, False)
         if len(title) == 0:
             try:
