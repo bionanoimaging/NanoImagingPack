@@ -28,6 +28,8 @@ import numpy as np
 #import view 
 
 lastviewer=None
+global allviewers
+allviewers=[]
 
 def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
     '''
@@ -102,7 +104,27 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
     out.repaint()
     jn.detach();
     lastviewer=out
+    global allviewers
+    allviewers.append(out)
     return out
+
+def v5close(aviewer=None):
+    global allviewers
+    if aviewer==None:
+        for v in allviewers:
+#            print("closing")
+            v.closeAll()
+        for n in range(len(allviewers)):
+            allviewers.pop()
+    else:
+        import numbers;
+        if isinstance(aviewer, numbers.Number):
+            aviewer=allviewers[aviewer]
+            aviewer.closeAll()
+            allviewers.remove(aviewer)
+        else:
+            aviewer.closeAll()
+            allviewers.remove(aviewer)
 
 def getMarkers(myviewer=None,ListNo=0, OnlyPos=True):
     markers=[]

@@ -595,6 +595,8 @@ class view:
 def close():
     import matplotlib.pyplot as plt;
     plt.close('all')
+    import NanoImagingPack.view5d as view5d;
+    view5d.v5close()
   
 def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers =[], linestyles = [], linewidths =[]):
     '''
