@@ -476,7 +476,7 @@ class transfer():
                 Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
             ret = cat((ret*Ex, ret*Ey, ret*Ez),-4);
         
-        np.nan_to_num(ret,copy = False);
+        np.nan_to_num(ret,copy = False);  # is this still necessary?
 
         if ret_val == 'field':
             ret = ift2d(ret, shift = True, shift_before = True, norm = None);
