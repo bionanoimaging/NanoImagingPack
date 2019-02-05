@@ -1151,7 +1151,7 @@ def toClipboard(im, separator = '\t', decimal_delimiter = '.', transpose = False
     clipboard.SetClipboardText(s);
     clipboard.CloseClipboard()
     
-def cat(imlist, ax=None):
+def cat(imlist, axis=None, destdims=None):
     '''
         This function takes a list or a tuple of images and stacks them at the given axis.
         If the images have different dimensions the dimensions will be adjusted (using adjust_dims)
@@ -1161,7 +1161,8 @@ def cat(imlist, ax=None):
         If the images do have different sizes, the sizes will also be adjusted by using the match_size function
         
         Be aware that axis count is according to the numpy convention, e.g. Z,Y,X meaning ax=0 for Z!
-        default: ax=-(numdims+1), meaning the unused dimension (before the first)
+        default: axis=-(numdims+1), meaning the unused dimension (before the first). Positive values will adress the axis in the numpy convention and throw an error if over the limit. Negative values will automatically expand.
+        destdims (default: None): The number of destination dimensions to expand to
     '''
     imlist = list(imlist);
     imlist = [x for x in imlist if x is not None];
@@ -1170,19 +1171,23 @@ def cat(imlist, ax=None):
             imlist[i] = np.asarray(imlist[i]);
     imlist = tuple(imlist);
     shapes = np.asarray([list(im.shape) for im in imlist])    
-    if ax == None:
-        ax = -shapes.shape[1]-1
-    if ax >= 0:
-        maxdims=ax+1
+    if axis == None:
+        axis = -shapes.shape[1]-1
+    if destdims==None:
+        if axis < 0:
+            maxdims=-axis
+            imlist = adjust_dims(imlist, maxdims);
+#        else:
+#            maxdims=axis+1
     else:
-        maxdims=-ax
-    imlist = adjust_dims(imlist, maxdims);
+        maxdims=destdims
+        imlist = adjust_dims(imlist, maxdims);
     shapes = np.asarray([list(im.shape) for im in imlist])    
     for i in range(shapes.shape[1]):
-        if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != ax):
+        if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != axis):
             imlist = [match_size(im, imlist[np.argmax(shapes[:,i])], i, padmode ='constant', odd = False)[0] for im in imlist] 
-    #return(np.concatenate((imlist),ax).squeeze());
-    return image(np.concatenate((imlist),ax));  #RH  2.2.19
+    #return(np.concatenate((imlist),axis).squeeze());
+    return image(np.concatenate((imlist),axis));  #RH  2.2.19
     
     
 def histogram(im,name ='', bins=65535, range=None, normed=False, weights=None, density=None):
