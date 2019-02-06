@@ -58,6 +58,17 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
     sz=np.append(sz,np.ones(5-len(data.shape)));
 #    data=np.transpose(data) # reverts all axes to common display direction
 #    data=np.moveaxis(data,(4,3,2,1,0),(0,1,2,3,4)) # reverts axes to common display direction
+    if not isinstance(data,np.ndarray):
+        try:
+            import tensorflow as tf
+            with tf.Session() as session:
+                session.run(tf.global_variables_initializer())
+                data=data.eval()
+            if not isinstance(data,np.ndarray):
+                raise ValueError("v5: cannot evaluate tensor.")
+        except ImportError:
+            raise ValueError("v5: unsupported datatype to display")
+
     if (data.dtype=='complex' or data.dtype=='complex128' or data.dtype=='complex64'):
         dcr=data.real.flatten();
         dci=data.imag.flatten();
