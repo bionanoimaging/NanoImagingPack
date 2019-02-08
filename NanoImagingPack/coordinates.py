@@ -1,11 +1,17 @@
 import numpy as np;
-from .util import get_type;
+#from .util import get_type;
+from .util import expanddim;
+import NanoImagingPack as nip
+# from .view5d import v5 # for debugging
 
-def ramp(mysize=(256,256), ramp_dim=-1, corner='center', freq=None):
+def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
     '''
-    creates a ramp in the given direction direction 
-    standart size is 256 X 256
-    mode: 
+    creates a 1D-ramp along only one dimension. The trailing dimension sizes are all one.
+    
+    This guarantees a fast performance for functions such as rr, since the broadcasting features of Phython are going to deal with the other dimensions.
+    
+    standart size is 256 
+    placement: 
         center: 0 is at center
                 if x is even, it has one more value in the positve:
                     e.g. size_x = 100 -> goes from -50 to 49
@@ -15,88 +21,149 @@ def ramp(mysize=(256,256), ramp_dim=-1, corner='center', freq=None):
         freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
         int number: is the index where the center is!
     '''
-    from .image import image;
-    if type(mysize)== np.ndarray or type(mysize) == image:
+#    from .image import image;
+    if type(mysize)== np.ndarray or type(mysize) == nip.image:
         mysize = mysize.shape;
-    
-    res = np.ones(mysize);
-   
-    if corner == 'negative':
-        miniramp = np.arange(-mysize[ramp_dim]+1,1,1);
-    elif corner == 'positive' or corner == 'corner':
-        miniramp = np.arange(0,mysize[ramp_dim],1);
-    elif corner == 'center':
-        miniramp = np.arange(-mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),mysize[ramp_dim]//2+np.mod(mysize[ramp_dim],2),1);
-    elif (type(corner) == int or type(corner) == float):
-        miniramp = np.arange(0,mysize[ramp_dim],1)-corner;
+    if freq!=None and not placement=='center':
+        raise ValueError("ramp1D: Illegal placement: ("+placement+"). (freq="+freq+") argument can only be used with (center) placement.")
+        
+    if placement == 'negative':
+        miniramp = np.arange(-mysize+1,1,1);
+    elif placement == 'positive' or placement == 'corner':
+        miniramp = np.arange(0,mysize,1);
+    elif placement == 'center':
+        miniramp = np.arange(-mysize//2+np.mod(mysize,2),mysize//2+np.mod(mysize,2),1);
+    elif (type(placement) == int or type(placement) == float):
+        miniramp = np.arange(0,mysize,1)-placement;
     else:
         try: 
-            if np.issubdtype(corner.dtype, np.number):
-                miniramp = np.arange(0,mysize[ramp_dim],1)-corner;
+            if np.issubdtype(placement.dtype, np.number):
+                miniramp = np.arange(0,mysize,1)-placement;
             else:
-                raise ValueError('ramp: unknown corner value. allowed are negative, positive, corner, and center or an offset value as an np.number')
+                raise ValueError('ramp: unknown placement value. allowed are negative, positive, corner, and center or an offset value as an np.number')
         except AttributeError:
-            raise ValueError('ramp: unknown corner value. allowed are negative, positive, corner, and center or an offset value as an np.number')
-    minisize = list(np.ones(len(mysize)).astype(int));
-    minisize[ramp_dim] = mysize[ramp_dim];
-    #np.seterr(divide ='ignore');
-    miniramp = np.reshape(miniramp,minisize)
+            raise ValueError('ramp: unknown placement value. allowed are negative, positive, placement, and center or an offset value as an np.number')
     if freq=="freq":
-        res*=(miniramp/(mysize[ramp_dim]//2)/2.0)
+        miniramp = np.fft.fftfreq(mysize,pxs);
+    elif freq=="rfreq":
+        miniramp = np.fft.rfftfreq(mysize,pxs);
     elif freq=="radfreq":
-        res*=(miniramp/(mysize[ramp_dim]//2/2.0)*2*np.pi)
-    else:
-        res*=miniramp
-    return(image(res));  # RH casted to image
+        miniramp = np.fft.fftfreq(mysize,pxs/2.0/np.pi);
+    elif freq=="radrfreq":
+        miniramp = np.fft.rfftfreq(mysize,pxs/2.0/np.pi);
+    elif not freq==None:
+        raise ValueError("unknown option for freq. Valid options are freq, rfreq, radfreq and radrfreq.")
+#        miniramp=miniramp*(np.pi/(mysize//2))
+    
+    if ramp_dim>0:
+        miniramp=nip.image(expanddim(miniramp,ramp_dim+1)) # expands to this dimension numbe by inserting trailing axes. Also converts to 
+    elif ramp_dim<-1:
+        miniramp=nip.image(expanddim(miniramp,-ramp_dim,trailing=True)) # expands to this dimension numbe by inserting prevailing axes. Also converts to 
+    return miniramp;
 
-def xx(mysize = (256,256), mode = 'center', freq=None):
+def unifysize(mysize):
+    if type(mysize)== np.ndarray or type(mysize) == nip.image:
+        mysize = mysize.shape;
+    return mysize
+
+def ramp(mysize=(256,256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pxs=1.0):
+    '''
+    creates a ramp in the given direction direction 
+    standart size is 256 X 256
+    placement: 
+        center: 0 is at center
+                if x is even, it has one more value in the positve:
+                    e.g. size_x = 100 -> goes from -50 to 49
+                         size_x = 101 -> goes from -50 to 50
+        negative : goes from negative size_x to 0
+        positive : goes from 0 size_x to positive
+        freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
+        int number: is the index where the center is!
+    '''
+    mysize=list(unifysize(mysize))
+        
+    ndims=len(mysize)
+    if ramp_dim >= ndims:
+        raise ValueError("ramp dimension ("+str(ramp_dim)+") has to be smaller than number of available dimensions ("+str(ndims)+") specified by the size vector")
+    if (-ramp_dim) > ndims:
+        raise ValueError("negative ramp dimension has to be smaller or equal than number of available dimensions specified by the size vector")
+    if ramp_dim >= 0:
+        ramp_dim=ramp_dim-ndims # 0 in a 2D image should become -2
+    if rftdir >= 0:
+        rftdir=rftdir-ndims # 0 in a 2D image should become -2
+
+    if freq=="rfreq" and ramp_dim!=rftdir:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
+        freq="freq"
+        mysize[rftdir]=(mysize[rftdir]+1)//2
+        
+    myramp=ramp1D(mysize[ramp_dim],ramp_dim,placement,freq,pxs)    
+    mysize[ramp_dim]=myramp.shape[ramp_dim]  # since the rfreq option changes the size
+    
+#    if freq=="rfreq" and ramp_dim==rftdir:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
+#            myramp =  np.fft.fftshift(myramp)
+    if freq=="freq" and not shift:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
+            myramp =  np.fft.fftshift(myramp)
+    
+    res = ones(mysize);
+    res *= myramp
+   
+    return(res);  # RH casted to image
+
+def ones(s):
+    return nip.image(np.ones(s))
+
+def zeros(s):
+    return nip.image(np.ones(s))
+
+def xx(mysize = (256,256), placement = 'center', freq=None):
     '''
     creates a ramp in x direction 
     standart size is 256 X 256
-    mode: 
+    placement: 
         center: 0 is at cetner
                 if x is even, it has one more value in the positve:
                     e.g. size_x = 100 -> goes from -50 to 49
         negative : goes from negative size_x to 0
         positvie : goes from 0 size_x to positive
     '''
-    return(ramp(mysize,-1,mode,freq))
+    return(ramp(mysize,-1,placement,freq))
 
-def yy(mysize = (256,256), mode = 'center', freq=None):
+def yy(mysize = (256,256), placement = 'center', freq=None):
     '''
     creates a ramp in y direction 
     standart size is 256 X 256
-    mode: 
+    placement: 
         center: 0 is at cetner
                 if y is even, it has one more value in the positve:
                     e.g. size_y = 100 -> goes from -50 to 49
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     '''
-    return(ramp(mysize,-2,mode,freq))
+    return(ramp(mysize,-2,placement,freq))
  
-def zz(mysize = (256,256), mode = 'center', freq=None):
+def zz(mysize = (256,256), placement = 'center', freq=None):
     '''
     creates a ramp in z direction 
     standart size is 256 X 256
-    mode: 
+    placement: 
         center: 0 is at cetner
                 if y is even, it has one more value in the positve:
                     e.g. size_y = 100 -> goes from -50 to 49
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     '''
-    return(ramp(mysize,-3,mode))
+    return(ramp(mysize,-3,placement))
 
-def rr2(mysize=(256,256), offset = (0,0),scale = None, freq=None):
+def rr2(mysize=(256,256), placement='center', offset = None, scale = None, freq=None):
     '''
     creates a square of a ramp in r direction 
     standart size is 256 X 256
-    mode is always "center"
+    placement is always "center"
     offset -> x/y offset in pixels (number, list or tuple). It signifies the offset in pixel coordinates
     scale is tuple, list, none or number. It defines the pixelsize .
     '''
     import numbers;
+    mysize=list(unifysize(mysize))
     if offset is None:
         offset = len(mysize)*[0];  # RH 3.2.19
     elif isinstance(offset, numbers.Number):
@@ -114,26 +181,26 @@ def rr2(mysize=(256,256), offset = (0,0),scale = None, freq=None):
         scale = list(scale); # RH 3.2.19
     else:
         raise TypeError('rr2: Wrong data type for scale -> must be Numbers, list, tuple or none')
-    res=((ramp(mysize,0,'center',freq)-offset[0])*scale[0])**2
+    res=((ramp(mysize,0,placement,freq)-offset[0])*scale[0])**2
     for d in range(1,len(mysize)):
-        res+=((ramp(mysize,d,'center',freq)-offset[d])*scale[d])**2
+        res+=((ramp(mysize,d,placement,freq)-offset[d])*scale[d])**2
     return res
 
-def rr(mysize=(256,256), offset = (0,0),scale = None, freq=None):
+def rr(mysize=(256,256), placement='center', offset = None,scale = None, freq=None):
     '''
     creates a ramp in r direction 
     standart size is 256 X 256
-    mode is always "center"
+    placement is always "center"
     offset -> x/y offset in pixels (number, list or tuple)
     scale is tuple, list, none or number of axis scale
     '''
-    return np.sqrt(rr2(mysize,offset,scale,freq))
+    return np.sqrt(rr2(mysize,placement,offset,scale,freq))
    
 def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
     '''
     creates a ramp in phi direction 
     standart size is 256 X 256
-    mode is always center
+    placement is always center
     offset: angle offset in rad
     angle_range:
             1:   0 - pi for positive y, 0 - -pi for negative y
@@ -319,7 +386,7 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
         return(ret_list);
 
 
-    
+# The function below is obsolete as the ramp function contains the frequency options!!
 def freq_ramp(M, pxs = 50,  shift = True, real = False, axis =0):
     '''
         This function returns the frequency ramp along a given axis of the image M
@@ -336,36 +403,12 @@ def freq_ramp(M, pxs = 50,  shift = True, real = False, axis =0):
         shift: use true if the ft is shifted (default setup)
         real: use true if it is a real ft (default is false)
     '''
-    from .image import image;
-    if type(M) == tuple:
-        mysize =M;
-    elif type(M) == list:
-        mysize =tuple(M);
-    elif type(M) == np.ndarray:
-        mysize = M.shape;
-    elif type(M) == image:
-        mysize = M.shape;
-        pxs = M.pixelsize[axis];
+    if real:
+        freq='rfreq'
     else:
-        print('Wrong data type for M');
-        return(M);
-    res = np.ones(mysize);
-    if shift:
-        if real:
-            miniramp =  np.fft.fftshift(np.fft.rfftfreq(mysize[axis],pxs));
-        else:
-            miniramp =  np.fft.fftshift(np.fft.fftfreq(mysize[axis],pxs));
-    else:
-        if real:
-            miniramp =  np.fft.rfftfreq(mysize[axis],pxs);
-        else:
-            miniramp =  np.fft.fftfreq(mysize[axis],pxs);
-    minisize = list(np.ones(len(mysize)).astype(int));
-    minisize[axis] = mysize[axis];
-    
-    #np.seterr(divide ='ignore');
-    miniramp = np.reshape(miniramp,minisize)
-    res*=miniramp;
+        freq='freq'
+
+    res=ramp(M, ramp_dim=axis,placement='center', freq=freq, shift=shift,pxs=pxs)
     return(res);
 
 def px_freq_step(im = (256,256), pxs = 62.5):
@@ -379,8 +422,7 @@ def px_freq_step(im = (256,256), pxs = 62.5):
         im: image or Tuple 
         pxs: pixelsize
     '''
-    from .image import image;
-    if type(im) == image:
+    if type(im) == nip.image:
         pxs = im.pixelsize;
         im = im.shape;
     else:

@@ -9,6 +9,7 @@ import numpy as np;
 from .config import DBG_MSG,__DEFAULTS__;
 from .util import get_type;
 from .image import image;
+from .view5d import v5 # for debugging
 
 __REAL_AXIS__ = 0;
 
@@ -20,7 +21,7 @@ def ft2d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = 
         print('Too less dimensions');
         return(im);
     else:
-        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-1,-2),  s = s, norm = norm));
+        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-2,-1),  s = s, norm = norm));
 
 def ift2d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
     '''
@@ -31,7 +32,7 @@ def ift2d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = No
         print('Too less dimensions');
         return(im);
     else:
-        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-1,-2), s = s, norm = norm));
+        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
 
 
 def ft3d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = None, norm = 'DEFAULT'):
@@ -42,7 +43,7 @@ def ft3d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = 
         print('Too less dimensions');
         return(im);
     else:
-        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-1,-2,-3),  s = s, norm = norm));
+        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-3,-2,-1),  s = s, norm = norm));
         
 
 
@@ -55,7 +56,7 @@ def ift3d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = No
         print('Too less dimensions');
         return(im);
     else:
-        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-1,-2), s = s, norm = norm));
+        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
 
 def __ret_val__(im, mode):
     if mode == 'abs':

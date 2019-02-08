@@ -142,7 +142,7 @@ def otf_support(im, pixelsize, l, NA):
         pixelsize = [pixelsize,pixelsize];
         
     from .coordinates import freq_ramp;
-    fx = freq_ramp(im, pixelsize[0], ax =0);
-    fy = freq_ramp(im, pixelsize[1], ax =1);
+    fx = freq_ramp(im, pixelsize[0], axis =0);
+    fy = freq_ramp(im, pixelsize[1], axis =1);
     k0 = 2*NA/l;
     return((np.sqrt(fx**2+fy**2)<k0)*1);

@@ -100,6 +100,10 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
             out = VD.Start5DViewerI(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY); # calls the WRONG entry point to the Java program
         elif data.dtype == 'uint8':
             out = VD.Start5DViewerB(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY); # calls the WRONG entry point to the Java program
+        elif data.dtype == 'bool':
+            dc=data.flatten().astype('uint8').tolist();
+            out = VD.Start5DViewerB(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY); # calls the WRONG entry point to the Java program
+            out.ProcessKeyMainWindow("r")
         elif data.dtype == 'uint16' or data.dtype == 'int16':
             out = VD.Start5DViewerS(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY); # calls the WRONG entry point to the Java program
         elif data.dtype == 'uint32' or data.dtype == 'int32':

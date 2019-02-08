@@ -16,6 +16,7 @@ from .image import image;
 from .util import get_type,abssqr;
 from .transformations import rft,irft,ft2d,ift2d;
 from .coordinates import rr, ramp
+from .view5d import v5 # for debugging
 
 class transfer():
     '''
@@ -83,12 +84,12 @@ class transfer():
         
      
         # rr are lateral abbe coordinates!
-        r = rr(self.shape, scale = self.px_freq_step[:2])*self.wavelength/self.NA
+        r = rr(self.shape, scale = self.px_freq_step)*self.wavelength/self.NA # [:2]
         #self.r = (r<=1)*r;
         self.r = r;
         
         self.s = self.NA/self.n; 
-        self.aberration_map = np.zeros(self.shape[:2]);
+        self.aberration_map = np.zeros(self.shape[-2:]);
 
     def set_vals(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None):
         from .coordinates import rr;
@@ -102,7 +103,7 @@ class transfer():
         if aplanar is not None: self.aplanar = aplanar;
         if foc_field_mode is not None: self.foc_field_mode= foc_field_mode;
         
-        r = rr(self.shape[:2], scale = self.px_freq_step[:2])*self.wavelength/self.NA
+        r = rr(self.shape[-2:], scale = self.px_freq_step[-2:])*self.wavelength/self.NA
         self.check_sampling();
         #self.r = (r<=1)*r;
         self.r = r;
@@ -161,7 +162,7 @@ class transfer():
                 if len(self.shape) ==2:
                     self.shape = tuple(self.shape + [z_shape]);
                 else:
-                    self.shape[2] = z_shape;
+                    self.shape[-3] = z_shape;
                     
                     self.shape = tuple(self.shape);
         
@@ -174,18 +175,18 @@ class transfer():
         from .coordinates import px_freq_step; 
         
         if pxs == 'DEFAULT':
-            ret_pxs_lat = __DEFAULTS__['IMG_PIXELSIZES'][:2];
-            ret_pxs_ax = __DEFAULTS__['IMG_PIXELSIZES'][2];
+            ret_pxs_lat = __DEFAULTS__['IMG_PIXELSIZES'][-2:];
+            ret_pxs_ax = __DEFAULTS__['IMG_PIXELSIZES'][-3];
         else:
             if isinstance(pxs, numbers.Real):
                 ret_pxs_lat = [pxs, pxs];
                 ret_pxs_ax = pxs;
             elif type(pxs) == list or type(pxs) == tuple:
-                ret_pxs_lat = pxs[:2];
+                ret_pxs_lat = pxs[-2:];
                 if len(pxs) >2:
-                    ret_pxs_ax = pxs[2];
+                    ret_pxs_ax = pxs[-3];
                 else:
-                    ret_pxs_ax = __DEFAULTS__['IMG_PIXELSIZES'][2];
+                    ret_pxs_ax = __DEFAULTS__['IMG_PIXELSIZES'][-3];
             else:
                 raise ValueError('Invalid pixelsize');
         if len(self.shape) == 2:
@@ -264,10 +265,10 @@ class transfer():
                 self.aberration_map += s*zernike(self.r,m,n)*np.pi;
         
     def check_sampling(self):   
-        for fs, size,i in zip(self.px_freq_step,self.shape, [0,1]):
+        for fs, size,i in zip(self.px_freq_step,self.shape, [-2,-1]):
             if 2*self.NA/self.wavelength*fs > size/2:  print('Warning: Undersampling along axis '+str(i));
         #if len(self.px_freq_step) >2:        
-        #    if self.NA**2/self.wavelength*self.px_freq_step[2]: print('Warning: Undersampling along z');
+        #    if self.NA**2/self.wavelength*self.px_freq_step[-3]: print('Warning: Undersampling along z');
 
     def otf2d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None,off_focal_dist= 0):
         #self.set_vals(self, NA, n, wavelength, pixelsize, resample , pol, pol_xy_phase_shift,aplanar, foc_field_mode);
@@ -328,8 +329,8 @@ class transfer():
         
         if method == 'kz':
             # Transposing is necessary for broadcasting
-            fx = freq_ramp((field.shape[0],field.shape[1]),self.pixelsize[0], axis =-1); # .transpose();   # RH 2.2.19
-            fy = freq_ramp((field.shape[0],field.shape[1]),self.pixelsize[1], axis =-2); # .transpose();
+            fx = freq_ramp((field.shape[-2],field.shape[-1]),self.pixelsize[-1], axis =-1); # .transpose();   # RH 2.2.19
+            fy = freq_ramp((field.shape[-2],field.shape[-1]),self.pixelsize[-2], axis =-2); # .transpose();
             z = zz(self.shape); # .transpose();
             
             np.seterr(invalid = 'ignore');
@@ -376,7 +377,7 @@ class transfer():
         if len(ret.pixelsize) == 2:
             ret.pixelsize += [self.axial_pixelsize]; 
         else:
-            ret.pixelsize[2] = self.axial_pixelsize;
+            ret.pixelsize[-3] = self.axial_pixelsize;
         if ret_val == 'ctf' or ret_val == 'otf':
             ret.pixelsize = px_freq_step(self.shape, ret.pixelsize);
         if self.vectorial and ret_val == 'ctf' or ret_val == 'field':
@@ -405,13 +406,13 @@ class transfer():
         from .image import image, cat;
         from .transformations import ft, ift;
         
-        shape = self.shape[:2];
+        shape = self.shape[-2:];
 
         if self.foc_field_mode == 'theoretical':
             np.seterr(divide ='ignore', invalid ='ignore');
             arg = rr(shape,scale=np.array(self.pixelsize)*2*np.pi*self.NA/self.wavelength) #  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
             ret = 2*j1(arg)/arg;
-            ret[shape[0]//2, shape[1]//2] = 1;
+            ret[shape[-2]//2, shape[-1]//2] = 1;
             np.seterr(divide='warn', invalid ='warn');  
             ret = ret/np.sum(np.abs(ret));      
         elif self.foc_field_mode == 'circular':
@@ -809,7 +810,7 @@ def get_field_spec_in_focus(im = (256,256), px_size = [50,50], wavelength = 500,
     '''    
     if method == 'disc':
         from .mask import otf_support;
-        return(otf_support((im[0], im[1]), (px_size[0], px_size[1]), NA = NA/2, l= wavelength))
+        return(otf_support((im[-2], im[-1]), (px_size[-2], px_size[-1]), NA = NA/2, l= wavelength))
 
 def PSF3D(im = (256,256,32), px_size=[50,50,100], wavelength=500, NA=1.0,n = 1.0,method = 'propagation', focal_plane = 'disc', ret_val = 'PSF'):
     '''
@@ -849,8 +850,8 @@ def PSF3D(im = (256,256,32), px_size=[50,50,100], wavelength=500, NA=1.0,n = 1.0
     if method == 'propagation':
         if focal_plane == 'disc':
             from .mask import otf_support;
-            atf_focus = otf_support((im[0], im[1]), (px_size[0], px_size[1]), NA = NA/2, l= wavelength);
-            field = field_propagation(atf_focus, im[2], px_size, wavelength = wavelength, refractive_index= n);
+            atf_focus = otf_support((im[-2], im[-1]), (px_size[-2], px_size[-1]), NA = NA/2, l= wavelength);
+            field = field_propagation(atf_focus, im[-3], px_size, wavelength = wavelength, refractive_index= n);
         else:
             print('NOT YET IMPLEMENTED');
             return; 
@@ -887,7 +888,6 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
     import numbers
     from .coordinates import freq_ramp, zz;
 
-
     if type(pixel_sizes) == np.ndarray:
         pixel_sizes = list(pixel_sizes)
 
@@ -902,9 +902,9 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
         field = ft(field);
     
     #atf_focus = nip.otf_support((shape[0], shape[1]), pixel_size_x, NA = NA/2, l= l);
-    fx = freq_ramp((field.shape[0],field.shape[1]),pixel_sizes[0], axis =-1);
-    fy = freq_ramp((field.shape[0],field.shape[1]),pixel_sizes[1], axis =-2);
-    z = zz((field.shape[0], field.shape[1],z_shape)) # np.rollaxis(zz((field.shape[0], field.shape[1],z_shape)),2,0);  # RH 3.2.19
+    fx = freq_ramp((field.shape[-2],field.shape[-1]),pixel_sizes[-1], axis =-1);
+    fy = freq_ramp((field.shape[-2],field.shape[-1]),pixel_sizes[-2], axis =-2);
+    z = zz((z_shape,field.shape[-2], field.shape[-1])) # np.rollaxis(zz((field.shape[0], field.shape[1],z_shape)),2,0);  # RH 3.2.19
     np.seterr(invalid = 'ignore');
     kz = np.nan_to_num(2*np.pi*np.sqrt(refractive_index**2/wavelength**2-(fx**2+fy**2)))   
     np.seterr(invalid = 'warn');
@@ -914,7 +914,7 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
 #    ang_y = np.arctan(fy*l);
 #    kz = 2*np.pi*n/(l*np.cos(ang_x)*np.cos(ang_y));
     
-    propagator = kz * z*pixel_sizes[2];
+    propagator = kz * z*pixel_sizes[-3];
 #    field_spectrum_at_z = np.rollaxis(field*np.exp(-1j*propagator),0,3);
     field_spectrum_at_z = field*np.exp(-1j*propagator) # np.rollaxis(field*np.exp(-1j*propagator),0,3);
     return ift2d(field_spectrum_at_z,shift=True) # changed to use the ft2d routines. RH 3.2.19

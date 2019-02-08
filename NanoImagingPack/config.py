@@ -52,7 +52,7 @@ __DEFAULTS__ ={
          
         #Image-Class Default Settings
         #'IMG_PIXELSIZES': [50,50,100],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
-        'IMG_PIXELSIZES': [50, 50,100],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
+        'IMG_PIXELSIZES': [100,50, 50],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
         'IMG_TIFF_FORMATS': ['tif', 'tiff','TIF', 'TIFF'],
         'IMG_ZEISS_FORMATS': ['czi', 'CZI'],

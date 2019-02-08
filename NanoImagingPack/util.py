@@ -190,14 +190,34 @@ def expand(vector, size, transpose = False):
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
-def expanddim(img,ndims):
+def castdim(img,ndims,wanteddim):
     '''
-        expands an nd image to the necessary number of dimension
+        expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
         ----------
         img: input image to expand
-        ndims: number of dimensions to expand to        
+        ndims: number of dimensions to expand to
+        wanteddim: number that the one-D axis should end up in
     '''
-    return np.reshape(img,(ndims-len(img.shape))*(1,)+img.shape)   # RH 2.2.19
+    mysize=img.shape
+    if wanteddim<0:
+        wanteddim=ndims+wanteddim
+    if wanteddim+img.ndim > ndims:
+        raise ValueError("castdim: ndims is smaller than requested total size including the object to place.")
+    newshape=wanteddim*(1,)+mysize+(ndims-wanteddim-img.ndim)*(1,)
+    return np.reshape(img,newshape)
+
+def expanddim(img,ndims,trailing=False):
+    '''
+        expands an nd image to the necessary number of dimension by inserting leading dimensions
+        ----------
+        img: input image to expand
+        ndims: number of dimensions to expand to
+        trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
+    '''
+    if trailing:
+        return np.reshape(img,img.shape+(ndims-len(img.shape))*(1,))   # RH 2.2.19
+    else:
+        return np.reshape(img,(ndims-len(img.shape))*(1,)+img.shape)   # RH 2.2.19
 
 def dimVec(d,mysize,ndims):
     '''
@@ -220,7 +240,7 @@ def subslice(img,mydim,start):
         end=start+1
     else:
         end=None
-    coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
+    coords=(img.ndim-mydim-1)*[slice(None)]+[slice(start,end)]+(mydim)*[slice(None)]
     return img[tuple(coords)]
 
 def subsliceAsg(img,mydim,start,val):
@@ -237,7 +257,7 @@ def subsliceAsg(img,mydim,start,val):
         end=start+1
     else:
         end=None
-    coords=(mydim)*[slice(None)]+[slice(start,end)]+(img.ndim-mydim-1)*[slice(None)]
+    coords=(img.ndim-mydim-1)*[slice(None)]+[slice(start,end)]+(mydim)*[slice(None)]
     img[tuple(coords)]=val
     return img
 

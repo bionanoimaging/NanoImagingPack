@@ -25,6 +25,7 @@ from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
 from .functions import cossqr, gaussian, coshalf, linear;
 from .util import make_damp_ramp,get_type,subslice,expanddim;
+from .view5d import v5 # for debugging
 
 #class roi:
 #    def __init__(im):
@@ -757,9 +758,9 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0):
     return(final_im.swapaxes(0,1).view(image));
     
     
-def DampEdge(im, width = None, rwidth=0.1, axes =None, func = coshalf, method="damp", sigma=4.0):
+def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="damp", sigma=4.0):
     '''
-        Dampedge function 
+        DampEdge function 
         
         im  image to damp edges 
         
@@ -786,12 +787,13 @@ def DampEdge(im, width = None, rwidth=0.1, axes =None, func = coshalf, method="d
         
         TODO in FUTURE: padding of the image before damping
     '''
-    res = np.ones(im.shape);    
+    img=img.astype(np.float32)
+    res = np.ones(img.shape);    
     if width==None:
-        width=tuple(np.round(np.array(im.shape)*np.array(rwidth)).astype("int"))
+        width=tuple(np.round(np.array(img.shape)*np.array(rwidth)).astype("int"))
         
     if axes==None:
-        axes=np.arange(0,im.ndim).tolist()
+        axes=np.arange(0,img.ndim).tolist()
     if type(width) == int:
         width = [width];
     if type(width) == tuple:
@@ -800,52 +802,52 @@ def DampEdge(im, width = None, rwidth=0.1, axes =None, func = coshalf, method="d
         ext = np.ones(len(axes)-len(width))*width[-1];
         width.extend(list(ext.astype(int)));
         
-    res=im
-    mysum=im*0.0
-    sz=im.shape;
+    res=img
+    mysum=nip.zeros(img.shape)
+    sz=img.shape;
     den=-2*len(set(axes)); # use only the counting dimensions
-    for i in range(len(im.shape)):
+    for i in range(len(img.shape)):
         if i in axes:
-            line = np.arange(0,im.shape[i],1);
+            line = np.arange(0,img.shape[i],1);
             ramp = make_damp_ramp(width[i],func);            
             if method=="zero":
-                line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]),ramp),0);
+                line = cat((ramp[::-1],np.ones(img.shape[i]-2*width[i]),ramp),-1);
                 goal=0.0 # dim down to zero
             elif method=="moisan":
 #                for d=1:ndims(img)
-                top=nip.subslice(im,i,0)
-                bottom=nip.subslice(im,i,-1)
+                top=nip.subslice(img,i,0)
+                bottom=nip.subslice(img,i,-1)
                 mysum=nip.subsliceAsg(mysum,i,0,bottom-top + nip.subslice(mysum,i,0));
-                mysum=nip.subsliceAsg(mysum,i,sz[i]-1,top-bottom + nip.subslice(mysum,i,sz[i]-1));
+                mysum=nip.subsliceAsg(mysum,i,-1,top-bottom + nip.subslice(mysum,i,-1));
                 den=den+2*np.cos(2*np.pi*nip.ramp(nip.dimVec(i,sz[i],len(sz)),i,freq='freq'))
             elif method=="damp":
-                line = cat((ramp[::-1],np.ones(im.shape[i]-2*width[i]+1),ramp[:-1]),0);  # to make it perfectly cyclic
-                top=nip.subslice(im,i,0)
-                bottom=nip.subslice(im,i,-1)
+                line = nip.cat((ramp[::-1],np.ones(img.shape[i]-2*width[i]+1),ramp[:-1]),0);  # to make it perfectly cyclic
+                top=nip.subslice(img,i,0)
+                bottom=nip.subslice(img,i,-1)
                 goal = (top+bottom)/2.0
                 kernel=gaussian(goal.shape,sigma)
                 goal = convolve(goal,kernel,norm2nd=True)
             else:
                 raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
             #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-#            res = res.swapaxes(len(im.shape)-1,i); # The broadcasting works only for Python versions >3.5
+#            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
+        if method!="moisan":
+            line = nip.castdim(line,img.ndim,i) # The broadcasting works only for Python versions >3.5
+            try:
+                res = res*line + (1.0-line)*goal
+            except ValueError:
+                print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+                from numpy.matlib import repmat;
+                res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
     if method=="moisan":
         den=nip.MidValAsg(den,1);  # to avoid the division by zero error
         den=nip.ft(mysum)/den;
         den=nip.MidValAsg(den,0);  # kill the zero frequency
-        den=nip.ift(den)
-        res=im-den
-    else:
-        line = expanddim(line,im.ndim).swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-        try:
-            res = res*line + (1.0-line)*goal
-        except ValueError:
-            print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-            from numpy.matlib import repmat;
-            res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
+        den=np.real(nip.ift(den))
+        res=img-den
         
     #return(res)
-    return(res.view(image));
+    return nip.image(res);
 
 def __check_complex__(im):
     '''
