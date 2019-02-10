@@ -506,3 +506,19 @@ def get_min(M,region = [-1,-1,-1,-1]):
         M = M[region[1]-region[3]//2:region[1]+region[3]//2,region[0]-region[2]//2:region[0]+region[2]//2]
     MIN = min_coord(M);
     return(region[0]-region[2]//2+MIN[1],region[1]-region[3]//2+MIN[0])
+    
+    
+def isnp(animg):
+    return isinstance(animg,np.ndarray)
+
+def ones(s,dtype=None,order='C'):
+    from .image import image
+    if isnp(s):
+        s=s.shape
+    return image(np.ones(s,dtype,order))
+
+def zeros(s,dtype=None,order='C'):
+    from .image import image
+    if isnp(s):
+        s=s.shape
+    return image(np.ones(s,dtype,order))

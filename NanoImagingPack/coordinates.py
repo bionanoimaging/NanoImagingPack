@@ -104,16 +104,10 @@ def ramp(mysize=(256,256), ramp_dim=-1, placement='center', freq=None, shift=Fal
     if freq=="freq" and not shift:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
             myramp =  np.fft.fftshift(myramp)
     
-    res = ones(mysize);
+    res = np.ones(mysize);
     res *= myramp
    
     return(res);  # RH casted to image
-
-def ones(s):
-    return nip.image(np.ones(s))
-
-def zeros(s):
-    return nip.image(np.ones(s))
 
 def xx(mysize = (256,256), placement = 'center', freq=None):
     '''
@@ -284,8 +278,6 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
                 VolumeList((64,64,64,64), MyCenter = 'center', MyStretch = (0.1,1,10,2), polar_axes = 'all', return_axes = 'all')
      '''
 
-
-    
     # Boiler plate for checking input and defining the axis
     def __check_para__(MyPara, Name, default):
         if (type(MyPara) == list or type(MyPara) == tuple):
