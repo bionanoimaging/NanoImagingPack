@@ -231,17 +231,23 @@ def dimVec(d,mysize,ndims):
     res[d]=mysize
     return tuple(res)
 
-def subslice(img,mydim,start):
+def slicecoords(mydim,ndim,start):
     '''
-        extracts an N-1 dimensional subslice at dimension dim and position start        
-        It keeps empty slices as singleton dimensions
+        constructs a coordinate vector reducing dimension mydim, such that numpy can extract the slice via an array access 
     '''
     if start!=-1:
         end=start+1
     else:
         end=None
-    coords=(img.ndim-mydim-1)*[slice(None)]+[slice(start,end)]+(mydim)*[slice(None)]
-    return img[tuple(coords)]
+    return tuple((mydim)*[slice(None)]+[slice(start,end)]+(ndim-mydim-1)*[slice(None)])
+
+def subslice(img,mydim,start):
+    '''
+        extracts an N-1 dimensional subslice at dimension dim and position start        
+        It keeps empty slices as singleton dimensions
+    '''
+        
+    return img[slicecoords(mydim,img.ndim,start)]
 
 def subsliceAsg(img,mydim,start,val):
     '''
@@ -253,12 +259,7 @@ def subsliceAsg(img,mydim,start,val):
         val : value(s) to assign into the array
         It keeps empty slices as singleton dimensions
     '''
-    if start!=-1:
-        end=start+1
-    else:
-        end=None
-    coords=(img.ndim-mydim-1)*[slice(None)]+[slice(start,end)]+(mydim)*[slice(None)]
-    img[tuple(coords)]=val
+    img[slicecoords(mydim,img.ndim,start)]=val
     return img
 
 def MidValAsg(img,val):

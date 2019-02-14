@@ -840,7 +840,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
                 from numpy.matlib import repmat;
                 res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
     if method=="moisan":
-        den=nip.MidValAsg(den,1);  # to avoid the division by zero error
+        den=nip.MidValAsg(nip.image(den),1);  # to avoid the division by zero error
         den=nip.ft(mysum)/den;
         den=nip.MidValAsg(den,0);  # kill the zero frequency
         den=np.real(nip.ift(den))
