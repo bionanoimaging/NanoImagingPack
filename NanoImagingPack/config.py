@@ -25,8 +25,8 @@ __DEFAULTS__ ={
         'DEBUG':6,                         # Debugmessage level (0-10): use it with config.DBG_MSG(value) for controll, when which message should be displayed
         'DIRECTORY': os.getcwd(),          # Default data directory 
         'JAVA': False,                     # Java support
-        
-        
+        'LOOKFOR_RATIO' : 0.5,              # How is the lookfor function behaving? -> between 0 and 1 -> higher numbers indicate that a higher agreement between input and output is required
+        'ARRAY_RETURN_TYPE': 'image',    # return type of arrays in functions -> 'image' -> returns image, properties might be adapted from input image, 'ndarray' -> numpy array, 'asInput' -> like input
         
         # HAMAMATSU_SLM_SETTINGS:
         'LCOS_OVERDRIVE' : True,
@@ -48,6 +48,7 @@ __DEFAULTS__ ={
         'VIEWER_CONST_ASPECT': 1,
         'VIEWER_GAMMA_MAX': 10.0,          # Min max values of the gamma slider in the viewer
         'VIEWER_GAMMA_MIN': 0.1,
+        'VIEWER_GAMMA_INIT_COMPLEX' : 0.2,   # Gamma value for complex values
         'VIEWER_IMG_ORIGIN': 'upper',       #where is the origin of the image? 'upper' or 'lower' for upper or lower left corner
          
         #Image-Class Default Settings
