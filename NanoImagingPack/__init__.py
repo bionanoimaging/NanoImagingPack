@@ -5,10 +5,10 @@ Created on Thu Apr 27 00:03:21 2017
 
 @author: root
 """
-name = "NanoImagingPack"
+
 # externals
 import numpy as np;
-## modules
+# modules
 from .coordinates import *;
 from .image import *;
 from .mask import *;
@@ -24,13 +24,19 @@ from .config import *;
 from .DeviceControll import *;
 from .functions import *;
 from .view5d import *; # rainer's java viewer
+from .__NIP_META__ import __version__, __title__,__author__;
+from .config import __DEFAULTS__;
 
 
 ## packages
 from . import resources;
 from . import sim;
-#from . import EXTERNAL;
+from . import EXTERNAL;
 set_cfg();
+
+
+
+name = __title__;   # to be depreciated
 
 
 '''
@@ -97,7 +103,7 @@ def lookfor(searchstring,show_doc = False):
             for el in s:
                 r = similar(searchstring, el);
                 if r > ratio: ratio = r;
-        if ratio>=0.5: fl.append((f[0],f[1],ratio));
+        if ratio>=__DEFAULTS__['LOOKFOR_RATIO']: fl.append((f[0],f[1],ratio));
     fl.sort(key=lambda x: x[2],reverse=True);
 
     cl = []
