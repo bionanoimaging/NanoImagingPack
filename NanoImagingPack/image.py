@@ -24,8 +24,9 @@ from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
 from .functions import cossqr, gaussian, coshalf, linear;
-from .util import make_damp_ramp,get_type,subslice,expanddim;
+from .util import make_damp_ramp,get_type,subslice,expanddim, __cast__;
 from .view5d import v5 # for debugging
+from .FileUtils import list_files;
 
 #class roi:
 #    def __init__(im):
@@ -150,8 +151,12 @@ class image(np.ndarray):
                 if __DEFAULTS__['IMG_VIEWER'] == 'NIP_VIEW':
                     if len(self.shape) == 1:
                         from .view import graph;
-                        graph(self, title = self.name);
-                    else:                        
+                        try:
+                            graph(self, title = self.name);
+                        except:
+                            graph(self);
+
+                    else:
                         from .view import view;
                         self.v = view(self);
                 elif __DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':  # RH 3.2.19
@@ -262,30 +267,31 @@ class image(np.ndarray):
                 pos+=[slice(0,self.shape[i])];
         return(tuple(pos));
     
-    def ft(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
+    def ft(self, shift = True ,shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
         from .transformations import ft;
         #im = ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm);
         return(ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm));
 
-    def ift(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT'):
+    def ift(self, shift = False,shift_before = True, ret ='complex', axes = None, s = None, norm = None):
         from .transformations import ift;
         return(ift(self, shift = shift,shift_before =shift_before, ret = ret, axes = axes, s = s, norm = norm));
-    def ift2d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
+    def ift2d(self, shift = False,shift_before = True, ret ='complex', s = None, norm = None):
         from .transformations import ift2d;
         return(ift2d(self, shift = shift,shift_before =shift_before, ret = ret, s = s, norm = norm));
-    def ift3d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
+    def ift3d(self, shift = False,shift_before = True, ret ='complex', s = None, norm = None):
         from .transformations import ift3d;
         return(ift3d(self, shift = shift,shift_before =shift_before, ret = ret, s = s, norm = norm));
-    def ft2d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
+    def ft2d(self, shift = True ,shift_before = False, ret = 'complex',  s = None, norm = None):
         from .transformations import ft2d;
         return(ft2d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
-    def ft3d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
+    def ft3d(self, shift = True ,shift_before = False, ret = 'complex',  s = None, norm = None):
         from .transformations import ft3d;
         return(ft3d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
-    def rft(self, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT', real_return = 'DEFAULT', real_axis = None):
+
+    def rft(self, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None, real_return = None, real_axis = None):
         from .transformations import rft;
         return(rft(self, shift = shift, shift_before = shift_before, ret = ret, axes = axes,  s = s, norm = norm, real_return = real_return, real_axis = real_axis))
-    def irft(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT', real_axis = 'DEFAULT'):
+    def irft(self, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = None, real_axis = None):
         from .transformations import irft;
         return(irft(self, shift = shift,shift_before = shift_before, ret =ret, axes = axes, s = s, norm = norm, real_axis = real_axis))
     def poisson(self, NPhot = 100):
@@ -409,7 +415,7 @@ class image(np.ndarray):
         im.__array_finalize__(self);
         return(im)
     def extract_c(self, center = None, roi = (100,100), axes_center  = None, axes_roi = None, extend = 'DEFAULT'):
-        im = extract_c(self, center, roi, axes_center, axes_roi, extend = extend);
+        im = extract_c(self, center = center, roi = roi, axes_center = axes_center, axes_roi = axes_roi, extend = extend).view(image);
         im.__array_finalize__(self);
         return(im);
 
@@ -459,44 +465,46 @@ class image(np.ndarray):
         # THIS CODE SERVES TO DETECT WHICH AXIS HAVE BEEN ELIMINATED OR CHANGED IN THE CASTNG PROCESS 
         # E.G. DUE TO INDEXING OR SWAPPING!
         
-        if  len(self.shape) != len(obj.shape):
-            if obj.__array_interface__['strides'] is None:
-                s = (np.cumprod(obj.shape[::-1]))[::-1];
-                s = list(np.append(s[1:],1)*obj.dtype.itemsize); 
-            else:
-                s = list(obj.__array_interface__['strides']);
-            if self.__array_interface__['strides'] is None:
-                s1 = (np.cumprod(self.shape[::-1]))[::-1];
-                s1 = list(np.append(s1[1:],1)*self.dtype.itemsize); 
-            else:
-                s1 = list(self.__array_interface__['strides']);
-            new_axes = [s.index(el) for el in s1 if el in s];        
-        else:
-            new_axes = [s for s in range(self.ndim)];            
-          # TODO: Handle what happens in case of transposing and ax swapping  
-          # Some problems:
-          #     1) the matplotlib widgets creates a lot of views which alway cause problemse (thats the reason for the try below)
-          #     2) for ax swaping (also rolling, transposing changes in strides can't be identified in __array_finalize__)
+#        if  len(self.shape) != len(obj.shape):
+#            if obj.__array_interface__['strides'] is None:
+#                s = (np.cumprod(obj.shape[::-1]))[::-1];
+#                s = list(np.append(s[1:],1)*obj.dtype.itemsize);
+#            else:
+#                s = list(obj.__array_interface__['strides']);
+#            if self.__array_interface__['strides'] is None:
+#                s1 = (np.cumprod(self.shape[::-1]))[::-1];
+#                s1 = list(np.append(s1[1:],1)*self.dtype.itemsize);
+#            else:
+#                s1 = list(self.__array_interface__['strides']);
+#            new_axes = [s.index(el) for el in s1 if el in s];
+#        else:
+#            new_axes = [s for s in range(self.ndim)];
+
+#           TODO: DEPRICATE THIS PART!!!
+#           TODO: Handle what happens in case of transposing and ax swapping
+#
+#           Some problems:
+#               1) the matplotlib widgets creates a lot of views which alway cause problemse (thats the reason for the try below)
+#               2) for ax swaping (also rolling, transposing changes in strides can't be identified in __array_finalize__)
         
         p = __DEFAULTS__['IMG_PIXELSIZES'];
         if type(obj) == type(self):
-            pxs  = [i*0+1.0 for i in self.shape];    
-#            pxs[-len(self.shape)::] = p[-len(self.shape)::]
+            pxs = [i*0+1.0 for i in self.shape];
             for i in range(len(self.shape)):
                 try:
-                    pxs[-i-1] = obj.pixelsize[new_axes[-i-1]];
+                    pxs[i] = obj.pixelsize[new_axes[i]];
                 except:
                     if i >= len(p):
-                        pxs[-i-1] = p[0];
+                        pxs[i] = p[len(p)-1];
                     else:
-                        pxs[-i-1] = p[-i-1];
+                        pxs[i] = p[i];
         else:
             pxs = [i*0+1.0 for i in self.shape];
             for i in range(len(self.shape)):
                 if i >= len(p):
-                    pxs[-i-1] = p[0];
+                    pxs[i] = p[len(p)-1];
                 else:
-                    pxs[-i-1] = p[-i-1];
+                    pxs[i] = p[i];
         self.pixelsize = pxs;
         self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []});
         self.metadata = getattr(obj,'metadata',[]);
@@ -559,11 +567,17 @@ def imsave(img, path, form = 'tif', rescale = True, BitDepth = 16, Floating = Fa
         Floating - Save as Floating point image (carefull, that might not always be possible and only rarely supported by common viewers)
         truncate - truncate values below zero
     '''
-    
-    if path[-4] == '.':
-        path = path[:-3]+form;
-    else:
-        path+= '.'+form;
+    from os.path import splitext, split, isdir;
+    from os import mkdir;
+
+    folder = split(path)[0];
+    if not isdir(folder):
+        mkdir(folder);
+        print('Creating Folder ... '+ folder);
+
+    ext = splitext(path)[-1][1:];
+    if ext == '':
+        path+='.'+form;
     
     
     if get_type(img)[1] == 'image':
@@ -582,6 +596,9 @@ def imsave(img, path, form = 'tif', rescale = True, BitDepth = 16, Floating = Fa
                     img = img/np.max(img)*(255);
                 else:
                     img = img/np.max(img)*(2**BitDepth-1);
+            if np.max(img) >= 2**BitDepth:
+                print('WARNING! Image maximum larger than '+str(2**BitDepth-1)+'! RESCALING!!!');
+                img = img/np.max(img)*(2**BitDepth-1);
             if np.min(img) >= 0:
                 if BitDepth <= 8:
                     img = np.uint8(img);
@@ -606,7 +623,7 @@ def imsave(img, path, form = 'tif', rescale = True, BitDepth = 16, Floating = Fa
         tif.imsave(path,img, metadata = metadata);   # RH 2.2.19 deleted: np.transpose
     else:
         import PIL;
-        img = np;   # RH 2.2.19 deleted: np.transpose
+        #img = np;   # RH 2.2.19 deleted: np.transpose   CK commented line
         img = PIL.Image.fromarray(img)
         if BitDepth == 1:
             img=img.convert("1");
@@ -616,7 +633,8 @@ def imsave(img, path, form = 'tif', rescale = True, BitDepth = 16, Floating = Fa
         img.save(path,form);
     return(img);
           
-def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif"), which = None, pixelsize = None):
+#def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif"), which = None, pixelsize = None):
+def readim(path =None, which = None, pixelsize = None):
     '''
              reads an image
              
@@ -627,24 +645,35 @@ def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif")
                          'erika'  - image of erika
                          'orka'   - iamge of an orka
                          'house'   - iamge of a house
-                         'deathstar' - image of death star
-                         'resolution' -Kai's resolution test image
+                         'todesstern' - image of death star
                          'resolution_512' -Kai's resolution test image
-                         'Mito_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
+                         'resolution_fine' -Kai's resolution test image (more pixels)
+                         'MITO_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
              which is  which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
     '''
-#    if path == 'lena':  ... # RH 3.2.19
+    from os.path import splitext, isfile, split;
+    l = [];
+    if path is None:
+        path = __DEFAULTS__['IMG_DEFAULT_IMG_NAME'];
+    for p in __DEFAULTS__['IMG_DEFAULT_IMG_FOLDERS']:
+        l+=(list_files(p, ''));
+    default_names = [splitext(split(el)[1])[0] for el in l];
+    if path in default_names:
+        path = l[default_names.index(path)];
+
     #from .config import __IMAGE_FORMATS__;
-    from os.path import splitext, isfile;
-    if not isfile(path): # Try to find the file either directly or in the resource directory ...
-        path =resource_filename("NanoImagingPack","resources/"+path)
-        if not isfile(path):
-            path =resource_filename("NanoImagingPack","resources/"+path+".tif")
+# CK 20.02.19: seems that stuff does the same like mine, but without centralized management via config
+#    from os.path import splitext, isfile;
+#    if not isfile(path): # Try to find the file either directly or in the resource directory ...
+#        path =resource_filename("NanoImagingPack","resources/"+path)
+#        if not isfile(path):
+#        if not isfile(path):
+#            path =resource_filename("NanoImagingPack","resources/"+path+".tif")
 
     if isfile(path):
         ext = splitext(path)[-1][1:];
         
-        if ext in __DEFAULTS__['IMG_TIFF_FORMATS']:
+        if ext.lower() in __DEFAULTS__['IMG_TIFF_FORMATS']:
             
             if which == None:
                 img = (tif.imread(path)); # RH 2.2.19 deleted: np.transpose
@@ -653,7 +682,7 @@ def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif")
             img = img.view(image);
             #img.pixelsize = pixelsize;
             img.set_pixelsize(pixelsize);
-        elif ext in __DEFAULTS__['IMG_ZEISS_FORMATS']:
+        elif ext.lower() in __DEFAULTS__['IMG_ZEISS_FORMATS']:
             # TODO HERE: READ ONLY SELECTED SLICES OF THE IMAGE 
             from .EXTERNAL.Gohlke_czi_reader import imread as cziread;
             if __DEFAULTS__['IMG_SQUEEZE_ZEISS']:
@@ -678,7 +707,7 @@ def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif")
     else:
         raise ValueError('No valid filename')
 
-def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0):
+def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_old_img_dim = False):
     '''
         This reads a set of 2D Tiff files and creates one 3-D Stack from it.
         Path: The folder, containing the tiff-files
@@ -687,42 +716,55 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0):
          
         
          roi = [x,y, width_x, width_y] -> if nothting given than the whole image will be loaded
-    '''    
+        ret_old_img_dim : return old image dimension (maximum dimension of all images read!)
+    '''
     from os import listdir
-    from os.path import isfile, join, splitext
+    from os.path import isfile, join, splitext, split
+    from .FileUtils import list_files
+    from .config import __DEFAULTS__
     if type(filename)!= list:
-        file_list = [f for f in listdir(path) if isfile(join(path, f))];
-        file_list.sort();
-        name_list =[];
-        for f in file_list:    #create name list
-            body,ext = splitext(f);
-            if filename == '':
-                if (ext =='.tif') or (ext =='.TIF') or (ext =='.tiff') or (ext =='.TIFF') or (ext == '.png'): 
-                    name_list.append(f);    # Create list with names
-            else:    
-                if ((ext =='.tif') or (ext =='.TIF') or (ext =='.tiff') or (ext =='.TIFF') or ext == '.png') and (body.find(filename)>=0): 
-                    name_list.append(f);    # Create list with names    
+        file_list = [split(f)[1] for f in list_files(path = path, file_prototype=filename, subfolders = False)];
+        imtypes = __DEFAULTS__['IMG_TIFF_FORMATS']+__DEFAULTS__['IMG_IMG_FORMATS'];
+        name_list = [f for f in file_list if splitext(f)[1][1:] in imtypes];
+        #file_list = [f for f in listdir(path) if isfile(join(path, f))];
+# DEPRICATED:
+#        file_list.sort();
+#        name_list =[];
+#        for f in file_list:    #create name list
+#            body,ext = splitext(f);
+#            if filename == '':
+#                if (ext.lower =='.tif') or  (ext.lower() =='.tiff') or (ext.lower() == '.png') or (ext.lower() == '.bmp'):
+#                    name_list.append(f);    # Create list with names
+#            else:
+#                if ((ext =='.tif') or (ext =='.TIF') or (ext =='.tiff') or (ext =='.TIFF') or ext == '.png' or ext == '.bmp') and (body.find(filename)>=0):
+#                    name_list.append(f);    # Create list with names
     else:
         name_list = filename;        
+
+    max_im_dim =0;
     print('Reading images ...')
     number  =0;
     #dim = [0,0];
     #im_list =None;
     final_im =[];
     for name in name_list:
-        print(name);
+        print(name, end = ' ... ', flush = True);
         if roi == [-1,-1,-1,-1]:
-            if (name[-3:]=='png'):
+            if (splitext(name)[1][1:]=='png' or splitext(name)[1][1:]=='bmp'):
                 from scipy import misc
                 im = misc.imread(path+name);
             else:
                 im = tif.imread(path+name);
         else:
-            if (name[-3:]=='png'):
+            if (splitext(name)[1][1:]=='png' or splitext(name)[1][1:] == 'bmp'):
                 from scipy import misc
                 im = misc.imread(path+name)[roi[1]:roi[3]+roi[1],roi[0]:roi[2]+roi[0]];
             else:
-                im = tif.imread(path+name)[roi[1]:roi[3]+roi[1],roi[0]:roi[2]+roi[0]];
+                im = tif.imread(path+name )[roi[1]:roi[3]+roi[1],roi[0]:roi[2]+roi[0]];
+        # im = im.transpose();     # CK 20.02.19 transpose outcommented
+        print(' Shape: '+str(im.shape), end = ' ; ', flush = True);
+        if im.ndim > max_im_dim:
+            max_im_dim = im.ndim;
         if np.ndim(im) != 2:
             
             print('Reading channel '+str(channel));
@@ -752,7 +794,10 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0):
                     print('Wrong size of image '+ name);
      '''
     print(str(number)+' images read!');
-    return(final_im.swapaxes(0,1).view(image));
+    if  ret_old_img_dim:
+        return(final_im.swapaxes(0,1).view(image), max_im_dim)
+    else:
+        return(final_im.swapaxes(0,1).view(image));
     
     
 def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="damp", sigma=4.0):
@@ -847,7 +892,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
         res=img-den
         
     #return(res)
-    return nip.image(res);
+    return(__cast__(im*res.view(image),im));
 
 def __check_complex__(im):
     '''
@@ -863,7 +908,7 @@ def make_odd(M,ax):
     '''
     if (np.mod(np.size(M, axis = ax),2)==0):
         M = np.delete(M,0,ax);
-    return(M.view(image));
+    return(__cast__(M,M));
 
 def match_size(M1,M2,ax, padmode ='constant', odd = True):
     '''
@@ -918,7 +963,9 @@ def match_size(M1,M2,ax, padmode ='constant', odd = True):
 
     else:
         print('Cannot match sizes as arrays have different dimensions!');
-    return(M1.view(image),M2.view(image))
+
+    return(__cast__(M1,M1), __cast__(M2,M2))
+
 
 #TODO:
 #def optimize_shift(im1,im2, method = 'optimize_max'):
@@ -1063,7 +1110,7 @@ def threshold(im, t1, t2 =None):
             h = t2; 
             t2 = t1;
             t1 = h;
-        return((im>=t1)*(im<=t2));
+        return(__cast__((im>=t1)*(im<=t2),im));
 
 def get_max(M,region = [-1,-1,-1,-1]):
     '''
@@ -1218,6 +1265,8 @@ def shift(M,delta,direction =0):
     from .coordinates import ramp;
     import numbers;
     
+    old_arr = M;
+
     if type(delta) == tuple:
         delta = list(delta);
     if type(delta) == list:
@@ -1256,7 +1305,7 @@ def shift(M,delta,direction =0):
         M = M.swapaxes(0,ax);
         M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
         M = M.swapaxes(0,ax);
-    return(M) 
+    return(__cast__(M, old_arr))
 
 def shiftx(M,delta):
     '''
@@ -1289,7 +1338,7 @@ def shift_center(M,x,y):
     mom = lambda s: max(0,s)
     New = np.zeros_like(M);
     New[mom(x):non(x), mom(y):non(y)] = M[mom(-x):non(-x), mom(-y):non(-y)]
-    return(New)
+    return(__cast__(New,M))
     
 def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False, norm2nd=False):
     '''
@@ -1348,12 +1397,12 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
             raise ValueError('Wrong mode');
             return(M1);
         if M1.dtype == np.complexfloating or M2.dtype == np.complexfloating:
-            return(ift(cor, shift = True, shift_before = False, norm = None, ret ='complex', axes = axes))
+            return(__cast__(ift(cor, shift = True, shift_before = False, norm = None, ret ='complex', axes = axes),old_arr))
         else:
             if __DEFAULTS__['CC_ABS_RETURN']:
-                return(irft(cor, shift = True, shift_before = False, norm = None,ret = 'abs', axes =axes, real_axis='GLOBAL'));
+                return(__cast__(irft(cor, shift = True, shift_before = False, norm = None,ret = 'abs', axes =axes, real_axis='GLOBAL'), old_arr));
             else:
-                return(irft(cor, shift = True, shift_before = False, norm = None, axes =axes, real_axis='GLOBAL'));
+                return(__cast__(irft(cor, shift = True, shift_before = False, norm = None, axes =axes, real_axis='GLOBAL'), old_arr));
     else:
         raise ValueError('Images have different dimensions')
         return(M1)
@@ -1555,6 +1604,7 @@ def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
                    will clip the image im between 20 and 30 in the x-axis and 100 and 300 in the z-axis
             
     '''
+    old_arr = im;
     if extend ==  'DEFAULT':
         extend = __DEFAULTS__['EXTRACT_EXTEND'];
    
@@ -1568,7 +1618,7 @@ def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
         else:
             raise ValueError('Lacking roi information')
     if roi is None:
-        return(im);
+        return(__cast__(im, old_arr));
     else:
         padding = [[0,0] for i in range(im.ndim)]
         if (axes == None):
@@ -1606,10 +1656,10 @@ def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
                     im = im[low:up];
                     im = im.swapaxes(0,axes[r[0]]);
         if extend == False:
-            return(im)    
+            return(__cast__(im, old_arr))
         else:
             padding = tuple([tuple(i) for i in padding]);
-            return(np.lib.pad(im,padding,'constant'))
+            return(__cast__(np.lib.pad(im,padding,'constant'), old_arr))
 
 def supersample(im, factor = 2, axis = (0,1), full_fft = False):
     '''
@@ -1671,8 +1721,8 @@ def supersample(im, factor = 2, axis = (0,1), full_fft = False):
         im.pixelsize = [i*factor for i in orig.pixelsize];
         from .util import normalize;        
         im = normalize(im, 3, r);
-        return(im.astype(im.dtype));
+        return(__cast__(im.astype(im.dtype),orig));
     else:
         from .util import normalize;        
-        return(normalize(im.astype(im.dtype),3,r));
+        return(__cast__(normalize(im.astype(im.dtype),3,r), orig));
             

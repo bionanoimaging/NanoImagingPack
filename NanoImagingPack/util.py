@@ -93,7 +93,15 @@ def ftimer(func):
             rt = end-start;
             print(f'Runtime of {func.__name__!r} is {rt:.3f} secs ')
         return(wrap_tmr);
-        
+
+def inrange(arr, ran):
+    '''
+        check if the elements of the array (or number) arr are inside the range of ran (tuple or list)
+    '''
+    if ran[0]>ran[1]:
+        ran = ran[::-1];
+    return((arr>ran[0])&(arr<ran[1]))
+
 def zernike(r,m,n, radial = False):
     
     '''
@@ -420,7 +428,7 @@ def get_max(M,region = [-1,-1,-1,-1]):
     MAX = max_coord(M);
     return(region[0]-region[2]//2+MAX[1],region[1]-region[3]//2+MAX[0])
 
-def adjust_lists(l1,l2):
+def adjust_lists(l1,l2, el =0):
     '''
         adjust the length of two lists by appending zeros to the shorter ones
     '''
@@ -432,14 +440,16 @@ def adjust_lists(l1,l2):
     if len(l1) == len(l2):
         return(l1,l2);
     elif len(l1) > len(l2):
-        l2+=[0 for i in range(len(l1)-len(l2))];
+        l2+=[el for i in range(len(l1)-len(l2))];
         return(l1,l2)
     elif len(l1) < len(l2):
-        l1+=[0 for i in range(len(l2)-len(l1))];
+        l1+=[el for i in range(len(l2)-len(l1))];
         return(l1,l2)
 
 def get_type(var):
     '''
+
+        TODO: DEPRICATE
         get the type of the variable:
             
             parameter         var -> some object
@@ -523,3 +533,60 @@ def zeros(s,dtype=None,order='C'):
     if isnp(s):
         s=s.shape
     return image(np.zeros(s,dtype,order))
+
+
+def __cast__(arr, orig_arr=None):
+    '''
+        this function should cast the array returned by functions correctly dendent on what is the desired format
+
+        input:
+                arr: the array to return
+                orig_arr: original array -> from here the image features might be deduced!
+                            -> can also be some list etc. -> than it is treated like nparray
+
+        The way how to cast is set up in the config __DEFAULTS__['ARRAY_RETURN_TYPE']
+        Can be
+            'image'   returns image type -> properties are adapted from original image (if given) or as stated in Defaults , also: If input is a OTF or equal it returns a OTF
+            'IMAGE' like 'image' but OTFs etc will be casted to image!
+            'ndarray' returns numpy array
+            'asInput' same type as input image
+
+    '''
+    from .image import image;
+    from .config import __DEFAULTS__;
+    # from .util import get_type
+
+    if not isinstance(orig_arr, np.ndarray):
+        orig_arr = np.zeros(0)
+    if __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'IMAGE':
+        if type(arr) is not image:
+            return (arr.view(type=image));
+        else:
+            return (arr);
+
+    elif __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'image':
+        if isinstance(arr, image):
+            return (arr);
+        else:
+            arr = image(arr);  # Cast as image
+            if isinstance(orig_arr, image):
+                arr.__array_finalize__(orig_arr);  # if original array was image -> copy members!
+            return (arr.view(type=image));
+    elif __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'ndarray':
+        if type(arr) is not np.ndarray:
+            return (np.asarray(arr));
+        else:
+            return (arr);
+    elif __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'asInput':
+        if type(arr) == type(orig_arr):
+            return (arr);
+        else:
+            arr = arr.view(type=type(
+                orig_arr));  # here it important that we checked if orig_arr was at least array type before -> if not -> make it array
+            if isinstance(orig_arr, image):
+                arr.__array_finalize__(orig_arr);  # if original array was image -> copy members!
+            return (arr)
+    else:
+        raise ValueError(
+            'ARRAY_RETURN_TYPE msut be "asInput", "image", "IMAGE", or "ndarray". Set it correctly in __DEFAULTS__');
+#

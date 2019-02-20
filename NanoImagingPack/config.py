@@ -55,9 +55,12 @@ __DEFAULTS__ ={
         #'IMG_PIXELSIZES': [50,50,100],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXELSIZES': [100,50, 50],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
-        'IMG_TIFF_FORMATS': ['tif', 'tiff','TIF', 'TIFF'],
-        'IMG_ZEISS_FORMATS': ['czi', 'CZI'],
-        'IMG_VIEWER': 'VIEW5D',  # RH 3.2.19         # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
+        'IMG_TIFF_FORMATS': ['tif', 'tiff'],
+        'IMG_IMG_FORMATS':  ['bmp', 'png'],
+        'IMG_ZEISS_FORMATS': ['czi'],
+        'IMG_DEFAULT_IMG_FOLDERS' :[os.path.split(__file__)[0]+r'\\resources'],     # Default folders to find images
+        'IMG_DEFAULT_IMG_NAME' : 'todesstern',                 # Default image to load
+        'IMG_VIEWER': 'VIEW5D',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!
         
@@ -104,6 +107,8 @@ __DEFAULTS__ ={
         'CC_ABS_RETURN': True      # if true, the absolute value will be returned when correlating real images
         
         
+        # SIM STUFF
+        'SHOW_GRAT_SEARCH_INFO': True,
         }
 
 def DBG_MSG(text, level):
