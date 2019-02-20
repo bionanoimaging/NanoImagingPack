@@ -176,15 +176,11 @@ class image(np.ndarray):
         if pixelsize is None:
             p = __DEFAULTS__['IMG_PIXELSIZES'];
             self.pixelsize = [i*0+1.0 for i in self.shape];    
-            for i in range(len(self.shape)):
-                if i >= len(p):
-                    self.pixelsize[i] = p[len(p)-1];
-                else:
-                    self.pixelsize[i] = p[i];
+            self.pixelsize[-len(self.shape)::] = p[-len(self.shape)::]
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
-            if len(pixelsize) > self.ndim: pixelsize = pixelsize[:self.ndim];
-            if len(pixelsize) < self.ndim: pixelsize += [i*0+1.0 for i in range(self.ndim-len(pixelsize))];
+            if len(pixelsize) > self.ndim: pixelsize = pixelsize[-self.ndim:];
+            if len(pixelsize) < self.ndim: pixelsize = [i*0+1.0 for i in range(self.ndim-len(pixelsize))] + pixelsize;
             self.pixelsize = pixelsize
         elif isinstance(pixelsize, numbers.Number) :
             self.pixelsize = [i*0+pixelsize for i in self.shape];
@@ -484,22 +480,23 @@ class image(np.ndarray):
         
         p = __DEFAULTS__['IMG_PIXELSIZES'];
         if type(obj) == type(self):
-            pxs = [i*0+1.0 for i in self.shape];
+            pxs  = [i*0+1.0 for i in self.shape];    
+#            pxs[-len(self.shape)::] = p[-len(self.shape)::]
             for i in range(len(self.shape)):
                 try:
-                    pxs[i] = obj.pixelsize[new_axes[i]];
+                    pxs[-i-1] = obj.pixelsize[new_axes[-i-1]];
                 except:
                     if i >= len(p):
-                        pxs[i] = p[len(p)-1];
+                        pxs[-i-1] = p[0];
                     else:
-                        pxs[i] = p[i];
+                        pxs[-i-1] = p[-i-1];
         else:
             pxs = [i*0+1.0 for i in self.shape];
             for i in range(len(self.shape)):
                 if i >= len(p):
-                    pxs[i] = p[len(p)-1];
+                    pxs[-i-1] = p[0];
                 else:
-                    pxs[i] = p[i];
+                    pxs[-i-1] = p[-i-1];
         self.pixelsize = pxs;
         self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []});
         self.metadata = getattr(obj,'metadata',[]);
@@ -786,6 +783,9 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
         return image with damped edges
         
         TODO in FUTURE: padding of the image before damping
+        Example:
+            import NanoImagingPack as nip
+            nip.DampEdge(nip.readim()[400:])
     '''
     img=img.astype(np.float32)
     res = np.ones(img.shape);    

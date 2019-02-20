@@ -89,7 +89,7 @@ class transfer():
         self.r = r;
         
         self.s = self.NA/self.n; 
-        self.aberration_map = np.zeros(self.shape[-2:]);
+        self.aberration_map = nip.zeros(self.shape[-2:]);
 
     def set_vals(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None):
         from .coordinates import rr;
@@ -160,7 +160,7 @@ class transfer():
             self.shape = list(self.shape);
             if len(self.__orig_shape__) == 2:
                 if len(self.shape) ==2:
-                    self.shape = tuple(self.shape + [z_shape]);
+                    self.shape = tuple([z_shape] + self.shape);
                 else:
                     self.shape[-3] = z_shape;
                     
@@ -382,9 +382,7 @@ class transfer():
             ret.pixelsize = px_freq_step(self.shape, ret.pixelsize);
         if self.vectorial and ret_val == 'ctf' or ret_val == 'field':
             ret.dim_description['d3'] = ['Ex','Ey','Ez'];
-        return(ret)    
-
-        
+        return(ret)            
     
     def foc_field(self, ret_val = 'ctf', off_focal_dist = 0):
         '''
@@ -402,7 +400,7 @@ class transfer():
             norm : Normalization of return
         '''
         from scipy.special import j1;
-        from .coordinates import xx,yy, phiphi;
+        from .coordinates import phiphi;
         from .image import image, cat;
         from .transformations import ft, ift;
         
@@ -424,7 +422,7 @@ class transfer():
         # add aplanatic factor
         oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
         validmask=oms2r2>0
-        oms2r2[~validmask]=0.0;
+        ret[~validmask]=0.0;
         if self.aplanar == 'illumination':
             ret[validmask] *=  (oms2r2[validmask])**0.25;   # RH 3.2.19
         elif self.aplanar == 'detection':
@@ -442,26 +440,28 @@ class transfer():
         if self.vectorial:
             def __make_components__(pol, phase):
                 phase = np.exp(1j*phase*np.pi/2);
-                oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
-                oms2r2[oms2r2<0]=0.0;
+                rs=self.r*self.s;
+                rs[rs>1.0]=1.0
+                oms2r2=1-rs**2  # one minus s^2*r^2
+#                oms2r2[oms2r2<0]=0.0;
                 soms2r2=np.sqrt(oms2r2)  # sqrt(one minus s^2*r^2)
                 if pol == 'x':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase; Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase; Ez = np.cos(theta)*self.r*self.s*phase;
+                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase; Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase; Ez = np.cos(theta)*rs*phase;
                 elif pol == 'y':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.sin(theta)*np.cos(theta)*(soms2r2-1))*phase;Ey = (np.sin(theta)**2*soms2r2+np.cos(theta)**2)*phase; Ez = np.sin(theta)*self.r*self.s*phase;
+                    Ex = (np.sin(theta)*np.cos(theta)*(soms2r2-1))*phase;Ey = (np.sin(theta)**2*soms2r2+np.cos(theta)**2)*phase; Ez = np.sin(theta)*rs*phase;
                 elif pol == 'radial':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)*soms2r2)*phase; Ey = (np.sin(theta)*soms2r2)*phase; Ez = self.r*self.s*phase;                
+                    Ex = (np.cos(theta)*soms2r2)*phase; Ey = (np.sin(theta)*soms2r2)*phase; Ez = rs*phase;                
                 elif pol == 'azimuthal':
                     theta = phiphi(shape, offset = 0);
                     Ex = -np.sin(theta)*phase; Ey =  np.cos(theta)*phase; Ez = np.zeros_like(theta);
                 else:
                     theta = phiphi(shape, offset = pol*np.pi/180);
                     Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase;  # RH: Please fix this, yield rundtime warning
-                    Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase;  # RH: Please fix this, yield rundtime warning
-                    Ez = np.cos(theta)*self.r*self.s*phase;
+                    Ey = (np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase;  # RH: Please fix this, yield rundtime warning
+                    Ez = np.cos(theta)*rs*phase;
                 return(Ex,Ey,Ez);
             nfac=1/np.sqrt(2);
             if self.pol_type == 'lin':
@@ -475,7 +475,7 @@ class transfer():
                 Exx, Eyx, Ezx = __make_components__('azimuthal',0);
                 Exy, Eyy, Ezy = __make_components__('radial',0);
                 Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
-            ret = cat((ret*Ex, ret*Ey, ret*Ez),-4);
+            ret = cat((ret*Ez, ret*Ey, ret*Ex),-4);
         
         np.nan_to_num(ret,copy = False);  # is this still necessary?
 
@@ -506,7 +506,7 @@ class transfer():
         if ret_val == 'ctf' or ret_val == 'otf':
             ret.pixelsize = self.px_freq_step;
         if self.vectorial and ret_val == 'ctf' or ret_val == 'field':
-            ret.dim_description['d3'] = ['Ex','Ey','Ez'];
+            ret.dim_description['d3'] = ['Ez','Ey','Ex'];
         return(ret)
     
 

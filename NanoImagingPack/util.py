@@ -522,4 +522,4 @@ def zeros(s,dtype=None,order='C'):
     from .image import image
     if isnp(s):
         s=s.shape
-    return image(np.ones(s,dtype,order))
+    return image(np.zeros(s,dtype,order))
