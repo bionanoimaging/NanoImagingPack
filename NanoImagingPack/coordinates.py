@@ -56,10 +56,10 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
 #        miniramp=miniramp*(np.pi/(mysize//2))
     
     if ramp_dim>0:
-        miniramp=nip.image(expanddim(miniramp,ramp_dim+1)) # expands to this dimension numbe by inserting trailing axes. Also converts to 
+        miniramp=expanddim(miniramp,ramp_dim+1) # expands to this dimension numbe by inserting trailing axes. Also converts to 
     elif ramp_dim<-1:
-        miniramp=nip.image(expanddim(miniramp,-ramp_dim,trailing=True)) # expands to this dimension numbe by inserting prevailing axes. Also converts to 
-    return miniramp;
+        miniramp=expanddim(miniramp,-ramp_dim,trailing=True) # expands to this dimension numbe by inserting prevailing axes. Also converts to 
+    return nip.image(miniramp)
 
 def unifysize(mysize):
     if type(mysize)== np.ndarray or type(mysize) == nip.image:
@@ -104,7 +104,7 @@ def ramp(mysize=(256,256), ramp_dim=-1, placement='center', freq=None, shift=Fal
     if freq=="freq" and not shift:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
             myramp =  np.fft.fftshift(myramp)
     
-    res = np.ones(mysize);
+    res = nip.ones(mysize);
     res *= myramp
    
     return(res);  # RH casted to image
