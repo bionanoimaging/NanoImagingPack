@@ -1663,8 +1663,11 @@ def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
 
 def supersample(im, factor = 2, axis = (0,1), full_fft = False):
     '''
-        supersample an imgage by a given factor (default = 2) along the given axis(default is 0 and 1)
-    
+        supersample (resample, rescale, zoom) an imgage by a given factor (default = 2) along the given axis(default is 0 and 1)
+
+        im: image to supersample         
+        factor: a scalar value (for all axes) or a list of values for individual scales for each axes (...,Z,Y,X)
+                                
     '''
     orig = im;
     if type(axis) == int:
