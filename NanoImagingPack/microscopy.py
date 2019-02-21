@@ -720,36 +720,38 @@ class apsf3d(image):
         self.z_shape=getattr(obj, 'z_shape', None)
         self.trans = getattr(obj, 'trans', None)
         self.dim_description= getattr(obj, 'dim_description', [])
-def create_psf(NA, n, wavelength,pixelsize,magnification):
-    '''
-        Computes an ordinary 2D PSF:
-            If the first zero point of the Besselfunction is smaller than half of the pixelsize, than it 
-            the psf is just one. Otherwise it is computed according to the grid given by the pixels
-        NA: numerical aperture
-        n: refractive index
-        wavelength in nm
-        pixelsize in mum
-        magnificiation
-        
-        We scale the PSF up to the fifths zero point of the besselfunction!
-    '''
-    from scipy import special as spec;
-    N = 1/(2*np.tan(np.arcsin(NA/n)));         # F number
-    wavelength = wavelength/1000;              # wavelength in mum
-    pixelsize = pixelsize/magnification;
-    max_normalize = 7;        # Maximum normalized x -> 16.706 is the 5th zero point of the J1 -function -> can of course be canged
-    if (3.8317*wavelength*N/(np.pi) <= (pixelsize/2)):
-        psf = np.asarray([[1]]);
-    else:
-        x1 = np.arange(0,max_normalize,pixelsize*np.pi/(wavelength*N))
-        x2 = x1[1:];
-        x2 = -1*x2[::-1];
-        x = np.append(x2,x1);
-        X,Y = np.meshgrid(x,x);
-        R = np.sqrt(X**2+Y**2);
-        psf = (2*spec.j1(R)/R)**2
-        psf[np.int8((np.size(x)-1)/2),np.int8((np.size(x)-1)/2)] = 1;
-    return(psf);
+# def create_psf(NA, n, wavelength,pixelsize,magnification):
+#     '''
+#
+#         IS NOT NEEDED ANYMORE : TODO: ELIMINATE IN NEXT VERSION     CK 21.02.2019
+#         Computes an ordinary 2D PSF:
+#             If the first zero point of the Besselfunction is smaller than half of the pixelsize, than it
+#             the psf is just one. Otherwise it is computed according to the grid given by the pixels
+#         NA: numerical aperture
+#         n: refractive index
+#         wavelength in nm
+#         pixelsize in mum
+#         magnificiation
+#
+#         We scale the PSF up to the fifths zero point of the besselfunction!
+#     '''
+#     from scipy import special as spec;
+#     N = 1/(2*np.tan(np.arcsin(NA/n)));         # F number
+#     wavelength = wavelength/1000;              # wavelength in mum
+#     pixelsize = pixelsize/magnification;
+#     max_normalize = 7;        # Maximum normalized x -> 16.706 is the 5th zero point of the J1 -function -> can of course be canged
+#     if (3.8317*wavelength*N/(np.pi) <= (pixelsize/2)):
+#         psf = np.asarray([[1]]);
+#     else:
+#         x1 = np.arange(0,max_normalize,pixelsize*np.pi/(wavelength*N))
+#         x2 = x1[1:];
+#         x2 = -1*x2[::-1];
+#         x = np.append(x2,x1);
+#         X,Y = np.meshgrid(x,x);
+#         R = np.sqrt(X**2+Y**2);
+#         psf = (2*spec.j1(R)/R)**2
+#         psf[np.int8((np.size(x)-1)/2),np.int8((np.size(x)-1)/2)] = 1;
+#     return(psf);
 
 def perfect_psf(im, NA, n, wavelength, pixelsize, mode = 'lateral'):
     from .image import image;
