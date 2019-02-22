@@ -16,8 +16,6 @@ def radial_profile(data, center=None, binsize=1.0):
     calculates the radial profile of an image
     the original code is from https://stackoverflow.com/questions/21242011/most-efficient-way-to-calculate-radial-profile
 
-
-
     Parameters
     ----------
     data: data to calcuate the profile form
@@ -39,7 +37,7 @@ def radial_profile(data, center=None, binsize=1.0):
         center=data.mid()
         
     y,x = np.indices((data.shape)) # first determine radii of all pixels
-    r = np.sqrt((x-center[0])**2+(y-center[1])**2)    
+    r = np.sqrt((x-center[1])**2+(y-center[0])**2)    
 
     # radius of the image.
     r_max = np.max(r)  

@@ -1599,6 +1599,7 @@ def centered_extract(img,ROIsize,centerpos=None,PadValue=0.0):
         ROIsize=mysize
     if centerpos==None:
         centerpos=[sd//2 for sd in mysize]
+#    print(nip.ROIcoords(centerpos,ROIsize,img.ndim))
     res=img[nip.ROIcoords(centerpos,ROIsize,img.ndim)]
     if PadValue is None:
         return res
