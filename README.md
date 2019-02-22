@@ -22,10 +22,5 @@ Getting started:
 		helper functions such as ramps, xx, yy, zz, freq/realspace coord transforms
 
 
-Should not require any dependencies up to now, which are not available in Anaconda, except of tifffile reader "tifffile"
 
-If installation parser fails to install tifffile install it via:
-
-conda install -c conda-forge tifffile 
-
-
+See "dependencies.txt" for help required dependencies
