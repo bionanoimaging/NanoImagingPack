@@ -1,0 +1,74 @@
+Up until now I haven't set the dependency installation correctly. Majorly, as the final package shall be a conda-package rather than a pip package
+
+If you have anaconda already installed (and I highly recommend to do so) you only have to install 2 dependency packages:
+
+	tifffile
+	pyjnius (for using VIEW5D)
+
+If you are not using anaconda you have to install a lot of extra packages IN ADDITION such as:
+	numpy
+	scipy
+	re
+	inspect
+	... (you will get error messages when running the NanoImagingPack and then install those)
+
+
+tifffile
+========
+
+Install the tiff handler tifffile via
+
+conda install -c conda-forge tifffile
+
+
+pyjnius for VIEW5D
+==================
+
+Rainer cool viewer requires the Java Virtual machine and pyjnius. That has to be set up.
+!!! Note you should use anaconda for successfully running this package!!!
+
+
+1.) Windows:
+
+	a. install pyjnius (type in cmd):
+		conda install -c conda-forge pyjnius
+
+	b. set up Java
+		- Download JRE from 
+			https://java.com/en/download/
+
+		- set up environment variables:
+			* at the system PATH variable add the java\bin folder (should contain java.exe):
+					C:\Program Files\Java\jre1.8.0_201\bin    (in my case!)
+			
+			* if you installed Python only for your account: 
+				- add new Variable (at user variables): 
+					Name = JAVA_HOME
+					Value = java\bin folder (should contain java.exe; C:\Program Files\Java\jre1.8.0_201\bin   in my case!)
+				- add the folder that contains jvm.dll to user variable PATH (should be C:\Program Files\Java\jre1.8.0_201\bin\server)
+								
+			* if you installed Python only for your account: 
+				- do the same as above but for the system variables instead of the user variable
+
+2.) Linux:
+	a. install pyjnius (type in cmd):
+		conda install -c conda-forge pyjnius
+
+	b. install java runtime environment (if not yet done, acutally linux should have that)
+		- note openJDK7 or 6 (as in my Ubuntu V14 only availible) will not work
+		- however an openJDK11 will be installed automatically, once you install pyjnius via conda 
+		- it is found in the site packages folder of your Anaconda installation (e.g. /home/christian/anaconda3/pkgs/openjdk-11.0.1-h14c3975_1014/
+
+	c. set up JAVA_HOME: 
+		- Check if set via
+				echo $JAVA_HOME
+		- If nothing appears its not set (or points towards an opendJDK6 or 7 version), set it:
+			
+			- edit the file /etc/environment
+			- add the line JAVA_HOME="/home/christian/anaconda3/pkgs/openjdk-11.0.1-h14c3975_1014/" (or the your JAVA HOME folder)
+			- reboot
+			- if you have an open JDK8 or 11 version installed you should be able to use its path for the JAVA_HOME-dir as well
+		- NOTE: Editing of /etc/environment will permanently add the JAVA_HOME, some people consider this to be not nice. You can also add it at every session new via:
+				export JAVA_HOME="/home/christian/anaconda3/pkgs/openjdk-11.0.1-h14c3975_1014/"
+
+Christian, 22.02.2019
