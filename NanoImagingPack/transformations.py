@@ -6,12 +6,23 @@ Created on Thu Jul 27 16:35:07 2017
 @author: root
 """
 import numpy as np;
+import NanoImagingPack as nip;
 from .config import DBG_MSG,__DEFAULTS__;
 from .util import get_type;
 from .image import image;
 from .view5d import v5 # for debugging
 
 __REAL_AXIS__ = 0;
+
+def resizeft(data,factors=2):
+    '''
+        resizes data based on FFTs by estimating the nearest interger size in expanded Fourier space and using centered_extract in Fourier space
+    '''
+    factors = nip.repToList(factors,data.ndim)
+    intfac=[np.floor(data.shape[d] * factors[d]).astype("int32") for d in range(data.ndim)]
+    data=np.real(nip.ift(nip.centered_extract(nip.ft(data),list(intfac))))
+    return data
+
 
 def ft2d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = None, norm = 'DEFAULT'):
     '''
@@ -419,6 +430,7 @@ def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = 
         print('Real axis not in ift axes list -> Performing normal ifft!')
         return image(ift(im, shift = shift,shift_before = shift_before, ret =ret, axes = axes, s = s, norm =norm))
      
+
 
 #def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT', real_axis = 'DEFAULT'):
 #    '''

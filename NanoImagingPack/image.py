@@ -1585,6 +1585,28 @@ def line_cut(im,coord1 = 0, coord2 = None,thickness = 10):
         im = np.reshape(im, (im.shape[0], im.shape[1], np.prod(np.asarray(im.shape)[2:])));
         return([__get_line__(im[:,:,i]) for i in range(im.shape[2])])      
 
+
+def centered_extract(img,ROIsize,centerpos=None,PadValue=0.0):
+    '''
+        extracts a part in an n-dimensional array based on stating the center and ROI size
+        
+        ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
+        centerpos: center of the ROI in source image to exatract
+        PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
+    '''
+    mysize=img.shape
+    if ROIsize==None:
+        ROIsize=mysize
+    if centerpos==None:
+        centerpos=[sd//2 for sd in mysize]
+    res=img[nip.ROIcoords(centerpos,ROIsize,img.ndim)]
+    if PadValue is None:
+        return res
+    else: # perform padding
+        pads=[(max(0,ROIsize[d]//2-centerpos[d]),max(0,centerpos[d]+ROIsize[d]-mysize[d]-ROIsize[d]//2)) for d in range(img.ndim)]
+#        print(pads)
+        res=nip.image(np.pad(res,tuple(pads),'constant',constant_values=PadValue)) #,PadValue
+        return res
     
 def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
     '''

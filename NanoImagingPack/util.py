@@ -11,6 +11,7 @@ all kind of utils;
 
 
 import numpy as np;
+import numbers;
 import time;
 import functools;
 
@@ -185,6 +186,42 @@ def scale_log(M, c =1):
             c*log(1+|M|)
     '''
     return(c*np.log(1+np.abs(M.astype(np.float64))));
+
+def repToList(val,ndim):
+    '''
+        converts a value to a list (if not already a list) and replicates a single input value to a chosen number of dimensions if needed        
+        
+        Useful for more generic use of parameters (skalar or vector of one value for each dimension)
+        val: value or list to process
+        ndim: number of dimensions
+    '''
+    if isinstance(val, numbers.Number):
+        return ndim*[val]
+    return val
+
+def ROIcoords(center,asize,ndim=None):
+    '''
+        constructs a coordinate vector which can be used by numpy for an array acccess 
+        center: list or tuple of center coordinates
+        asize: size of the ROI to extract. Will automatically be limited by the array sizes when applied
+        ndim (default=None): total number of dimensions of the array (generates preceeding ":" for access)
+    '''    
+    
+    if ndim==None:
+        ndim=len(center)
+
+    slices=[]
+    if ndim>len(center):
+        slices=(ndim-len(center))*slice(None)
+    for d in range(ndim-len(center),ndim): # only specify the last dimensions
+        asp = asize[d]
+        if asp < 0:
+            raise ValueError("ashape has to be >= 0")
+        astart = center[d]-asp//2;
+        astop = astart + asp
+        slices.append(slice(max(astart,0),max(astop,0)))
+    
+    return tuple(slices)
 
 def expand(vector, size, transpose = False):
     '''
