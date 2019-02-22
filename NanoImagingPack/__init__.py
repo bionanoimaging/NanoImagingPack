@@ -32,8 +32,9 @@ from .config import __DEFAULTS__;
 from . import resources;
 from . import sim;
 from . import EXTERNAL;
-set_cfg();
 
+from .EXTERNAL.contrib import *;
+set_cfg();
 
 
 name = __title__;   # to be depreciated

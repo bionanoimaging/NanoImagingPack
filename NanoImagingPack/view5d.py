@@ -5,7 +5,8 @@ Created on Fri Aug 10 15:45:37 2018
 @author: pi96doc
 """
 from pkg_resources import resource_filename
-from NanoImagingPack import expanddim
+import NanoImagingPack as nip
+from NanoImagingPack.util import expanddim
 
 global JNIUS_RUNNING
 if ~('JNIUS_RUNNING' in globals()):
