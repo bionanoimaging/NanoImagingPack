@@ -1593,12 +1593,17 @@ def centered_extract(img,ROIsize,centerpos=None,PadValue=0.0):
         ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
         centerpos: center of the ROI in source image to exatract
         PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
+        
+        Example:
+            nip.centered_extract(nip.readim(),[799,799],[-1,-1],100) # extracts the right bottom quarter of the image
     '''
     mysize=img.shape
     if ROIsize==None:
         ROIsize=mysize
     if centerpos==None:
         centerpos=[sd//2 for sd in mysize]
+    else:
+        centerpos=nip.coordsToPos(centerpos,mysize)
 #    print(nip.ROIcoords(centerpos,ROIsize,img.ndim))
     res=img[nip.ROIcoords(centerpos,ROIsize,img.ndim)]
     if PadValue is None:

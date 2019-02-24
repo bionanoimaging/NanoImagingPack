@@ -15,6 +15,24 @@ import numbers;
 import time;
 import functools;
 
+class struct(object): # this class can be used as a base class or simply be instantiated to mimic a struct (like matlab) with pretty print
+    def __str__(self):
+#            print(self.__dict__)
+        itemDir = self.__dict__
+        s=""
+        for i in itemDir:
+            if not i.startswith("__"):
+                s=s+('{0} = {1}'.format(i, itemDir[i]))+"\n"
+        itemDir = self.__class__.__dict__
+#        s=s+"# class attributes:\n"
+        for i in itemDir:
+            if not i.startswith("__"):
+                s=s+('{0} = {1}'.format(i, itemDir[i]))+"\n"
+        return s
+    def __repr__(self):
+        return self.__str__()
+    
+
 class timer():
     '''
         A simple class for measuring times:
@@ -198,6 +216,19 @@ def repToList(val,ndim):
     if isinstance(val, numbers.Number):
         return ndim*[val]
     return val
+   
+def coordsToPos(coords,ashape):
+    '''
+        converts a coordinate vector to a list of all-positive number using a given shape.
+        
+        coords: list, tuple or np.array of positions (mixed positive and negative)
+        ashape: vector of shape with the same length
+        
+    '''    
+    mylen=len(coords)
+    assert(mylen==len(ashape))
+    return [coords[d]+(coords[d]<0)*ashape[d] for d in range(mylen)]
+ #   return [coords[d]%ashape[d] for d in range(len(coords))]
 
 def ROIcoords(center,asize,ndim=None):
     '''
