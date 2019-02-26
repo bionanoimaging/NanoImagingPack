@@ -111,6 +111,7 @@ def ftimer(func):
             end = time.perf_counter();
             rt = end-start;
             print(f'Runtime of {func.__name__!r} is {rt:.3f} secs ')
+            return value
         return(wrap_tmr);
 
 def inrange(arr, ran):
@@ -204,6 +205,12 @@ def scale_log(M, c =1):
             c*log(1+|M|)
     '''
     return(c*np.log(1+np.abs(M.astype(np.float64))));
+
+def toList(val):
+    if isinstance(val, numbers.Number):
+        return [val]
+    else:
+        return val
 
 def repToList(val,ndim):
     '''
