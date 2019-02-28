@@ -15,6 +15,24 @@ import numbers;
 import time;
 import functools;
 
+class struct(object): # this class can be used as a base class or simply be instantiated to mimic a struct (like matlab) with pretty print
+    def __str__(self):
+#            print(self.__dict__)
+        itemDir = self.__dict__
+        s=""
+        for i in itemDir:
+            if not i.startswith("__"):
+                s=s+('{0} = {1}'.format(i, itemDir[i]))+"\n"
+        itemDir = self.__class__.__dict__
+#        s=s+"# class attributes:\n"
+        for i in itemDir:
+            if not i.startswith("__"):
+                s=s+('{0} = {1}'.format(i, itemDir[i]))+"\n"
+        return s
+    def __repr__(self):
+        return self.__str__()
+    
+
 class timer():
     '''
         A simple class for measuring times:
@@ -93,6 +111,7 @@ def ftimer(func):
             end = time.perf_counter();
             rt = end-start;
             print(f'Runtime of {func.__name__!r} is {rt:.3f} secs ')
+            return value
         return(wrap_tmr);
 
 def inrange(arr, ran):
@@ -187,6 +206,12 @@ def scale_log(M, c =1):
     '''
     return(c*np.log(1+np.abs(M.astype(np.float64))));
 
+def toList(val):
+    if isinstance(val, numbers.Number):
+        return [val]
+    else:
+        return val
+
 def repToList(val,ndim):
     '''
         converts a value to a list (if not already a list) and replicates a single input value to a chosen number of dimensions if needed        
@@ -198,6 +223,19 @@ def repToList(val,ndim):
     if isinstance(val, numbers.Number):
         return ndim*[val]
     return val
+   
+def coordsToPos(coords,ashape):
+    '''
+        converts a coordinate vector to a list of all-positive number using a given shape.
+        
+        coords: list, tuple or np.array of positions (mixed positive and negative)
+        ashape: vector of shape with the same length
+        
+    '''    
+    mylen=len(coords)
+    assert(mylen==len(ashape))
+    return [coords[d]+(coords[d]<0)*ashape[d] for d in range(mylen)]
+ #   return [coords[d]%ashape[d] for d in range(len(coords))]
 
 def ROIcoords(center,asize,ndim=None):
     '''
