@@ -1237,17 +1237,15 @@ def cat(imlist, axis=None, destdims=None):
             print('WARNING: Axis larger than destdims -> adjusting destims to '+str(axis+1));
             destdims = axis+1; 
         maxdims=destdims
-    print(maxdims)
-    print(axis)
+
     imlist = adjust_dims(imlist, maxdims);
     shapes = np.asarray([list(im.shape) for im in imlist])    
-    print(shapes)
+
     
     if axis <0:
         ax = shapes.shape[1]+axis;
     else:
         ax = axis;
-    print(ax);
     for i in range(shapes.shape[1]):
         if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != ax):
             imlist = [match_size(im, imlist[np.argmax(shapes[:,i])], i, padmode ='constant', odd = False)[0] for im in imlist] 
@@ -1609,10 +1607,11 @@ def centered_extract(img,ROIsize,centerpos=None,PadValue=0.0):
         ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
         centerpos: center of the ROI in source image to exatract
         PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
-        
+       
         Example:
             nip.centered_extract(nip.readim(),[799,799],[-1,-1],100) # extracts the right bottom quarter of the image
-    '''
+
+   '''
     mysize=img.shape
     if ROIsize==None:
         ROIsize=mysize
