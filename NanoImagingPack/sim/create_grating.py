@@ -22,7 +22,7 @@ def generate_grating(grating_para,phase_nr, num_phases,dim_slm= [1280, 1024],met
     binary_threshold is for unequal population
     '''
     from .find_grating import calc_per, calc_orient;
-    from ..coordinates import xx, yy;
+    from ..coordinates import xx, yy, zz;
     if np.ndim(grating_para) == 1:
         period = calc_per(*grating_para);
         direction = calc_orient(grating_para[2],grating_para[3])
@@ -37,7 +37,9 @@ def generate_grating(grating_para,phase_nr, num_phases,dim_slm= [1280, 1024],met
         period = calc_per(grating_para[0,:],grating_para[1,:],grating_para[2,:],grating_para[3,:]);
         direction = calc_orient(grating_para[2,:],grating_para[3,:])
         k =2*np.pi/period*np.asarray([np.sin(direction*np.pi/180), np.cos(direction*np.pi/180)]);
-        grating = np.sin(xx(dim_slm+[grating_para.shape[1]])*k[0]+yy(dim_slm+[grating_para.shape[1]])*k[1]+phase_nr*np.pi*periods/num_phases+1E-4);
+                      
+        #xx becomes yy, yy become zz due to new indexing
+        grating = np.sin(yy(dim_slm+[grating_para.shape[1]])*k[0]+zz(dim_slm+[grating_para.shape[1]])*k[1]+phase_nr*np.pi*periods/num_phases+1E-4);
         if blaze >=0:
             add_blaze = blaze*np.mod((xx(dim_slm+[grating_para.shape[1]])*k[0]+yy(dim_slm+[grating_para.shape[1]])*k[1]+phase_nr*np.pi*periods/num_phases+1E-4)/2/np.pi,1.0);
         else:
@@ -61,7 +63,7 @@ def generate_grating2(grating_para,phase_nr, num_phases,dim_slm= [1280, 1024],me
     binary_threshold is for unequal population
     '''
     from .find_grating import calc_per, calc_orient;
-    from ..coordinates import xx, yy;
+    from ..coordinates import xx, yy, zz;
     if np.ndim(grating_para) == 1:
         
         period = calc_per(*grating_para);
@@ -76,7 +78,7 @@ def generate_grating2(grating_para,phase_nr, num_phases,dim_slm= [1280, 1024],me
         period = calc_per(grating_para[0,:],grating_para[1,:],grating_para[2,:],grating_para[3,:]);
         direction = calc_orient(grating_para[2,:],grating_para[3,:])
         k =2*np.pi/period*np.asarray([np.sin(direction*np.pi/180), np.cos(direction*np.pi/180)]);
-        grating = np.sin(xx(dim_slm+[grating_para.shape[1]])*k[0]+yy(dim_slm+[grating_para.shape[1]])*k[1]+phase_nr*2*np.pi*periods/num_phases);
+        grating = np.sin(yy(dim_slm+[grating_para.shape[1]])*k[0]+zz(dim_slm+[grating_para.shape[1]])*k[1]+phase_nr*2*np.pi*periods/num_phases);
         if blaze >=0:
             add_blaze = blaze*np.mod((xx(dim_slm+[grating_para.shape[1]])*k[0]+yy(dim_slm+[grating_para.shape[1]])*k[1]+phase_nr*2*np.pi*periods/num_phases)/2/np.pi,1.0);
         else:
@@ -169,7 +171,28 @@ def save_grating_im(path,num_phase,dim_slm, para_set,circle_rad = -1,name_ext=''
         im2.save(path+name,form);
 
 
-
+def load_grat_para_file(para_path, version =2):
+    '''
+        load a parameter file for grating generation
+        
+        input:
+               para file path
+               version (should be 2)
+        returns:
+            Paras
+            Num_phases
+    
+    '''
+    with open(para_path) as f:
+        lines = f.readlines();
+    l  = lines[6];
+    NumPhases=int(l[14:]);
+    f.close();
+    if version <2:
+        Paras = np.loadtxt(para_path, dtype = int, skiprows = 16); # axis 0: paras of one combination wavelength, angle etc
+    elif version == 2:
+        Paras = np.loadtxt(para_path, dtype = int, skiprows = 17); # axis 0: paras of one combination wavelength, angle etc
+    return(Paras, NumPhases)
 
 def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_aperture_radius = -1, name_tag = '', test_grating_shift = False, bitdepth = 1, form = 'png', val = 'max', method = 'binary', version = 2, blaze_vec = None):
     '''
@@ -232,16 +255,12 @@ def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_ape
             val = [0,255];
     
     
+    Paras,NumPhases = load_grat_para_file(para_path, version);
     
-    with open(para_path) as f:
-        lines = f.readlines();
-    l  = lines[6];
-    NumPhases=int(l[14:]);
-    f.close();
-    if version <2:
-        Paras = np.loadtxt(para_path, dtype = int, skiprows = 16); # axis 0: paras of one combination wavelength, angle etc
-    elif version == 2:
-         Paras = np.loadtxt(para_path, dtype = int, skiprows = 17); # axis 0: paras of one combination wavelength, angle etc
+    
+    
+    
+    
     if (Save_Grat_Folder[-1]!= '/'): 
         Save_Grat_Folder = Save_Grat_Folder+'/';
     

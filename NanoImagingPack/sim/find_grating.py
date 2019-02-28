@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt;
 import datetime
 import time
 from copy import deepcopy
+from ..config import __DEFAULTS__;
+
 
 class PARA_SET:
     '''
@@ -62,7 +64,7 @@ class PARA_SET:
         '''
         
         from ..coordinates import xx, yy;
-        from ..util import gauss2D;
+        from ..functions import gauss2D;
         from ..transformations import ft;
         from .create_grating import generate_grating;
         import numbers;
@@ -186,11 +188,12 @@ def calc_orient(apx,apy):
     np.seterr(divide='warn', invalid='warn')
     return(phi)
 
-def check_phase_steps(num_phase, para):
+def check_phase_steps(num_phase, para,PhaseCheckMethod=2):
     '''
       Checks if equidistant phase steps are possilbe 
           -> input: number of phases and list with the parameters (axis0: parameters, axis1: list)
           -> output: list with parameters, where phase steps are possible
+          -> PhaseCheckMethod=2
     '''
     ahx = para[0,:];    #h_x
     ahy = para[1,:];    #h_y
@@ -198,21 +201,22 @@ def check_phase_steps(num_phase, para):
     apy = para[3,:];    #theta_y
     np.seterr(divide='ignore', invalid='ignore')
 
-    
-
-#    apx = apx//gcd(apx,apy);
-#    apy = apy//gcd(apx,apy);
-#    vert = (ahx == 0)*(np.mod(ahy,num_phase)==0)+(ahx!=0)*(np.mod((lcm(np.abs(ahx),np.abs(apx))*(apy/apx-ahy/ahx)) ,num_phase)==0)
-#    hor = (ahy==0)*(np.mod(ahy,num_phase)==0)+(ahy!=0)*(np.mod((lcm(np.abs(ahy),np.abs(apy))*(apx/apy-ahx/ahy)) ,num_phase)==0)
-    
-    vert = (ahx == 0)*(np.mod(ahy,num_phase)==0)+(ahx!=0)*(np.mod(lcm(np.abs(ahx),np.abs(apx))*apy/apx-ahy/ahx ,num_phase)==0)
-    hor = (ahy==0)*(np.mod(ahy,num_phase)==0)+(ahy!=0)*(np.mod(lcm(np.abs(ahy),np.abs(apy))*apx/apy-ahx/ahy ,num_phase)==0)
+    if PhaseCheckMethod == 2:
+        apx = apx//gcd(apx,apy);
+        apy = apy//gcd(apx,apy);
+        vert = (ahx == 0)*(np.mod(ahy,num_phase)==0)+(ahx!=0)*(np.mod((lcm(np.abs(ahx),np.abs(apx))*(apy/apx-ahy/ahx)) ,num_phase)==0)
+        hor = (ahy==0)*(np.mod(ahy,num_phase)==0)+(ahy!=0)*(np.mod((lcm(np.abs(ahy),np.abs(apy))*(apx/apy-ahx/ahy)) ,num_phase)==0)
+    elif PhaseCheckMethod == 1:    
+        vert = (ahx == 0)*(np.mod(ahy,num_phase)==0)+(ahx!=0)*(np.mod(lcm(np.abs(ahx),np.abs(apx))*apy/apx-ahy/ahx ,num_phase)==0)
+        hor = (ahy==0)*(np.mod(ahy,num_phase)==0)+(ahy!=0)*(np.mod(lcm(np.abs(ahy),np.abs(apy))*apx/apy-ahx/ahy ,num_phase)==0)
+    else:
+         raise ValueError('Wrong PhaseStepMethod: Must be 1 or 2 -> Check DocString for help!');
     vert[np.isnan(vert)] = False;
     hor[np.isnan(hor)] = False;
     np.seterr(divide='warn', invalid='warn')
-    return  para[:,np.nonzero((hor*vert)*1)[0]];            
+    return  para[:,np.nonzero((hor+vert)*1)[0]];            
 
-def search_for_matching_k(start, end, num_phases, k, dk, fixed_angle_set = None):
+def search_for_matching_k(start, end, num_phases, k, dk, fixed_angle_set = None, PhaseCheckMethod=2):
     '''
         This function searches a given pixelspace from start to end in steps of one for phi_x, phi_y, hx and hy
         and returns an array consisting of arrays [ahx, ahy, apx, apy] that contain the pixel values in order to fullfill the grating condition
@@ -259,10 +263,10 @@ def search_for_matching_k(start, end, num_phases, k, dk, fixed_angle_set = None)
     '''
     Fullfill phase step conditidon
     '''
-    res2 = check_phase_steps(num_phases, res)
+    res2 = check_phase_steps(num_phases, res, PhaseCheckMethod)
     return(res2)
 
-def search_direction(start_ang, d_ang, num_dir, para):
+def search_direction(start_ang, d_ang, num_dir, para, fixed_angle_set= None):
     '''
         Searches all parameter sets that produce gratings with the given orientation. 
         The function returns a list with arrays of parameter sets. Each element in the list stands for one orientation
@@ -270,15 +274,22 @@ def search_direction(start_ang, d_ang, num_dir, para):
     
     apx = para[2,:];    #phi_x
     apy = para[3,:];    #phi_y
-    orientation = calc_orient(apx,apy);
     para_list=[];
-    for i in np.arange(0,num_dir,1):
-        angle = i*180/num_dir+start_ang;
-        if angle > 90: angle = angle -180;
-        condition = (orientation > (angle-d_ang/2))*(orientation<((angle+d_ang/2)));
-        index_list = np.squeeze(np.asarray(condition.nonzero()))
+    
+    if fixed_angle_set is None:
+        orientation = calc_orient(apx,apy);
+        for i in np.arange(0,num_dir,1):
+            angle = i*180/num_dir+start_ang;
+            if angle > 90: angle = angle -180;
+            condition = (orientation > (angle-d_ang/2))*(orientation<((angle+d_ang/2)));
+            index_list = np.squeeze(np.asarray(condition.nonzero()))    
+            res = para[:,index_list]
+            para_list.append(res)     
+    else:
+        condition = (apx == fixed_angle_set[0])*(apy == fixed_angle_set[1]);
+        index_list = np.squeeze(np.asarray(condition.nonzero()))    
         res = para[:,index_list]
-        para_list.append(res)
+        para_list.append(res)     
     return(para_list)
 
 def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, f = 300):
@@ -286,7 +297,7 @@ def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, 
         Generate the fouriermask:
             num_dir: number of directions
             start_dir: desired direction
-            dim_slm: dimensions of the slm (required for pixel size of the mast) in pixel
+            dim_slm: dimensions of the slm (required for pixel size of the mst) in pixel
             h_diameter: hole diameter in mm
             wl: wavelength in nm
             period: grating period in pixelsize
@@ -299,13 +310,15 @@ def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, 
     from ..mask import create_circle_mask;
     from ..coordinates import bfp_coords;
     import numpy as np;
-    bfp_xx = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f);           # coordinates in back focal plane
-    bfp_yy = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, ax = 1);
+    bfp_xx = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 0);           # coordinates in back focal plane
+    bfp_yy = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 1);
+    # pixelsize in the BackfocalPlane in mm    
     bfp_px_size = ((np.max(bfp_xx)-np.min(bfp_xx))/bfp_xx.shape[0],(np.max(bfp_yy)-np.min(bfp_yy))/bfp_yy.shape[1]);
-    d= wl/1000*f/(period*pixelsize);                                        #distance in the backfocal plane in mm
-    # compute part of the mask for the wanted transmissions
-    x_pos = d*np.sin(wanted_dir*np.pi/180)/bfp_px_size[0]
-    y_pos = d*np.cos(wanted_dir*np.pi/180)/bfp_px_size[1]
+    d= wl/1000*f/(period*pixelsize);                #distance in the backfocal plane in mm
+    
+    # compute part of the mask for the wanted transmissions 
+    x_pos = d*np.sin(wanted_dir*np.pi/180)/bfp_px_size[1]         # indexes changed due to new indexing
+    y_pos = d*np.cos(wanted_dir*np.pi/180)/bfp_px_size[0]
     mask_wanted_dir  = create_circle_mask(dim_slm, maskpos = (x_pos,y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
     mask_wanted_dir += create_circle_mask(dim_slm, maskpos = (-x_pos,-y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
     # compute the mask for the unwanted transmission
@@ -348,7 +361,7 @@ def find_optimum_set(pl, w_gauss, px_size, h, angle_array, num_dir,num_phases, d
     for el in opt_list: print(str(el.wavelength)+' ; '+str(el.angle)+'  ;  '+str(el.opt_para));
     return(opt_list)
 
-def save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss, h, dim_slm, error_angle,f, path,bfp_fill,name='para_data.txt'):
+def save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss, h, dim_slm, error_angle,f, path,bfp_fill,name='para_data.txt', optimized_list = True):
     ts = time.time();
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
     meta_text = 'Gratings computed with Christian\'s Python code \n'
@@ -370,7 +383,14 @@ def save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss,
                                                   
     meta_text = meta_text+'Wavelength [nm] \t angle [DEG] \t h_x [px] \t h_y [px] \t theta_x [px] \t theta_y [px] \t Ratio of unwantet orders \t period \t angle \n';
     for p in ol:
-        meta_text = meta_text+str(p.wavelength)+' \t '+str(p.angle)+' \t '+str(p.opt_para[0])+' \t '+str(p.opt_para[1])+ ' \t '+str(p.opt_para[2])+' \t '+str(p.opt_para[3])+' \t '+str(p.opt_ratio)+' \t ' + str(calc_per(p.opt_para[0],p.opt_para[1],p.opt_para[2],p.opt_para[3]))+ ' \t '+ str(calc_orient(p.opt_para[2], p.opt_para[3])) + '\n';
+        if optimized_list:
+            meta_text = meta_text+str(p.wavelength)+' \t '+str(p.angle)+' \t '+str(p.opt_para[0])+' \t '+str(p.opt_para[1])+ ' \t '+str(p.opt_para[2])+' \t '+str(p.opt_para[3])+' \t '+str(p.opt_ratio)+' \t ' + str(calc_per(p.opt_para[0],p.opt_para[1],p.opt_para[2],p.opt_para[3]))+ ' \t '+ str(calc_orient(p.opt_para[2], p.opt_para[3])) + '\n';
+        else:
+            if p.para_list.ndim == 1:
+                meta_text = meta_text+str(p.wavelength)+' \t '+str(p.angle)+' \t '+str(p.para_list[0])+' \t '+str(p.para_list[1])+ ' \t '+str(p.para_list[2])+' \t '+str(p.para_list[3])+' \t '+str(-1)+' \t ' + str(calc_per(*p.para_list))+ ' \t '+ str(calc_orient(p.para_list[2], p.para_list[3])) + '\n';
+            elif p.para_list.ndim ==2:
+                for p2 in p.para_list.transpose():
+                    meta_text = meta_text+str(p.wavelength)+' \t '+str(p.angle)+' \t '+str(p2[0])+' \t '+str(p2[1])+ ' \t '+str(p2[2])+' \t '+str(p2[3])+' \t '+str(-1)+' \t ' + str(calc_per(*p2))+ ' \t '+ str(calc_orient(p2[2], p2[3])) + '\n';             
     text_file = open(path+name,'w')
     text_file.write(meta_text);
     text_file.close();
@@ -387,56 +407,54 @@ def save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss,
     '''
     return();
     
-def create_para_list(start, end, k0, dk0_R, d_ang, lam, num_dir, num_phase, fixed_angle = [-1], fixed_angle_set = None):
+def create_para_list(start, end, k0, dk0_R, d_ang, lam, num_dir, num_phase, fixed_angle = [-1], fixed_angle_set = None,PhaseCheckMethod=2):
     if (fixed_angle == [-1]):
         angle_array = np.arange(1,180/num_dir,1);       #scan whole start angle range
     else:
         angle_array = np.asarray(fixed_angle);
+    if fixed_angle_set is not None:
+        if __DEFAULTS__['SHOW_GRAT_SEARCH_INFO']:
+                print('Grating vector describing the angle was fixed to '+str(fixed_angle_set));
+        angle=calc_orient(fixed_angle_set[0],fixed_angle_set[1]);
+        angle_array = np.asarray([angle]);
     para_list = [];
     error=0;
     for wl in lam:
         k = k0*wl/lam[0];
-        print('');
-        print('Searching parameter sets for wavelength: '+str(wl)+' nm!');
-        print('Desired grating period: '+str(k)+' pixels');
-        print('Searching grating period ...');    
-        res = search_for_matching_k(start, end, num_phase, k, k*dk0_R, fixed_angle_set = fixed_angle_set);
-        print(str(np.size(res,axis=1)) + ' sets found with matching grating period');
-        angle_arr=np.asarray([])
-
-        
-        if fixed_angle_set is None:
+        if __DEFAULTS__['SHOW_GRAT_SEARCH_INFO']:
+            print('');
+            print('Searching parameter sets for wavelength: '+str(wl)+' nm!');
+            print('Desired grating period: '+str(k)+' pixels');
+            print('Searching grating period ...');    
+        res = search_for_matching_k(start, end, num_phase, k, k*dk0_R,fixed_angle_set = fixed_angle_set, PhaseCheckMethod=PhaseCheckMethod);
+        if __DEFAULTS__['SHOW_GRAT_SEARCH_INFO']:
+            print(str(np.size(res,axis=1)) + ' sets found with matching grating period');
             print('Scanning start angles and searching for directions...')
-            for start_ang in angle_array:                                        # Scan every possible starting angle -> 
-                liste = search_direction(start_ang, d_ang, num_dir, res)   
-                tester = 1;  # Tells you if there is at least 1 parameter set for each direction begining at starting angle
+        angle_arr=np.asarray([])   # I dont't know what that was supposed to be!
+        
+        print(angle_array.shape)
+        for start_ang in angle_array:                                        # Scan every possible starting angle -> 
+            liste = search_direction(start_ang, d_ang, num_dir, res, fixed_angle_set)   
+            tester = 1;  # Tells you if there is at least 1 parameter set for each direction begining at starting angle
+            for i in np.arange(0,num_dir,1):
+                tester = tester*(np.size(liste[i])!=0)
+            if tester == 1:
+                angle_arr=np.append(angle_arr,start_ang)
                 for i in np.arange(0,num_dir,1):
-                    tester = tester*(np.size(liste[i])!=0)
-                if tester == 1:
-                    angle_arr=np.append(angle_arr,start_ang)
-                    for i in np.arange(0,num_dir,1):
-                        para_list.append(PARA_SET(wavelength=wl, angle=start_ang+i*180/num_dir, para_list=liste[i]));
-                        
-            if np.size(angle_arr) == 0:
-                print('NO MATCHING GRAITINGS FOUND: RAISE SEARCH RANGE');
-                angle_array = angle_arr;
-                error =-1
-                break;
-            else:
+                    para_list.append(PARA_SET(wavelength=wl, angle=start_ang+i*180/num_dir, para_list=liste[i]));
+        if np.size(angle_arr) == 0:
+            print('NO MATCHING GRAITINGS FOUND: RAISE SEARCH RANGE');
+            angle_array = angle_arr;
+            error =-1
+            break;
+        else:
+            if __DEFAULTS__['SHOW_GRAT_SEARCH_INFO']:
                 print(str(np.size(angle_arr))+' possible starting angles found:')
                 print(angle_arr);
-                angle_array = angle_arr;
-                return(clear_para_list(para_list, angle_array, num_dir), angle_array,error)  # Remove all entries from the parameter list, where not all direction for all wavelengths are possible for a given starting angle
-        else:
-            print('Grating vector describing the angle was fixed to '+str(fixed_angle_set));
-            angle=calc_orient(fixed_angle_set[0],fixed_angle_set[1])
-            angle_arr=np.append(angle_arr,angle)
-            for r in np.transpose(res):
-                para_list.append(PARA_SET(wavelength=wl, angle = angle , para_list=r));
-            if res.size == 0:
-                error = -1;
-            return(para_list, angle_array, error);
-    #        return(clear_para_list(para_list, angle_array, num_dir), angle_array,error)  # Remove all entries from the parameter list, where not all direction for all wavelengths are possible for a given starting angle
+            angle_array = angle_arr;
+        
+    return(clear_para_list(para_list, angle_array, num_dir), angle_array,error)  # Remove all entries from the parameter list, where not all direction for all wavelengths are possible for a given starting angle
+
 
 def get_period(lam, eta, pixelpitch=8.2, NA = 1.46, magnification=76.8):
     '''
@@ -452,7 +470,7 @@ def get_period(lam, eta, pixelpitch=8.2, NA = 1.46, magnification=76.8):
 
     
 
-def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase = 3, wavelength = [488, 561, 638, 405], error_period = 0.01, error_angle = 0.1,fixed_angle=None, px_size = 8.2, w_gauss = 0.5,h =0.3, dim_slm = [1024,1024], f = 250, NA = 1.46, magnification = 76.8, BFP_filling = 83.4, period =None, fixed_angle_set = None):
+def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase = 3, wavelength = [488, 561, 638, 405], error_period = 0.01, error_angle = 0.1,fixed_angle=None, px_size = 8.2, w_gauss = 0.5,h =0.3, dim_slm = [1024,1024], f = 250, NA = 1.46, magnification = 76.8, BFP_filling = 83.4, period =None, fixed_angle_set = None, PhaseCheckMethod=2 ,optimize_for_unwanted_orders = True):
     '''
     Created on Wed Nov 16 19:26:01 2016
     
@@ -501,8 +519,24 @@ def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase
         period:                         Desired period in pixels
         
         period or BFP filling has to be given, the other one has to be None type -> Thus the period is defined!
-        
+      
         fixed_angle_set                give a list or a tuple with the fixed vector defining the angle ( a_theta in ronnys paper) -> no angle scanning will be performed
+        
+        PhaseStepMethod                1 or 2:
+                                            There is a discrepancy between the Phasestepmethod in Ronny's Paper and in the original Matlab code
+                                            With 1 or 2 you can choose either one of them!
+                                            The flag is used in function "check_phase_steps"
+                                            
+                                            1.) Method as descriped in the paper
+                                                       +   Accurate with respect to the phase step check (nip.sim.test_grat)
+                                                       +   As it has been published it SHOULD (!!!) give accurate phase steps
+                                                       -   A very large scanning range might be necessary as it is a very harsh criterium
+                                            
+                                            2.) Method as in the old Matlabcode from Ronny
+                                                       +   A looser criterium as 1 and thus requires smaller scanning range
+                                                       -   However I generally did not encounter any problems yet, it is not one houndret percent clear what happened here and if it always gives correct phase steps. In case you use this: Check the gratings afterwards
+        
+        optimize_for_unwanted_orders    do you want to optimize for unwanted orders? if not, the whole list will be stored!
         
         
         
@@ -523,6 +557,11 @@ def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase
         fixed_angle = [-1];
     else:
         fixed_angle = [fixed_angle];
+    
+    if fixed_angle_set is not None:
+        print('Fixed angle set given -> only 1 Direction possible! -> resetting num_dir to 1');
+        num_dir = 1;          
+    
     #lam = np.asarray([488,561,638]);
     #lam = np.asarray([488,561]);
     
@@ -549,9 +588,14 @@ def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase
       
         name='para_'+str(np.round(period,3))+'_'+str(num_phase)+'phases_'+str(num_dir)+'Dir.txt';
         #name='QXGA_TEST_PARA.txt';
-        para_list, angle_array,error = create_para_list(start, end, period, error_period, error_angle, lam, num_dir, num_phase, fixed_angle, fixed_angle_set = fixed_angle_set);
+        para_list, angle_array,error = create_para_list(start, end, period, error_period, error_angle, lam, num_dir, num_phase, fixed_angle, fixed_angle_set = fixed_angle_set, PhaseCheckMethod=PhaseCheckMethod);
+                                                       
         if (error ==0):
-            ol = find_optimum_set(para_list, w_gauss, px_size, h,angle_array,num_dir,num_phase, dim_slm, f)
-            save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss, h, dim_slm, error_angle,f,path,BFP_filling,name)
+            if optimize_for_unwanted_orders:
+                ol = find_optimum_set(para_list, w_gauss, px_size, h,angle_array,num_dir,num_phase, dim_slm, f);
+            else:
+                ol = para_list;
+            #return(ol)
+            save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss, h, dim_slm, error_angle,f,path,BFP_filling,name, optimized_list = optimize_for_unwanted_orders)
         return(path+name);   
 

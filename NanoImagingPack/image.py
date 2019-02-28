@@ -707,7 +707,7 @@ def readim(path =None, which = None, pixelsize = None):
     else:
         raise ValueError('No valid filename')
 
-def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_old_img_dim = False):
+def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_old_img_dim = False, axis = -3):
     '''
         This reads a set of 2D Tiff files and creates one 3-D Stack from it.
         Path: The folder, containing the tiff-files
@@ -717,6 +717,7 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_ol
         
          roi = [x,y, width_x, width_y] -> if nothting given than the whole image will be loaded
         ret_old_img_dim : return old image dimension (maximum dimension of all images read!)
+        At which axis you want to concatenate the images (default is -3, that means z-direction)
     '''
     from os import listdir
     from os.path import isfile, join, splitext, split
@@ -772,7 +773,7 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_ol
         if number == 0:
             final_im = im;
         else:
-            final_im = cat((final_im, im), 2);
+            final_im = cat((final_im, im), axis);
         number +=1;
                 
     '''
@@ -793,11 +794,13 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_ol
                 else:
                     print('Wrong size of image '+ name);
      '''
+    print();
     print(str(number)+' images read!');
+    
     if  ret_old_img_dim:
-        return(final_im.swapaxes(0,1).view(image), max_im_dim)
+        return(image(final_im),max_im_dim)
     else:
-        return(final_im.swapaxes(0,1).view(image));
+        return(image(final_im))
     
     
 def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="damp", sigma=4.0):
@@ -892,7 +895,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
         res=img-den
         
     #return(res)
-    return(__cast__(im*res.view(image),im));
+    return(__cast__(img*res.view(image),img));
 
 def __check_complex__(im):
     '''
@@ -1191,8 +1194,7 @@ def toClipboard(im, separator = '\t', decimal_delimiter = '.', transpose = False
                 
         
                 
-            
-
+                	
 #    for i in im: 
 #        s+= str(i)+separator;
     clipboard.OpenClipboard()
@@ -1220,20 +1222,34 @@ def cat(imlist, axis=None, destdims=None):
             imlist[i] = np.asarray(imlist[i]);
     imlist = tuple(imlist);
     shapes = np.asarray([list(im.shape) for im in imlist])    
+    
     if axis == None:
         axis = -shapes.shape[1]-1
+         
     if destdims==None:
         if axis < 0:
             maxdims=-axis
-            imlist = adjust_dims(imlist, maxdims);
-#        else:
-#            maxdims=axis+1
+    #        imlist = adjust_dims(imlist, maxdims);
+        else:
+            maxdims=axis+1
     else:
+        if axis+1>destdims:
+            print('WARNING: Axis larger than destdims -> adjusting destims to '+str(axis+1));
+            destdims = axis+1; 
         maxdims=destdims
-        imlist = adjust_dims(imlist, maxdims);
+    print(maxdims)
+    print(axis)
+    imlist = adjust_dims(imlist, maxdims);
     shapes = np.asarray([list(im.shape) for im in imlist])    
+    print(shapes)
+    
+    if axis <0:
+        ax = shapes.shape[1]+axis;
+    else:
+        ax = axis;
+    print(ax);
     for i in range(shapes.shape[1]):
-        if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != axis):
+        if (np.max(shapes[:,i]) != np.min(shapes[:,i])) and (i != ax):
             imlist = [match_size(im, imlist[np.argmax(shapes[:,i])], i, padmode ='constant', odd = False)[0] for im in imlist] 
     #return(np.concatenate((imlist),axis).squeeze());
     return image(np.concatenate((imlist),axis));  #RH  2.2.19
