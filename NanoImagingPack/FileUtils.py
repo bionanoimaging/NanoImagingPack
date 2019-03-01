@@ -75,17 +75,19 @@ def getFile():
     Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
     return(filedialog.askopenfilenames())
 
-def list_files(path, file_prototype):
+def list_files(path, file_prototype, subfolders = True):
     '''
     Returns a list with all files in the given folder AND subfolders which include the "file_prototype" string in their name
     '''    
     import os
     import os.path
     files =[];
-    for dirpath, dirnames, filenames in os.walk(path):
-        for filename in [f for f in filenames if f.find(file_prototype)>=0]:
-            files.append(os.path.join(dirpath, filename));
-            
+    if subfolders:
+        for dirpath, dirnames, filenames in os.walk(path):
+            for filename in [f for f in filenames if f.find(file_prototype)>=0]:
+                files.append(os.path.join(dirpath, filename));
+    else:
+        files = [f for f in os.listdir(path) if os.path.isfile(path+f) and f.find(file_prototype)>=0]        
     return(files)
     
     

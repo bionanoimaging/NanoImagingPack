@@ -136,7 +136,7 @@ class view:
 
         if image.dtype==np.bool:
             self.image = image.astype(np.uint8)
-
+        self.image = self.image.transpose();
         if np.issubdtype(self.image.dtype, np.complexfloating):
             self.glob_lims = [[np.min(np.abs(self.image)), np.max(np.abs(self.image))],
                               [np.min(np.angle(self.image)), np.max(np.angle(self.image))],
