@@ -62,9 +62,12 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
     return nip.image(miniramp)
 
 def unifysize(mysize):
-    if type(mysize)== np.ndarray or type(mysize) == nip.image:
-        mysize = mysize.shape;
-    return mysize
+#    if type(mysize)== np.ndarray or type(mysize) == nip.image:
+#        mysize = mysize.shape;
+    if isinstance(mysize,list) or isinstance(mysize,tuple) or (isinstance(mysize,np.ndarray) and not isinstance(mysize,nip.image)):
+        return mysize
+    else:
+        return mysize.shape
 
 def ramp(mysize=(256,256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pxs=1.0):
     '''
@@ -543,3 +546,24 @@ def bfp_coords(M, pxs, wavelength, focal_length,  shift = True, real = False, ax
         
     '''
     return(freq_ramp(M, pxs, shift, real, axis)*wavelength*focal_length);
+    
+def MakeScan(sz,myStep):
+    '''
+    scan=MakeScan(sz,myStep) : creats a scanning deltafunction moving along X and Y
+    sz : size of image to generate
+    myStep=[Sx,Sy] : steps to scan in each scanstep along X, Y
+    
+    Example:
+    MakeScan([256 256], [20,20])
+    '''
+    sz=np.array(sz)
+    myStep=np.array(myStep)
+
+    NSteps=(sz-1)//myStep+1
+    N=np.prod(NSteps)
+
+    scan=nip.zeros(list(np.append(N,sz)))    
+    xind = np.arange(0,sz[1],myStep[1])  # fast way based on one-D indexing
+    yind = np.arange(0,sz[0],myStep[0])
+    scan[np.arange(0,N),yind.repeat(NSteps[1]),NSteps[0]*list(xind)]=1;
+    return scan

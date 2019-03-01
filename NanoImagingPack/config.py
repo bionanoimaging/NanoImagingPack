@@ -80,9 +80,9 @@ __DEFAULTS__ ={
         
         
         #FT Default settings
-        'FT_NORM': None,           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
+        'FT_NORM': "ortho",           # None or "ortho": Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
         'FT_SHIFT':True,          # Shift (AFTER TRANSFORMATION)
-        'FT_SHIFT_FIRST':False,    # Shift (BEFORE TRANSFORMATION)
+        'FT_SHIFT_FIRST':True,    # Shift (BEFORE TRANSFORMATION)
         'FT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
         'FT_REAL_RETURN':None,   # fill up real return to full spectrum? ('full' or None)
         #RFT Default settings   ----- RH 22.12.2018
@@ -92,8 +92,8 @@ __DEFAULTS__ ={
         'RFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
         'RFT_REAL_RETURN':None,   # fill up real return to full spectrum? ('full' or None)
         # Same like above but for IFT
-        'IFT_NORM': None,           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
-        'IFT_SHIFT':False,          # Shift (AFTER TRANSFORMATION)
+        'IFT_NORM': "ortho",           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
+        'IFT_SHIFT':True,          # Shift (AFTER TRANSFORMATION)
         'IFT_SHIFT_FIRST':True,    # Shift (BEFORE TRANSFORMATION)
         'IFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
         'IFT_REAL_AXIS': 'GLOBAL',   # Which real axis to take for the ift? ('GLOBAL' as stored in global variable. That is useful if the rft was performed before, since there the real axis is defined), None -> the last axis is taken, value -> as stated in value

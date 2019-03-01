@@ -273,13 +273,13 @@ def expand(vector, size, transpose = False):
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
-def castdim(img,ndims,wanteddim):
+def castdim(img,ndims,wanteddim=0):
     '''
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
         ----------
         img: input image to expand
         ndims: number of dimensions to expand to
-        wanteddim: number that the one-D axis should end up in
+        wanteddim: number that the one-D axis should end up in (default:0)
     '''
     mysize=img.shape
     if wanteddim<0:
@@ -393,8 +393,6 @@ def make_damp_ramp(length, function):
     '''
     x = np.arange(0, length,1);
     return(function(x, length-1));
-
-
 
 def normalize(M, mode, r = None):
     '''

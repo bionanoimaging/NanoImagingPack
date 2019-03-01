@@ -243,6 +243,15 @@ class image(np.ndarray):
             path = join(__DEFAULTS__['DIRECTORY'],self.name);
         imsave(self, path = path, form = form, rescale = rescale, BitDepth = BitDepth, Floating = Floating, truncate = truncate);
     
+    def midVal(self, ax = None):
+        '''
+            returns the value of the midpos of the given axis (as tuple) as seen for ft, i.e. im.shape//2
+            ----
+            ax : which axes (list of all axes)
+            If nothing given, it returns the value at the mid pos for all axis
+        '''
+        return self[self.mid()]
+        
     def mid(self, ax = None):
         '''
             returns the midpos of the given axis (as tuple) as seen for ft, i.e. im.shape//2
@@ -267,12 +276,12 @@ class image(np.ndarray):
                 pos+=[slice(0,self.shape[i])];
         return(tuple(pos));
     
-    def ft(self, shift = True ,shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
+    def ft(self, shift = True ,shift_before = True, ret = 'complex', axes = None,  s = None, norm = None): # RH: Changed this
         from .transformations import ft;
         #im = ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm);
         return(ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm));
 
-    def ift(self, shift = False,shift_before = True, ret ='complex', axes = None, s = None, norm = None):
+    def ift(self, shift = True,shift_before = True, ret ='complex', axes = None, s = None, norm = None):  # RH: Changed this
         from .transformations import ift;
         return(ift(self, shift = shift,shift_before =shift_before, ret = ret, axes = axes, s = s, norm = norm));
     def ift2d(self, shift = False,shift_before = True, ret ='complex', s = None, norm = None):
@@ -1199,7 +1208,14 @@ def toClipboard(im, separator = '\t', decimal_delimiter = '.', transpose = False
     clipboard.EmptyClipboard()
     clipboard.SetClipboardText(s);
     clipboard.CloseClipboard()
-    
+
+def catE(imlist):
+    '''
+        A shorthand for concatenating along the 4th (element dimension).
+        Calls cat(imlist,-4)
+    '''
+    return cat(imlist,-4)
+
 def cat(imlist, axis=None, destdims=None):
     '''
         This function takes a list or a tuple of images and stacks them at the given axis.

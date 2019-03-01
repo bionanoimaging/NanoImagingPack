@@ -8,7 +8,7 @@ Created on Thu Jul 27 16:35:07 2017
 import numpy as np;
 import NanoImagingPack as nip;
 from .config import DBG_MSG,__DEFAULTS__;
-from .util import get_type;
+# from .util import get_type;
 from .image import image;
 from .view5d import v5 # for debugging
 
@@ -248,7 +248,6 @@ def rft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes =
     if ret == 'DEFAULT': ret = __DEFAULTS__['RFT_RETURN'];
     if norm == 'DEFAULT': norm = __DEFAULTS__['RFT_NORM'];
 
-        
     if (np.issubdtype(im.dtype, np.floating) or np.issubdtype(im.dtype, np.integer)):
         if real_axis == None:
             real_axis = axes[-1];
