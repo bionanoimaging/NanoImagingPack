@@ -3,6 +3,8 @@ setup.cfg
 setup.py
 NanoImagingPack/DeviceControll.py
 NanoImagingPack/FileUtils.py
+NanoImagingPack/TestDampEdge.py
+NanoImagingPack/__NIP_META__.py
 NanoImagingPack/__init__.py
 NanoImagingPack/alignment.py
 NanoImagingPack/config.py
@@ -18,6 +20,7 @@ NanoImagingPack/transformations.py
 NanoImagingPack/util.py
 NanoImagingPack/view (g-TP's conflicted copy 2018-11-28).py
 NanoImagingPack/view.py
+NanoImagingPack/view5d.py
 NanoImagingPack.egg-info/PKG-INFO
 NanoImagingPack.egg-info/SOURCES.txt
 NanoImagingPack.egg-info/dependency_links.txt
@@ -26,6 +29,7 @@ NanoImagingPack.egg-info/top_level.txt
 NanoImagingPack/EXTERNAL/Gohlke_czi_reader.py
 NanoImagingPack/EXTERNAL/Gohlke_helper_fcts.py
 NanoImagingPack/EXTERNAL/__init__.py
+NanoImagingPack/EXTERNAL/contrib.py
 NanoImagingPack/resources/__init__.py
 NanoImagingPack/sim/Make_SIM_OTF.py
 NanoImagingPack/sim/REP_FILE.py

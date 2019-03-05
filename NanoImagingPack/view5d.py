@@ -87,7 +87,7 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
             out.ProcessKeyMainWindow("E");
             for n in range(12):
                 out.ProcessKeyMainWindow("c");
-            out.ProcessKeyMainWindow("v");out.ProcessKeyMainWindow("V");out.ProcessKeyMainWindow("C"); # out.ProcessKeyMainWindow("C");
+            out.ProcessKeyMainWindow("v");out.ProcessKeyMainWindow("V");out.ProcessKeyMainWindow("e"); # out.ProcessKeyMainWindow("C");
     else:
         dc=data.flatten().tolist();
         out=None

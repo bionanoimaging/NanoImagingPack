@@ -1,4 +1,4 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.1
 Name: NanoImagingPack
 Version: 1.0.0.dev6
 Summary: A nice little image processing package
@@ -6,7 +6,6 @@ Home-page: UNKNOWN
 Author: Christian Karras
 Author-email: christian-karras@gmx.de
 License: UNKNOWN
-Description-Content-Type: text/markdown
 Description: This is a package for simple image processing.
         It is oriented on the DIP-Image package, which is available for Matlab. 
         Goal is to keep things simple and make it available for a broad community. Hence its development aimed for:
@@ -31,15 +30,10 @@ Description: This is a package for simple image processing.
         		helper functions such as ramps, xx, yy, zz, freq/realspace coord transforms
         
         
-        Should not require any dependencies up to now, which are not available in Anaconda, except of tifffile reader "tifffile"
         
-        If installation parser fails to install tifffile install it via:
-        
-        conda install -c conda-forge tifffile 
-        
-        
-        
+        See "dependencies.txt" for help required dependencies
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: GNU General Public License (GPL)
 Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
