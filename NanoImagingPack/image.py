@@ -1383,6 +1383,7 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
          If inputs are real than it tries to take the rfft
         
     '''
+    old_arr = M1;
     if np.ndim(M1) == np.ndim(M2):
         
         for axis in range(np.ndim(M1)):
