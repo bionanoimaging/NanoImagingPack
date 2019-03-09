@@ -56,7 +56,7 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
 #        miniramp=miniramp*(np.pi/(mysize//2))
     
     if ramp_dim>0:
-        miniramp=expanddim(miniramp,ramp_dim+1) # expands to this dimension numbe by inserting trailing axes. Also converts to 
+        miniramp=expanddim(miniramp,ramp_dim+1,trailing=False) # expands to this dimension numbe by inserting trailing axes. Also converts to 
     elif ramp_dim<-1:
         miniramp=expanddim(miniramp,-ramp_dim,trailing=True) # expands to this dimension numbe by inserting prevailing axes. Also converts to 
     return nip.image(miniramp)
@@ -417,11 +417,11 @@ def px_freq_step(im = (256,256), pxs = 62.5):
         im: image or Tuple 
         pxs: pixelsize
     '''
-    if type(im) == nip.image:
+    if isinstance(im,nip.image):
         pxs = im.pixelsize;
         im = im.shape;
     else:
-        if type(im) == np.ndarray:
+        if isinstance(im,np.ndarray):
             im = im.shape;
         
         if type(im) == list:
@@ -430,21 +430,19 @@ def px_freq_step(im = (256,256), pxs = 62.5):
         import numbers;
         if isinstance(pxs, numbers.Number):
             pxs = [pxs for i in im];
-        if type(pxs) == tuple or type(pxs) == np.ndarray:
+        if type(pxs) == tuple or isinstance(pxs,np.ndarray) :
             pxs = list(pxs);
         if type(pxs) != list:
             print('Wrong data type for pixelsize!!!');
             return;
     
-    return([1/(p*s) for p,s in zip(pxs, im)]);
-    
-     
+    return([1/(p*s) for p,s in zip(pxs, im)]);     
 
 def get_freq_of_pixel(im = (256,256),coord = (0.,0.),pxs = 62.5,shift = True, real =False):
     '''
         get the frequency value of a pixel value
         
-        pixelsize can be a number or a tupel:
+        pxs (==pixelsize) can be a number or a tupel:
             if number: pixelsize will be used for all dimensions
             if tupel: individual pixelsize for individual dimension, but: coord list and pixelsize list have to have the same dimension
         im: image or Tuple (if more than 2 Dimension, only the first 2 Dimensions will be used)
@@ -458,7 +456,7 @@ def get_freq_of_pixel(im = (256,256),coord = (0.,0.),pxs = 62.5,shift = True, re
     from scipy.interpolate import interp1d;
     if type(im) == list:
         im = tuple(im);
-    if type(im) == np.ndarray:
+    if isinstance(im,np.ndarray):
         im = im.shape;
     new_coord = [];
     if type(pxs) == float or type(pxs) == int: 
@@ -472,13 +470,28 @@ def get_freq_of_pixel(im = (256,256),coord = (0.,0.),pxs = 62.5,shift = True, re
     for i in range(len(im)):
         if i < len(coord):
             f = freq_ramp(im, pxs[i], shift, real, i);
-            f = np.swapaxes(f, len(im)-1, i);
+#            f = np.swapaxes(f, len(im)-1, i);
             f = np.ravel(f, 'C');
             f = f[:im[i]];
             fx = np.arange(0,np.size(f),1)
             inter = interp1d(fx,f);
             new_coord.append(float(inter(coord[i])));
     return(tuple(new_coord));
+
+def ftpos2grating(im,coords):
+    '''
+     Converts a coordinate vectorin fourier-space (pixel coordinates) into a real-space grating vector
+     
+         im: image or Tuple of size
+         coords: position in the ft
+        
+    '''
+    coords=np.array(coords)
+    sz2d=im.shape[-2:]
+    mid2d=im.mid()[-2:]
+    return (coords-mid2d) / sz2d
+# px_freq_step(im,pxs=im.ndim*[1.0])
+    
 
 def k_to_coords(im = (256,256) ,pxs = 62.5, parameters = (0,1)):
     '''
@@ -489,11 +502,8 @@ def k_to_coords(im = (256,256) ,pxs = 62.5, parameters = (0,1)):
          parameters:
                  tuple or list consisting of:
                      angle[Degree] -> direction like angle is commonly defined in complex plane
-                     lenght of the k-vector -> in inverse units of pxs:
-        
-        
-    '''
-  
+                     lenght of the k-vector -> in inverse units of pxs:        
+    '''  
     if isinstance(parameters, list) or isinstance(parameters, tuple):
         import numbers;
         if isinstance(parameters[0], numbers.Real) and isinstance(parameters[1], numbers.Real):
@@ -509,10 +519,6 @@ def k_to_coords(im = (256,256) ,pxs = 62.5, parameters = (0,1)):
     else:
         print('Wrong paramter format!');
         return;
-    
-    
-
-
     
 def bfp_coords(M, pxs, wavelength, focal_length,  shift = True, real = False, axis =0):
     '''

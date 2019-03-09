@@ -9,25 +9,33 @@ all kind of utils;
 
 """
 
-
 import numpy as np;
 import numbers;
 import time;
 import functools;
+import NanoImagingPack as nip
+
+def printItem(item,itemDir):
+    if not item.startswith("__"):
+        myItem=itemDir[item]
+        if isinstance(myItem,nip.image):
+            return ('{0} = nip.image of shape {1}'.format(item, myItem.shape))+"\n"
+        else:
+            return ('{0} = {1}'.format(item, myItem))+"\n"
+    return ""
 
 class struct(object): # this class can be used as a base class or simply be instantiated to mimic a struct (like matlab) with pretty print
+            
     def __str__(self):
 #            print(self.__dict__)
         itemDir = self.__dict__
         s=""
         for i in itemDir:
-            if not i.startswith("__"):
-                s=s+('{0} = {1}'.format(i, itemDir[i]))+"\n"
+            s=s+printItem(i,itemDir)
         itemDir = self.__class__.__dict__
 #        s=s+"# class attributes:\n"
         for i in itemDir:
-            if not i.startswith("__"):
-                s=s+('{0} = {1}'.format(i, itemDir[i]))+"\n"
+            s=s+printItem(i,itemDir)
         return s
     def __repr__(self):
         return self.__str__()
@@ -224,6 +232,16 @@ def repToList(val,ndim):
         return ndim*[val]
     return val
    
+def splice(list1,list2):
+    list1=list(list1)
+    list2=list(list2)
+    res=[]
+    for el1,el2 in zip(list1,list2):
+        res += [el1,el2] 
+    if isinstance(list1,np.ndarray):
+        res=np.array(res)
+    return res
+
 def coordsToPos(coords,ashape):
     '''
         converts a coordinate vector to a list of all-positive number using a given shape.
@@ -236,6 +254,16 @@ def coordsToPos(coords,ashape):
     assert(mylen==len(ashape))
     return [coords[d]+(coords[d]<0)*ashape[d] for d in range(mylen)]
  #   return [coords[d]%ashape[d] for d in range(len(coords))]
+
+def dimToPos(dimpos,ndims):
+    '''
+        converts a dimension position to a positive number using a given length.
+        
+        dimpos: dimension to adress
+        ndims: total number of dimensions
+        
+    '''    
+    return dimpos+(dimpos<0)*ndims 
 
 def ROIcoords(center,asize,ndim=None):
     '''
@@ -273,6 +301,22 @@ def expand(vector, size, transpose = False):
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
+def castdimvec(mysize,ndims,wanteddim=0):
+    '''
+        expands a shape tuple to the necessary number of dimension casting the dimension to a wanted one
+        ----------
+        img: input image to expand
+        ndims: number of dimensions to expand to
+        wanteddim: number that the one-D axis should end up in (default:0)
+    '''
+    mysize=tuple(mysize)
+    if wanteddim<0:
+        wanteddim=ndims+wanteddim
+    if wanteddim+len(mysize) > ndims:
+        raise ValueError("castdim: ndims is smaller than requested total size including the object to place.")
+    newshape=wanteddim*(1,)+mysize+(ndims-wanteddim-len(mysize))*(1,)
+    return newshape
+
 def castdim(img,ndims,wanteddim=0):
     '''
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
@@ -281,13 +325,32 @@ def castdim(img,ndims,wanteddim=0):
         ndims: number of dimensions to expand to
         wanteddim: number that the one-D axis should end up in (default:0)
     '''
-    mysize=img.shape
-    if wanteddim<0:
-        wanteddim=ndims+wanteddim
-    if wanteddim+img.ndim > ndims:
-        raise ValueError("castdim: ndims is smaller than requested total size including the object to place.")
-    newshape=wanteddim*(1,)+mysize+(ndims-wanteddim-img.ndim)*(1,)
-    return np.reshape(img,newshape)
+    return np.reshape(img,castdimvec(img.shape,ndims,wanteddim))
+
+def expanddimvec(shape,ndims,othersizes=None,trailing=False):
+    '''
+        expands an nd image shape tuple to the necessary number of dimension by inserting leading dimensions
+        ----------
+        img: input image to expand
+        ndims: number of dimensions to expand to
+        trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
+        othersizes (defatul:None) : do not expand with ones, but rather use the provided sizes
+    '''
+    if isinstance(shape,numbers.Number):
+        shape=(shape,)
+    else:
+        shape=tuple(shape)
+    missingdims=ndims-len(shape)
+    if othersizes is None:
+        if trailing:
+            return shape+(missingdims)*(1,)
+        else:
+            return (missingdims)*(1,)+shape
+    else:
+        if trailing:
+            return shape+tuple(othersizes[-missingdims::])
+        else:
+            return tuple(othersizes[0:missingdims])+shape
 
 def expanddim(img,ndims,trailing=False):
     '''
@@ -297,10 +360,7 @@ def expanddim(img,ndims,trailing=False):
         ndims: number of dimensions to expand to
         trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
     '''
-    if trailing:
-        return np.reshape(img,img.shape+(ndims-len(img.shape))*(1,))   # RH 2.2.19
-    else:
-        return np.reshape(img,(ndims-len(img.shape))*(1,)+img.shape)   # RH 2.2.19
+    return np.reshape(img,expanddimvec(img.shape,ndims,None,trailing))
 
 def dimVec(d,mysize,ndims):
     '''
@@ -329,7 +389,7 @@ def subslice(img,mydim,start):
         extracts an N-1 dimensional subslice at dimension dim and position start        
         It keeps empty slices as singleton dimensions
     '''
-        
+    mydim=dimToPos(mydim,img.ndim)
     return img[slicecoords(mydim,img.ndim,start)]
 
 def subsliceAsg(img,mydim,start,val):
@@ -342,6 +402,7 @@ def subsliceAsg(img,mydim,start,val):
         val : value(s) to assign into the array
         It keeps empty slices as singleton dimensions
     '''
+    mydim=dimToPos(mydim,img.ndim)
     img[slicecoords(mydim,img.ndim,start)]=val
     return img
 
@@ -534,7 +595,7 @@ def get_type(var):
                         ['array', 'nparray, image, otf2d, psf2d, otf3d, psf3 etc']
                         ['list', 'list' or 'tuple']
     '''
-    import numbers;
+
     if var is None:
         return(['none']);
     

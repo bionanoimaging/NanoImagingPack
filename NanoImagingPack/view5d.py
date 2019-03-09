@@ -32,6 +32,14 @@ lastviewer=None
 global allviewers
 allviewers=[]
 
+def v5ProcessKeys(out,KeyList):
+    import time
+    for k in KeyList:
+        out.ProcessKeyMainWindow(k)
+#        time.sleep(0.1)
+#        out.UpdatePanels()
+#        out.repaint()
+
 def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
     '''
         lauches a java-based viewer view5d
@@ -79,15 +87,20 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
         # dc=data.flatten().tolist();
         out = VD.Start5DViewerC(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY);
 #        out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");out.ProcessKeyMainWindow("c");
-        out.SetGamma(0,gammaC)
+        for E in range(int(sz[3])):
+            out.SetGamma(E,gammaC)
         out.UpdatePanels()
-        if showPhases and sz[3]==1:
-            phases = (np.angle(data)+np.pi)/np.pi*128
-            out.AddElement(phases.flatten().tolist(),sz[0],sz[1],sz[2],sz[3],sz[4])
-            out.ProcessKeyMainWindow("E");
-            for n in range(12):
-                out.ProcessKeyMainWindow("c");
-            out.ProcessKeyMainWindow("v");out.ProcessKeyMainWindow("V");out.ProcessKeyMainWindow("e"); # out.ProcessKeyMainWindow("C");
+        if showPhases:
+            for E in range(int(sz[3])):
+                if sz[3]>1:
+                    anElem=nip.subslice(data,-4,E)
+                else:
+                    anElem=data
+                phases = (np.angle(anElem)+np.pi)/np.pi*128
+                out.AddElement(phases.flatten().tolist(),sz[0],sz[1],sz[2],sz[3],sz[4])
+                v5ProcessKeys(out,'E')
+                v5ProcessKeys(out,12*'c')
+                v5ProcessKeys(out,'vVe')
     else:
         dc=data.flatten().tolist();
         out=None
@@ -111,15 +124,15 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
             out = VD.Start5DViewerI(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY); # calls the WRONG entry point to the Java program
         else:
             print("View5D: unknown datatype: "+str(data.dtype))
-            return Null
-    if (multicol is None or multicol is False) and (sz[3] > 1 and sz[3] < 5):  # reset the view to single colors
-        out.ProcessKeyMainWindow("C");out.ProcessKeyMainWindow("G");out.ProcessKeyMainWindow("e");out.ProcessKeyMainWindow("G");out.ProcessKeyMainWindow("e");out.ProcessKeyMainWindow("G");out.ProcessKeyMainWindow("E");out.ProcessKeyMainWindow("E");
-    out.ProcessKeyMainWindow("1");
-    out.ProcessKeyMainWindow("2");
+            return None
+    if (multicol is None or multicol is False) and (sz[3] > 2 and sz[3] < 5):  # reset the view to single colors
+        v5ProcessKeys(out,'CGeGveGvEEv')
+    if (multicol is None or multicol is False) and (sz[3] == 2):  # reset the view to single colors
+        v5ProcessKeys(out,'CGeGvEv')
+    v5ProcessKeys(out,'12')
     out.UpdatePanels()
     out.repaint()
     jn.detach();
-    lastviewer=out
     global allviewers
     allviewers.append(out)
     return out
@@ -151,5 +164,6 @@ def getMarkers(myviewer=None,ListNo=0, OnlyPos=True):
         markers=myviewer.ExportMarkers(ListNo)
         markers=np.array(markers)
         if OnlyPos:
-            markers=markers[:,0:5] # extract only position information
+            if len(markers)>0:
+                markers=markers[:,4::-1] # extract only position information and orient if for numpy standard
     return markers

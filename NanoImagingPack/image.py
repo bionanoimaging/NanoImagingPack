@@ -117,13 +117,15 @@ class image(np.ndarray):
         obj.metadata = None;
         
         obj.dim_description = {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []}
-        
-        
+                
         obj.name = name;
         if pixelsize is None:
-            obj.pixelsize = [i*0+1.0 for i in MyArray.shape];
-            for i in range(len(MyArray.shape)):
+            obj.pixelsize = MyArray.ndim*[1.0] # [i*0+1.0 for i in MyArray.shape];
+            if hasattr(MyArray, 'pixelsize'):
+                p=MyArray.pixelsize
+            else:
                 p = __DEFAULTS__['IMG_PIXELSIZES'];
+            for i in range(len(MyArray.shape)):
                 if i >= len(p):
                     obj.pixelsize[i] = p[len(p)-1];
                 else:
@@ -132,10 +134,10 @@ class image(np.ndarray):
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
             if len(pixelsize) > MyArray.ndim: pixelsize = pixelsize[:MyArray.ndim];
-            if len(pixelsize) < MyArray.ndim: pixelsize += [i*0+1.0 for i in range(MyArray.ndim-len(pixelsize))];
+            if len(pixelsize) < MyArray.ndim: pixelsize += (MyArray.ndim-len(pixelsize))*[pixelsize] # [i*0+1.0 for i in range(MyArray.ndim-len(pixelsize))];
             obj.pixelsize = pixelsize
         elif isinstance(pixelsize, numbers.Number) :
-            obj.pixelsize = [i*0+pixelsize for i in MyArray.shape];
+            obj.pixelsize = MyArray.ndim*[pixelsize] # [i*0+pixelsize for i in MyArray.shape];
         else:
             raise ValueError('Pixelsize must be list, tuple or number')
         return(obj);
@@ -176,11 +178,12 @@ class image(np.ndarray):
                     print(self.flags);
                 else:
                     print(self);
+
     def set_pixelsize(self, pixelsize):
         import numbers;
         if pixelsize is None:
             p = __DEFAULTS__['IMG_PIXELSIZES'];
-            self.pixelsize = [i*0+1.0 for i in self.shape];    
+            self.pixelsize = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];    
             self.pixelsize[-len(self.shape)::] = p[-len(self.shape)::]
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
@@ -498,22 +501,22 @@ class image(np.ndarray):
         
         p = __DEFAULTS__['IMG_PIXELSIZES'];
         if type(obj) == type(self):
-            pxs = [i*0+1.0 for i in self.shape];
+            pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
             for i in range(len(self.shape)):
                 try:
-                    pxs[i] = obj.pixelsize[new_axes[i]];
+                    pxs[-i-1] = obj.pixelsize[-i-1]; # new_axes[-i-1]
                 except:
                     if i >= len(p):
-                        pxs[i] = p[len(p)-1];
+                        pxs[-i-1] = p[0];
                     else:
-                        pxs[i] = p[i];
+                        pxs[-i-1] = p[-i-1];
         else:
-            pxs = [i*0+1.0 for i in self.shape];
+            pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
             for i in range(len(self.shape)):
                 if i >= len(p):
-                    pxs[i] = p[len(p)-1];
+                    pxs[-i-1] = p[0];
                 else:
-                    pxs[i] = p[i];
+                    pxs[-i-1] = p[-i-1];
         self.pixelsize = pxs;
         self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []});
         self.metadata = getattr(obj,'metadata',[]);
@@ -1617,9 +1620,9 @@ def line_cut(im,coord1 = 0, coord2 = None,thickness = 10):
         return([__get_line__(im[:,:,i]) for i in range(im.shape[2])])      
 
 
-def centered_extract(img,ROIsize,centerpos=None,PadValue=0.0):
+def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0):
     '''
-        extracts a part in an n-dimensional array based on stating the center and ROI size
+        extracts a part in an n-dimensional array based on stating the destination ROI size and center in the source
         
         ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
         centerpos: center of the ROI in source image to exatract
@@ -1627,15 +1630,21 @@ def centered_extract(img,ROIsize,centerpos=None,PadValue=0.0):
        
         Example:
             nip.centered_extract(nip.readim(),[799,799],[-1,-1],100) # extracts the right bottom quarter of the image
-
+            
+        RH Version
    '''
     mysize=img.shape
+    
     if ROIsize==None:
         ROIsize=mysize
+    else:
+        ROIsize=nip.expanddimvec(ROIsize,len(mysize),mysize)
+
     if centerpos==None:
         centerpos=[sd//2 for sd in mysize]
     else:
         centerpos=nip.coordsToPos(centerpos,mysize)
+
 #    print(nip.ROIcoords(centerpos,ROIsize,img.ndim))
     res=img[nip.ROIcoords(centerpos,ROIsize,img.ndim)]
     if PadValue is None:
@@ -1746,7 +1755,7 @@ def supersample(im, factor = 2, axis = (0,1), full_fft = False):
     
     padding =[];
     
-    if factor >1:
+    if factor > 1:
         padding =[];
         for i in range(np.ndim(im)):
             if i in axis:

@@ -39,16 +39,20 @@ class transfer():
             
 
     '''
-    def __init__(self, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT'):
+    def __init__(self, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT'):
         from .config import __DEFAULTS__;    
         from .image import image;
         from .coordinates import rr;
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
         
         self.__TEST__ = None;
         # Prepare settings
         if type(im) == list or type(im) == tuple:
             self.__orig_shape__ = im;
-        elif type(im) == np.ndarray or type(im) == image:
+        elif isinstance(im,np.ndarray):
             self.__orig_shape__ = im.shape;
         
         self.set_shape(im);  
@@ -74,7 +78,7 @@ class transfer():
         if unit == 'DEFAULT': self.unit = __DEFAULTS__['IMG_PIXEL_UNITS'];
         else: self.unit = unit;
         
-        if type(im) == image or type(im) == otf2d:
+        if isinstance(im,image):
             self.set_pxs(im.pixelsize);
             self.name = im.name+' - Transfer';
         else:
@@ -148,10 +152,10 @@ class transfer():
             z-shape: If the original image is 2Dimensional you can give a z_shape here
         '''
         import numbers;
-        from .image import image;
+#        from .image import image;
         if type(im) == list or type(im) == tuple:
             self.shape = im;
-        elif type(im) == np.ndarray or type(im) == image:
+        elif isinstance(im,np.ndarray): # includes image
             self.shape = im.shape;
         if z_shape is not None:
             if isinstance(z_shape, numbers.Integral) == False:
@@ -247,7 +251,7 @@ class transfer():
 
         if isinstance(strength, numbers.Real):
             strength = [strength];
-        if type(aberration) == str or type(aberration) == np.ndarray or type(aberration)== image:
+        if type(aberration) == str or isinstance(aberration,np.ndarray):
             aberration = [aberration];
         elif type(aberration) == list or type(aberration) == tuple:
             if  isinstance(aberration[0], numbers.Integral):
@@ -257,7 +261,7 @@ class transfer():
                 m = zernike_para[ab][0];
                 n = zernike_para[ab][1];
                 self.aberration_map += s*zernike(self.r,m,n)*np.pi;
-            elif type(ab) == np.ndarray or type(ab)== image:
+            elif isinstance(aberration,np.ndarray):
                 self.aberration_map += ab;
             else:     
                 m = ab[0];
@@ -286,7 +290,6 @@ class transfer():
     def apsf2d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, off_focal_dist= 0):
         self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
         return(self.foc_field(ret_val = 'field',off_focal_dist=off_focal_dist));    
-   
     
     def psf3d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, z_shape = None):
         self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
@@ -303,9 +306,7 @@ class transfer():
     def apsf3d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, z_shape = None):
         self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
         return(self.propagate(z_shape, method = 'angle', ret_val = 'field'));
-    
-    
-    
+        
     def propagate(self, z_shape = None, method = 'kz', ret_val = 'ctf'):
         '''
             propagate field
@@ -512,8 +513,12 @@ class transfer():
 
 
 class otf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.otf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
         px = obj.pixelsize;
@@ -536,8 +541,12 @@ class otf2d(image):
         self.old_pxs =getattr(obj, 'old_pxs', [100,100])
         self.off_focal_dist = getattr(obj,'off_focal_dist',0);
 class psf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.psf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
         px = obj.pixelsize;
@@ -560,8 +569,13 @@ class psf2d(image):
         self.off_focal_dist = getattr(obj,'off_focal_dist',0);
         
 class apsf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.apsf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
         px = obj.pixelsize;
@@ -588,8 +602,13 @@ class apsf2d(image):
         self.off_focal_dist = getattr(obj,'off_focal_dist',0);
         
 class ctf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.ctf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
         px = obj.pixelsize;
@@ -616,8 +635,13 @@ class ctf2d(image):
         self.off_focal_dist = getattr(obj,'off_focal_dist',0);
         
 class otf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.otf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
         px = obj.pixelsize;
@@ -642,8 +666,13 @@ class otf3d(image):
         
       
 class psf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.psf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
         px = obj.pixelsize;
@@ -667,8 +696,13 @@ class psf3d(image):
         self.trans = getattr(obj, 'trans', None)
         
 class ctf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.ctf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
         px = obj.pixelsize;
@@ -694,8 +728,13 @@ class ctf3d(image):
         self.trans = getattr(obj, 'trans', None)
         self.dim_description= getattr(obj, 'dim_description', [])
 class apsf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', pixelsize = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        t = transfer(im, NA, n, wavelength, pixelsize, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
+    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
+        if hasattr(im, 'pixelsize'):
+            pixelsize=im.pixelsize
+        else:
+            pixelsize='DEFAULT'
+
+        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
         opx = t.__dict__['pixelsize'];
         obj = t.otf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
         px = obj.pixelsize;
@@ -790,7 +829,7 @@ def jinc(mysize=[256,256],myscale=None):
 
 def perfect_psf(im, NA, n, wavelength, pixelsize, mode = 'lateral'):
     from .image import image;
-    #if type(im) == image or type(im) == np.ndarray:
+    #if isinstance(aberration,np.ndarray):
     from numbers import Real;
     from scipy.special import j1;
     from .coordinates import xx,yy;
@@ -880,9 +919,8 @@ def PSF3D(im = (256,256,32), px_size=[50,50,100], wavelength=500, NA=1.0,n = 1.0
             
     '''
     
-    if type(im) == np.ndarray:
-        im = np.shape(im);
-        
+    if isinstance(im,np.ndarray):
+        im = np.shape(im);        
     
     if method == 'propagation':
         if focal_plane == 'disc':
@@ -925,7 +963,7 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
     import numbers
     from .coordinates import freq_ramp, zz;
 
-    if type(pixel_sizes) == np.ndarray:
+    if isinstance(pixel_sizes,np.ndarray):
         pixel_sizes = list(pixel_sizes)
 
     if type(pixel_sizes) == list or type(pixel_sizes) == tuple:
