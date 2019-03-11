@@ -1326,9 +1326,9 @@ def shift(M,delta,direction =0):
     for d, ax in zip(delta, axes):        
         if ax == real_ax:
             
-            phaseramp += ramp(FT.shape,ramp_dim = ax, corner = 'positive')*2*np.pi*d/(M.shape[ax]);
+            phaseramp += ramp(FT.shape,ramp_dim = ax,  placement = 'positive')*2*np.pi*d/(M.shape[ax]);
         else:
-            phaseramp += ramp(FT.shape,ramp_dim = ax, corner = 'center')*2*np.pi*d/(M.shape[ax]);
+            phaseramp += ramp(FT.shape,ramp_dim = ax,  placement = 'center')*2*np.pi*d/(M.shape[ax]);
     phaseramp = np.exp(-1j*phaseramp)
     if M.dtype == np.complexfloating:
         M = ift(FT*phaseramp, shift = False,shift_before=True, axes = axes,s= None, norm = None, ret = 'complex');
