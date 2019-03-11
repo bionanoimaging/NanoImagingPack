@@ -6,6 +6,7 @@ Created on Thu Jul 27 16:35:07 2017
 @author: root
 """
 import numpy as np;
+import numbers
 import NanoImagingPack as nip;
 from .config import DBG_MSG,__DEFAULTS__;
 # from .util import get_type;
@@ -13,6 +14,68 @@ from .image import image;
 from .view5d import v5 # for debugging
 
 __REAL_AXIS__ = 0;
+
+def ResampledSize(oldsize,factors):
+    oldsize=np.array(oldsize)
+    RFTMirrorAx=-1
+    if isinstance(factors,numbers.Number):
+        factors=oldsize*0.0+factors
+    else:
+        factors=nip.expanddimvec(factors,len(oldsize))
+    newsize=np.ceil(oldsize*factors).astype("int")
+    newsize[RFTMirrorAx]=np.ceil((oldsize[RFTMirrorAx]-1)*factors[RFTMirrorAx]+1).astype("int")
+    return newsize
+
+def RFTShift(img,maxdim=3,ShiftAfter=True):
+    RFTMirrorAx=-1
+    ndims=img.ndim
+    axes=[d for d in range(ndims)]
+    oldsize=np.array(img.shape[-ndims::])
+    shift1=oldsize//2 # roll along all dimensions except for the RFT-mirrored one
+    shift1[RFTMirrorAx]=0;
+    shift1[:-maxdim:]=0
+    if ShiftAfter==False:
+        shift1=-shift1
+#    print(shift1)
+    return np.roll(img,shift1,axes)
+
+def Resample(img,factors=2.0):
+    rf=rft(img)
+    oldsize=rf.shape
+#    print(oldsize)
+    newsize=ResampledSize(oldsize,factors)
+#    print(newsize)
+    rfre=ResampleRFT(rf,newsize)
+#    print(rfre)
+    return irft(rfre)
+
+def ResampleRFT(img,newsize,maxdim=3):
+    '''
+    Cuts (or expands) an RFT to the appropriate size to perform downsampling
+
+    Parameters
+    ----------
+    tfin : tensorflow array to be convolved with the PSF
+    newsize : size to cut to
+    Returns
+    -------
+    tensorflow array
+        The cut RFT
+
+    See also
+    -------
+    Convolve, TFRFT, RFIRFT, PSF2ROTF, preFFTShift
+
+    Example
+    -------    
+    '''
+    RFTMirrorAx=-1
+    ndims=img.ndim
+    oldsize=img.shape[-ndims::]
+    mycenter=np.array(oldsize)//2
+    newXcenter=newsize[RFTMirrorAx]//2
+    mycenter[RFTMirrorAx]=newXcenter
+    return RFTShift(nip.centered_extract(RFTShift(img,maxdim),newsize,mycenter),maxdim,ShiftAfter=False) # this can probably be done more efficiently ...
 
 def resizeft(data,factors=2):
     '''

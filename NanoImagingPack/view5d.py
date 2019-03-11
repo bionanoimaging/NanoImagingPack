@@ -33,14 +33,14 @@ global allviewers
 allviewers=[]
 
 def v5ProcessKeys(out,KeyList):
-    import time
+#    import time
     for k in KeyList:
         out.ProcessKeyMainWindow(k)
 #        time.sleep(0.1)
 #        out.UpdatePanels()
 #        out.repaint()
 
-def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
+def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
     '''
         lauches a java-based viewer view5d
         Since the viewer is based on calling java via the pyjnius Java bridge, it runs in its own thread each time. This causes overhead and may be not advisable for large
@@ -97,10 +97,10 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
                 else:
                     anElem=data
                 phases = (np.angle(anElem)+np.pi)/np.pi*128
-                out.AddElement(phases.flatten().tolist(),sz[0],sz[1],sz[2],sz[3],sz[4])
-                v5ProcessKeys(out,'E')
-                v5ProcessKeys(out,12*'c')
-                v5ProcessKeys(out,'vVe')
+                out.AddElement(phases.flatten().tolist(),sz[0],sz[1],sz[2],sz[3],sz[4])   # add phase information to data
+                v5ProcessKeys(out,'E') # advance to next element to the just added phase-only channel
+                v5ProcessKeys(out,12*'c') # toggle color mode 12x to reach the cyclic colormap
+                v5ProcessKeys(out,'vVe') # Toggle from additive into multiplicative display
     else:
         dc=data.flatten().tolist();
         out=None
@@ -125,11 +125,12 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=True):
         else:
             print("View5D: unknown datatype: "+str(data.dtype))
             return None
+        v5ProcessKeys(out,'v') # remove first channel from overlay
     if (multicol is None or multicol is False) and (sz[3] > 2 and sz[3] < 5):  # reset the view to single colors
-        v5ProcessKeys(out,'CGeGveGvEEv')
+        v5ProcessKeys(out,'CGeGveGvEEv') # set first 3 colors to gray scale and remove from color overlay 
     if (multicol is None or multicol is False) and (sz[3] == 2):  # reset the view to single colors
         v5ProcessKeys(out,'CGeGvEv')
-    v5ProcessKeys(out,'12')
+    v5ProcessKeys(out,'12') # to trigger the display update
     out.UpdatePanels()
     out.repaint()
     jn.detach();

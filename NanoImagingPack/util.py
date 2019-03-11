@@ -20,8 +20,14 @@ def printItem(item,itemDir):
         myItem=itemDir[item]
         if isinstance(myItem,nip.image):
             return ('{0} = nip.image of shape {1}'.format(item, myItem.shape))+"\n"
+        elif isinstance(myItem,np.ndarray) and ((myItem.ndim>2) or any(np.array(myItem.shape)>3)) :
+            return ('{0} = np.ndarray of shape {1}'.format(item, myItem.shape))+"\n"
+        elif isinstance(myItem,np.ndarray) :
+            return ('{0} = np.array({1})'.format(item, myItem))+"\n"
+        elif isinstance(myItem,str):
+            return ('{0} = \'{1}\''.format(item, myItem))+"\n"
         else:
-            return ('{0} = {1}'.format(item, myItem))+"\n"
+            return ('{0} = {1}'.format(item, myItem))+"\n" # for all the rest, use the default formatting (e.g. tensorflow tensors)
     return ""
 
 class struct(object): # this class can be used as a base class or simply be instantiated to mimic a struct (like matlab) with pretty print
@@ -162,6 +168,25 @@ def zernike(r,m,n, radial = False):
         for c, k_el in zip(zer_coeff, k):       # on purpose used a for loop here, as it is indeed faster
             zer += c*r**(n-2*k_el);
     return(zer*fact)
+
+def atan2(avec):
+    '''
+        calculates the atan2 for a vector as a list, tuple or np.ndarray
+    '''
+    avec=np.array(avec)
+    return np.math.atan2(avec[-2],avec[-1]) 
+
+def rotate2DVec(myvec,myangle):
+    res=np.array(myvec,dtype="float32")
+    if res.ndim == 1:
+        res[-1] = np.cos(myangle)*myvec[-1] - np.sin(myangle)*myvec[-2]
+        res[-2] = np.sin(myangle)*myvec[-1] + np.cos(myangle)*myvec[-2]
+    elif res.ndim == 1:
+        res[:,-1] = np.cos(myangle)*myvec[:,-1] - np.sin(myangle)*myvec[:,-2]
+        res[:,-2] = np.sin(myangle)*myvec[:,-1] + np.cos(myangle)*myvec[:,-2]
+    else:
+        raise ValueError("rotate2DVec: too many dimensions of vector(s). Only 1 or 2 allowed.")
+    return res
         
 def scale_16bit(M):
     '''

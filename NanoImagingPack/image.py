@@ -687,7 +687,7 @@ def readim(path =None, which = None, pixelsize = None):
         
         if ext.lower() in __DEFAULTS__['IMG_TIFF_FORMATS']:
             
-            if which == None:
+            if which is None:
                 img = (tif.imread(path)); # RH 2.2.19 deleted: np.transpose
             else:
                 img = (tif.imread(path, key = which));  # RH 2.2.19 deleted: np.transpose
@@ -792,14 +792,14 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_ol
     DEPRECIATET CODE:                
                 dim = [np.size(im, axis =0), np.size(im, axis =1)];
                 number +=1;
-                if im_list == None:
+                if im_list is None:
                     im_list = np.expand_dims(im,2);
                 else:
                     im_list = np.concatenate((im_list,np.expand_dims(im,2)),axis =2)
             else:
                 if (dim == [np.size(im, axis =0), np.size(im, axis =1)]):
                     number +=1;
-                    if im_list == None:
+                    if im_list is None:
                         im_list = np.expand_dims(im,2);
                     else:
                         im_list = np.concatenate((im_list,np.expand_dims(im,2)),axis =2)
@@ -1118,7 +1118,7 @@ def threshold(im, t1, t2 =None):
         
         if t2 is given than it returns 1 for pixelvalues between t1 and t2
     '''
-    if t2 == None:
+    if t2 is None:
         return((im>=t1)*1)
     else:
         if t1>t2:
@@ -1163,7 +1163,7 @@ def adjust_dims(imlist, maxdim = None):
                 dimsize_list.append(im.ndim);
             else:
                 err = True;
-        if maxdim == None or maxdim < max(dimsize_list):
+        if maxdim is None or maxdim < max(dimsize_list):
             #if maxdim != None: print('Given maximum dimension too small -> adjusting it to ' + str(maxdim));
             maxdim = max(dimsize_list);
         if err == False:
@@ -1242,7 +1242,7 @@ def cat(imlist, axis=None, destdims=None):
     imlist = tuple(imlist);
     shapes = np.asarray([list(im.shape) for im in imlist])    
     
-    if axis == None:
+    if axis is None:
         axis = -shapes.shape[1]-1
          
     if destdims==None:
@@ -1395,7 +1395,7 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
                 print('Matching sizes at axis '+str(axis));
         
         #create axes list
-        if axes == None:
+        if axes is None:
                 axes = list(range(len(M1.shape)));
         if type(axes) == int:
             axes = [axes];
@@ -1498,7 +1498,7 @@ def extract_c(im, center = None, roi = (100,100), axes_center  = None, axes_roi 
     if roi is None:
         return(im);
     else:
-        if center == None:
+        if center is None:
             center = (im.shape[0]//2, im.shape[1]//2);
             
         if len(center) > np.ndim(im):
@@ -1507,9 +1507,9 @@ def extract_c(im, center = None, roi = (100,100), axes_center  = None, axes_roi 
             import numbers
             if isinstance(roi, numbers.Number):
                roi = tuple(int(roi) for i in im.shape);
-            if axes_center == None:
+            if axes_center is None:
                 axes_center = tuple(range(len(center)));
-            if axes_roi == None:
+            if axes_roi is None:
                 axes_roi = tuple(range(len(roi)))
             if len(axes_center) != len(center): 
                 print('axes_center and center must have same length');
@@ -1564,7 +1564,7 @@ def line_cut(im,coord1 = 0, coord2 = None,thickness = 10):
         returns 1D- array with linecut and rotation angle
     '''
     through_all = False;
-    if coord2 == None:
+    if coord2 is None:
         coord2 = (np.array(im.shape[:2][::-1])-1)/2.;
         through_all = True;
 
@@ -1635,12 +1635,12 @@ def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0):
    '''
     mysize=img.shape
     
-    if ROIsize==None:
+    if ROIsize is None:
         ROIsize=mysize
     else:
         ROIsize=nip.expanddimvec(ROIsize,len(mysize),mysize)
 
-    if centerpos==None:
+    if centerpos is None:
         centerpos=[sd//2 for sd in mysize]
     else:
         centerpos=nip.coordsToPos(centerpos,mysize)
@@ -1690,7 +1690,7 @@ def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
         return(__cast__(im, old_arr));
     else:
         padding = [[0,0] for i in range(im.ndim)]
-        if (axes == None):
+        if (axes is None):
             if len(roi) > np.ndim(im):
                 print('Error: to much Rois in list or image dimension too small');
             else:
