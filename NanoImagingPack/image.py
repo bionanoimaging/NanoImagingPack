@@ -1652,7 +1652,7 @@ def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0):
     else: # perform padding
         pads=[(max(0,ROIsize[d]//2-centerpos[d]),max(0,centerpos[d]+ROIsize[d]-mysize[d]-ROIsize[d]//2)) for d in range(img.ndim)]
 #        print(pads)
-        res=nip.image(np.pad(res,tuple(pads),'constant',constant_values=PadValue)) #,PadValue
+        res=nip.image(np.pad(res,tuple(pads),'constant',constant_values=PadValue),pixelsize=res.pixelsize) #,PadValue
         return res
     
 def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
