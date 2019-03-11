@@ -91,8 +91,9 @@ class transfer():
         r = rr(self.shape, scale = self.px_freq_step)*self.wavelength/self.NA # [:2]
         #self.r = (r<=1)*r;
         self.r = r;
-        
         self.s = self.NA/self.n; 
+        self.r[self.r>1] = 1/self.s;      # r is only defined between 0 and 1
+        
         self.aberration_map = nip.zeros(self.shape[-2:]);
 
     def set_vals(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None):
@@ -112,6 +113,7 @@ class transfer():
         #self.r = (r<=1)*r;
         self.r = r;
         self.s = self.NA/self.n; 
+        self.r[self.r>1] = 1/self.s;
     
     def set_pol(self, pol, pol_xy_phase_shift):
         from .config import __DEFAULTS__; 
@@ -409,7 +411,7 @@ class transfer():
 
         if self.foc_field_mode == 'theoretical':
             np.seterr(divide ='ignore', invalid ='ignore');
-            arg = rr(shape,scale=np.array(self.pixelsize)*2*np.pi*self.NA/self.wavelength) #  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
+            arg = rr(shape,scale=np.array(self.pixelsize)*2*np.pi*self.NA/self.wavelength)#  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
             ret = 2*j1(arg)/arg;
             ret[shape[-2]//2, shape[-1]//2] = 1;
             np.seterr(divide='warn', invalid ='warn');  
@@ -417,11 +419,12 @@ class transfer():
         elif self.foc_field_mode == 'circular':
             ret = ift((self.r<= 1)*1.0,  shift = True, shift_before = True, norm = None);
             ret = ret/np.max(np.abs(ret))
-        self.TEST =ret;        
+        self.TEST =ret;         # TODO: ERASE
         ret = ft(ret, shift = True, shift_before =True, norm = None);
-        self.TEST1 = ret
+        self.TEST1 = ret        # TODO: ERASE
         # add aplanatic factor
         oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
+        
         validmask=oms2r2>0
         ret[~validmask]=0.0;
         if self.aplanar == 'illumination':
@@ -438,17 +441,21 @@ class transfer():
         # add aberration
         ret *= np.exp(1j*self.aberration_map);
         # add vectorlial effects
+        
         if self.vectorial:
             def __make_components__(pol, phase):
                 phase = np.exp(1j*phase*np.pi/2);
                 rs=self.r*self.s;
-                rs[rs>1.0]=1.0
+                #rs[rs>0.95]=0.95
                 oms2r2=1-rs**2  # one minus s^2*r^2
 #                oms2r2[oms2r2<0]=0.0;
-                soms2r2=np.sqrt(oms2r2)  # sqrt(one minus s^2*r^2)
+                soms2r2=np.sqrt(oms2r2)  # sqrt(one minus s^2*r^2# )
+                self.__TEST__= rs;
                 if pol == 'x':
                     theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase; Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase; Ez = np.cos(theta)*rs*phase;
+                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase; 
+                    Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase; 
+                    Ez = np.cos(theta)*rs*phase;
                 elif pol == 'y':
                     theta = phiphi(shape, offset = 0);
                     Ex = (np.sin(theta)*np.cos(theta)*(soms2r2-1))*phase;Ey = (np.sin(theta)**2*soms2r2+np.cos(theta)**2)*phase; Ez = np.sin(theta)*rs*phase;
@@ -457,9 +464,9 @@ class transfer():
                     Ex = (np.cos(theta)*soms2r2)*phase; Ey = (np.sin(theta)*soms2r2)*phase; Ez = rs*phase;                
                 elif pol == 'azimuthal':
                     theta = phiphi(shape, offset = 0);
-                    Ex = -np.sin(theta)*phase; Ey =  np.cos(theta)*phase; Ez = np.zeros_like(theta);
+                    Ex = np.sin(theta)*phase; Ey =  +np.cos(theta)*phase; Ez = np.zeros_like(theta);
                 else:
-                    theta = phiphi(shape, offset = pol*np.pi/180);
+                    theta = -phiphi(shape, offset = pol*np.pi/180);
                     Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase;  # RH: Please fix this, yield rundtime warning
                     Ey = (np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase;  # RH: Please fix this, yield rundtime warning
                     Ez = np.cos(theta)*rs*phase;
@@ -476,6 +483,7 @@ class transfer():
                 Exx, Eyx, Ezx = __make_components__('azimuthal',0);
                 Exy, Eyy, Ezy = __make_components__('radial',0);
                 Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
+            self.__TEST__ = cat((Ez, Ey, Ex, ret),-3);
             ret = cat((ret*Ez, ret*Ey, ret*Ex),-4);
         
         np.nan_to_num(ret,copy = False);  # is this still necessary?
@@ -499,7 +507,7 @@ class transfer():
                 ret = ret.squeeze();
             ret = ret/ret.max();
             ret = ret/ret.sum();
-            ret = ft(ret, shift = True, shift_before = True, norm = None, ret ='abs');
+            ret = ft(ret, shift = True, shift_before = True, norm = None, ret ='complex');
         else:
             raise ValueError('Wrong ret_val: "ctf", "otf", "field" or "intensity"');    
     

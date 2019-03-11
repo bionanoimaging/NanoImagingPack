@@ -139,7 +139,7 @@ def test_grat(folder, im, paras, name, phase_steps):
     return(im2);
 
     
-def save_grating_im(path,num_phase,dim_slm, para_set,circle_rad = -1,name_ext='', test_grating_shift=False, bitdepth = 1,form = 'png', val = [0,255], method = 'binary', blaze = 0):
+def save_grating_im(path,num_phase,dim_slm, para_set,circle_rad = -1,name_ext='', test_grating_shift=False, bitdepth = 1,form = 'png', val = [0,255], method = 'binary', blaze = 0, function = 1):
     from ..mask import create_circle_mask;
     zero = np.transpose(np.zeros(dim_slm)+1);      
     zero = np.uint8(zero*val[1]);
@@ -155,7 +155,10 @@ def save_grating_im(path,num_phase,dim_slm, para_set,circle_rad = -1,name_ext=''
     im2.save(path+'bright.'+form,form);
     
     for phase_nr in np.arange(0,num_phase,1):
-        grat = generate_grating(para_set[2:6],phase_nr, num_phase, dim_slm, method, blaze);
+        if function == 1:
+            grat = generate_grating(para_set[2:6],phase_nr, num_phase, dim_slm, method, blaze);
+        else:
+            grat = generate_grating2(para_set[2:6],phase_nr, num_phase, dim_slm, method, blaze);
         if test_grating_shift:
             test_grat(path, grat, para_set[2:6],'TESTSHIFTw'+str(para_set[0])+'a'+str(int(para_set[1]))+'p'+str(phase_nr)+'.'+form);
         if (circle_rad != -1): grat = grat*create_circle_mask(tuple(dim_slm),maskpos = (0,0) ,radius=circle_rad);  #mask has to be transposed. I don't know why!
@@ -194,7 +197,7 @@ def load_grat_para_file(para_path, version =2):
         Paras = np.loadtxt(para_path, dtype = int, skiprows = 17); # axis 0: paras of one combination wavelength, angle etc
     return(Paras, NumPhases)
 
-def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_aperture_radius = -1, name_tag = '', test_grating_shift = False, bitdepth = 1, form = 'png', val = 'max', method = 'binary', version = 2, blaze_vec = None):
+def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_aperture_radius = -1, name_tag = '', test_grating_shift = False, bitdepth = 1, form = 'png', val = 'max', method = 'binary', version = 2, blaze_vec = None, function = 1):
     '''
     This script creates the grating images using the parameter text file which was produced by the "find_grating" script
 
@@ -231,6 +234,7 @@ def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_ape
     blaze_vec                   state here (as list or tuple) how large an additional blaze for each direction should be -> for multiple wavelenght -> add just to list as stated in the para file
                                         e.g. you have 2 Wavelength, 3 dirs and want add a blace of 1% for the first wl, 2nd direction, and 5 % for the 2nd wavelenght 1st direction state it like:
                                                         blaze_vec = [0, 0.01,0,0.05];
+    function:                   if 1: 0-pi phase shift, if 2: 0-2pi phase shift
     '''
     def __check_val__(val):
         if val <0: 
@@ -261,8 +265,13 @@ def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_ape
     
     
     
-    if (Save_Grat_Folder[-1]!= '/'): 
-        Save_Grat_Folder = Save_Grat_Folder+'/';
+#    if (Save_Grat_Folder[-1]!= '/'): 
+#        Save_Grat_Folder = Save_Grat_Folder+'/';
+    
+    import os;
+    if (os.path.isdir(Save_Grat_Folder)) == False:
+        os.mkdir(Save_Grat_Folder);
+    
     
     if get_type(blaze_vec)[0] == 'none':
         blaze_vec = [0 for i in range(len(Paras))];
@@ -273,5 +282,5 @@ def create_grating(para_path, Save_Grat_Folder, dim_slm =[2048,1536], circle_ape
     
     for p, blaze_val in zip(Paras, blaze_vec):
         print(p);
-        save_grating_im(Save_Grat_Folder, NumPhases, dim_slm, p,circle_aperture_radius,name_tag, test_grating_shift, bitdepth, form, val, method, blaze_val);
+        save_grating_im(Save_Grat_Folder, NumPhases, dim_slm, p,circle_aperture_radius,name_tag, test_grating_shift, bitdepth, form, val, method, blaze_val, function);
     np.savetxt(Save_Grat_Folder+'Blaze_info.txt', blaze_vec);

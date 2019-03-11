@@ -24,7 +24,7 @@ from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
 from .functions import cossqr, gaussian, coshalf, linear;
-from .util import make_damp_ramp,get_type,subslice,expanddim, __cast__;
+from .util import make_damp_ramp,get_type,subslice,expanddim, __cast__, castdim;
 from .view5d import v5 # for debugging
 from .FileUtils import list_files;
 
@@ -312,8 +312,8 @@ class image(np.ndarray):
         im.info = self.info+ '\n Poission noise, Maximum Photon number = '+str(NPhot)+'\n';
         im.name = self.name+ ' (Poisson, NPhot = '+str(NPhot)+')';
         return(im);
-    def DampEdge(self, width = 10, axes =(0,1),func = cossqr):
-        im = DampEdge(self, width = width, axes =axes, func = func);
+    def DampEdge(self, width = None, rwidth = 0.1 ,axes =None,func = coshalf, method = "damp", sigma = 4.0):
+        im = DampEdge(self, width = width, rwidth=rwidth, axes =axes, func = func, method=method, sigma=sigma);
         im.info += 'Damp Edged, width: '+str(width)+', method = '+func.__name__+'\n';
         return(im);
     def check_complex(self):
@@ -348,11 +348,11 @@ class image(np.ndarray):
         return(threshold(self, t1, t2));
     def histogram(self,name ='', bins=65535, range=None, normed=False, weights=None, density=None):
         return(histogram(self,name ='', bins=65535, range=range, normed=normed, weights=weights, density=density));
-    def cat(self, imlist, ax):
-        if get_type(imlist) == 'list':
-            im =cat(imlist+[self],ax=ax);
-        elif get_type(imlist)[0] == 'array':
-            im =cat([imlist,self],ax= ax);
+    def cat(self, imlist, axis = None, destdims = None):
+        if isinstance(imlist, np.ndarray):
+            im =cat([imlist,self],axis=axis, destdims = destdims);
+        elif isinstance(imlist, list) or isinstance(imlist, tuple):
+            im =cat(list(imlist)+[self],axis= axis, destdims = destdims);
             
         else:
             raise TypeError('Imlist is wrong data type')
@@ -867,6 +867,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
     sz=img.shape;
     den=-2*len(set(axes)); # use only the counting dimensions
     for i in range(len(img.shape)):
+
         if i in axes:
             line = np.arange(0,img.shape[i],1);
             ramp = make_damp_ramp(width[i],func);            
@@ -891,14 +892,14 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
                 raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
             #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
 #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
-        if method!="moisan":
-            line = nip.castdim(line,img.ndim,i) # The broadcasting works only for Python versions >3.5
-            try:
-                res = res*line + (1.0-line)*goal
-            except ValueError:
-                print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-                from numpy.matlib import repmat;
-                res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
+            if method!="moisan":
+                line = castdim(line,img.ndim,i) # The broadcasting works only for Python versions >3.5
+                try:
+                    res = res*line + (1.0-line)*goal
+                except ValueError:
+                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+                    from numpy.matlib import repmat;
+                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
     if method=="moisan":
         den=nip.MidValAsg(nip.image(den),1);  # to avoid the division by zero error
         den=nip.ft(mysum)/den;
@@ -1388,7 +1389,7 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
     '''
     old_arr = M1;
     if np.ndim(M1) == np.ndim(M2):
-        
+        old_arr = M1;
         for axis in range(np.ndim(M1)):
             if M1.shape[axis] != M2.shape[axis]:
                 M1,M2 = match_size(M1,M2,axis, padmode ='constant', odd = False);
