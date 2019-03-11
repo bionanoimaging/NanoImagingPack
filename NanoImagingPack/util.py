@@ -443,7 +443,7 @@ def MidValAsg(img,val):
     return img
 
 def abssqr(img):
-    return img*np.conjugate(img)
+    return np.real(img*np.conjugate(img))
 
 def pairwise_arith(a, mode = 'sum'):
     '''

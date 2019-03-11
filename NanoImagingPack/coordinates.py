@@ -43,16 +43,20 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
                 raise ValueError('ramp: unknown placement value. allowed are negative, positive, corner, and center or an offset value as an np.number')
         except AttributeError:
             raise ValueError('ramp: unknown placement value. allowed are negative, positive, placement, and center or an offset value as an np.number')
-    if freq=="freq":
+    if freq=="ftfreq":
+        miniramp = miniramp/mysize;
+    elif freq=="ftradfreq":
+        miniramp = miniramp * 2.0*np.pi/mysize;
+    elif freq=="fftfreq":
         miniramp = np.fft.fftfreq(mysize,pxs);
-    elif freq=="rfreq":
+    elif freq=="rfftfreq":
         miniramp = np.fft.rfftfreq(mysize,pxs);
-    elif freq=="radfreq":
+    elif freq=="fftradfreq":
         miniramp = np.fft.fftfreq(mysize,pxs/2.0/np.pi);
-    elif freq=="radrfreq":
+    elif freq=="rfftradfreq":
         miniramp = np.fft.rfftfreq(mysize,pxs/2.0/np.pi);
     elif not freq==None:
-        raise ValueError("unknown option for freq. Valid options are freq, rfreq, radfreq and radrfreq.")
+        raise ValueError("unknown option for freq. Valid options are ftfreq, ftradfreq, fftfreq, rfftfreq, fftradfreq and rfftradfreq.")
 #        miniramp=miniramp*(np.pi/(mysize//2))
     
     if ramp_dim>0:
@@ -405,6 +409,18 @@ def freq_ramp(M, pxs = 50,  shift = True, real = False, axis =0):
 
     res=ramp(M, ramp_dim=axis,placement='center', freq=freq, shift=shift,pxs=pxs)
     return(res);
+
+def applyPhaseRamp(img,shiftvec):
+    '''
+        applies a frequency ramp as a phase factor according to the shiftvec to a Fourier transform to shift the image
+        
+        img: input Fourier transform
+        shiftvec: real-space shifts
+    '''
+    res=np.copy(img);
+    for d in range(1,img.ndim+1):
+        res *= np.exp((1j*2*np.pi*shiftvec[-d])*ramp1D(img.shape[-d], ramp_dim = -d,freq='ftfreq'))
+    return res
 
 def px_freq_step(im = (256,256), pxs = 62.5):
     '''

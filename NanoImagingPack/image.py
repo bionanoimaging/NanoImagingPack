@@ -162,8 +162,14 @@ class image(np.ndarray):
                         from .view import view;
                         self.v = view(self);
                 elif __DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':  # RH 3.2.19
-                    from .view5d import v5;
-                    self.v = v5(self);
+#                    from .view5d import v5;
+                    mysize=self.shape
+                    if (len(mysize) == 1) and (mysize[0] < 5):
+                        print("np.image"+str(self))
+                    elif (len(mysize) == 2) and (mysize[0] < 5) and (mysize[1] < 5):
+                        print("np.image"+str(self))
+                    else:
+                        self.v = v5(self);
                 elif __DEFAULTS__['IMG_VIEWER'] == 'INFO':
                     print('Image :'+self.name);
                     print('Shape: '+str(self.shape));
@@ -1277,7 +1283,7 @@ def histogram(im,name ='', bins=65535, range=None, normed=False, weights=None, d
     h = np.histogram(im, bins = bins)
     graph(y=h[0],x=h[1][:len(h[0])], title = 'Histogram of image '+name, x_label = 'Bins', y_label = 'Counts', legend = [])
     return(h);
-    
+        
 def shift(M,delta,direction =0):
     '''
         Shifts an image M for a distance of delta pixels in the given direction using the FT shift theorem
