@@ -100,6 +100,7 @@ class view:
                  
                  v = view(img, show_hist = True);               # create new view object v and show image
                  v.draw(img2                            # draw img2 in v 
+                 v.update(im)                            # update image in current viewer -> similar to draw
                  v2 = view(img2);                        # make new figure img2
                  position = v.marker;                    # store the position were you clicked in the image in the position variable
                  
@@ -278,6 +279,38 @@ class view:
             title_string += ' GlobStretch: OFF';
         return(title_string)
     
+    def update(self, image, rescale = True):
+        '''
+            update image in current viewer
+        '''
+        if __VIEWER_DOWNCONVERT_DATA__:
+            if np.issubdtype(image.dtype, np.complexfloating):
+                self.image = image.astype(np.complex64);
+            elif np.issubdtype(image.dtype, np.floating):
+                self.image = image.astype(np.float32);
+            elif np.issubdtype(image.dtype, np.bool):
+                self.image = image.astype(np.uint8);
+            else:
+                self.image = image;
+        else:
+            self.image = image;
+            
+        if np.ndim(self.image) == 2:
+            self.im_to_draw = self.image;
+        elif np.ndim(self.image) == 3:
+            self.im_to_draw = self.image[:,:,0];
+        elif np.ndim(self.image) == 4:
+            self.im_to_draw = self.image[:,:,0,0];
+        elif np.ndim(self.image) == 5:
+            self.im_to_draw = self.image[:,:,0,0,0];
+        elif np.ndim(self.image) == 6:
+            self.im_to_draw = self.image[:,:,0,0,0,0];
+        else:
+            print('Wrong dimensions: minium is 2 maximum is 6');    
+            return();
+        if rescale:
+             self.rescale(self.im_to_draw.min(), self.im_to_draw.max());
+        self.draw();
     
     def add(self, im, axis =2):
         '''
@@ -631,7 +664,8 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers
                 print('Wrong x type')
                 return;
     for el in y:
-        if type(el)!= np.ndarray and (standalone == False and type(el) != imtype):
+        if isinstance(el, np.ndarray) == False:
+        #if type(el)!= np.ndarray and (standalone == False and type(el) != imtype):
             print('Y list contains non array type!')
             return;
     if (type(x) != list) and (x != None): 

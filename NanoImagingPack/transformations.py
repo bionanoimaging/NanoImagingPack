@@ -86,6 +86,7 @@ def resizeft(data,factors=2):
     data=np.real(nip.ift(nip.centered_extract(nip.ft(data),list(intfac))))
     return data
 
+
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
 def ft2d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = "ortho"):
     '''
@@ -190,7 +191,10 @@ def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
                 if type(orig.unit) is str:
                     im.unit += orig.unit+'^-1 ';
             else:
-                pxs += [orig.pixelsize[i]];
+                try:    # TODO: FIX THIS!!!
+                    pxs += [orig.pixelsize[i]];
+                except:
+                    print('Error in setting pixel size')
                 if type(orig.unit) is str:
                     im.unit += orig.unit+' ';
         im.pixelsize = pxs;
@@ -228,10 +232,6 @@ def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s =
                 
         
     '''
-    if shift == 'DEFAULT': shift = __DEFAULTS__['FT_SHIFT'];
-    if shift_before == 'DEFAULT': shift_before = __DEFAULTS__['FT_SHIFT_FIRST'];
-    if ret == 'DEFAULT': ret = __DEFAULTS__['FT_RETURN'];
-    if norm == 'DEFAULT': norm = __DEFAULTS__['FT_NORM'];
     #create axes list
     if axes == None:
             axes = list(range(len(im.shape)));
@@ -380,10 +380,6 @@ def ift(im, shift = False,shift_before = False, ret ='complex', axes = None, s =
         
     ''' 
     
-    if shift == 'DEFAULT': shift = __DEFAULTS__['IFT_SHIFT'];
-    if shift_before == 'DEFAULT': shift_before = __DEFAULTS__['IFT_SHIFT_FIRST'];
-    if ret == 'DEFAULT': ret = __DEFAULTS__['IFT_RETURN'];
-    if norm == 'DEFAULT': norm = __DEFAULTS__['IFT_NORM'];
 
     
     if type(axes) == int:
@@ -407,6 +403,8 @@ def ift(im, shift = False,shift_before = False, ret ='complex', axes = None, s =
             return image((__check_type__(__ret_val__(np.fft.ifftshift((np.fft.ifftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
         else:
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
+
+
 def irft(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = "ortho", real_axis = 'DEFAULT'):
     '''
         Performs the inverse Fourier transform
@@ -428,12 +426,13 @@ def irft(im, shift = False,shift_before = False, ret ='complex', axes = None, s 
                     Can be 'DEFAULT'
                         Default value will be used
         
-    ''' 
-    
-    if shift == 'DEFAULT': shift = __DEFAULTS__['IRFT_SHIFT'];
-    if shift_before == 'DEFAULT': shift_before = __DEFAULTS__['IRFT_SHIFT_FIRST'];
-    if ret == 'DEFAULT': ret = __DEFAULTS__['IRFT_RETURN'];
-    if norm == 'DEFAULT': norm = __DEFAULTS__['IRFT_NORM'];
+    '''
+    # TODO: add mandatory desired image shape
+    # if the real dimension is odd of the initial picture the back transformation looses one pixel
+    # in this case giving the original shape is necessary by giving the s paramer
+    # when only 1D -> orig shape musst be s = (orig_size,)#
+    # real axis should always be 0th axis
+
     if real_axis == 'DEFAULT': real_axis = __DEFAULTS__['IRFT_REAL_AXIS'];
     
     if type(axes) == int:
