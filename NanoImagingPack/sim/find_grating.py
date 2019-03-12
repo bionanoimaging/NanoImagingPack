@@ -29,6 +29,7 @@ class PARA_SET:
         self.para_list = para_list;
         self.opt_para = np.asarray([]);
         self.opt_ratio = 0;
+        self.valid = False;
     def disp(self):
         print('');
         print('Elements of parameter set:');
@@ -46,7 +47,28 @@ class PARA_SET:
         else:
             pl = self.para_list[:,0];
         return(calc_per(*pl));
-
+    
+    def filter_sum_ratios(self, num_phase, num_dir, dim_slm, generation, pxs, f, h, square  =True):
+        
+        if self.para_list.ndim == 1:
+            self.sum_ratio = get_ratio_summed_imgs(self.para_list, num_phase = num_phase,num_dir = num_dir,dim_slm = dim_slm, generation = generation,pxs= pxs,f=  f,wl= self.wavelength, h = h, square = True);
+            #self.sum_ratio = np.asarray(self.sum_ratio);
+            if self.sum_ratio <0.05:
+                pass;
+            else:
+                self.para_list = np.asarray([]);
+            
+        else:                    
+            self.sum_ratio = np.zeros(self.para_list.shape[1]);
+            count = 0;
+            for paras in self.para_list.transpose():
+                #print(paras)
+                self.sum_ratio[count] = get_ratio_summed_imgs(paras, num_phase = num_phase,num_dir = num_dir,dim_slm = dim_slm, generation = generation,pxs= pxs,f=  f,wl= self.wavelength, h = h, square = True)
+                count += 1;
+            condition = self.sum_ratio<0.05;        
+            index_list = np.squeeze(np.asarray(condition.nonzero()));
+            self.para_list = self.para_list[:,index_list];
+            
     def get_ratio_unwanted_order(self,w_gauss,px_size,h,dim_slm,f, num_dir, num_phase, dbg=-1):
         '''
         This function computes the ratio of unwanted orders for all parameters in the given PARA_SET
@@ -133,7 +155,37 @@ class PARA_SET:
                 view(np.rollaxis(Unwanted,0,3),title='Unwanted transmission', s = 'log')        
                 view(np.rollaxis(Wanted,0,3),title='Wanted transmission', s = 'log')        
         return(Ratio)
-        
+
+def get_ratio_summed_imgs(paras, num_phase,num_dir,dim_slm, generation,pxs, f,wl, h, square = True):
+    from .create_grating import generate_grating, generate_grating2;
+    for d in dim_slm:
+        if d<300:
+            raise ValueError('For computing the ratio the minimum dimension for the slm is 300X300 pixels');
+    
+    per = calc_per(*paras);
+    ang = calc_orient(*paras[2:]);
+    im = None;
+    for i in range(num_phase):
+        if generation == 1:
+            g = generate_grating(paras, i, num_phase, dim_slm);
+        elif generation == 2:
+            g = generate_grating2(paras, i, num_phase, dim_slm);
+        if im is None:
+            im = g
+        else:
+            im = im.cat(g,-3);
+    MyMask_W, MyMask_UW = generate_mask(num_dir= num_dir, wanted_dir =ang , dim_slm = dim_slm, h_diameter=h,wl = wl,period = per ,pixelsize =pxs, f = f, zero = False);
+    mask = MyMask_W;
+    ftims = im.ft2d()
+    filtered = mask*ftims
+    fim = filtered.ift2d(ret = 'real');
+    if square:
+        fim **=2;
+    fim = fim[:,100:dim_slm[0]-100,100:dim_slm[1]-100];
+    ptp = fim.ptp();
+    s = fim.sum(0);
+    s = s.ptp()
+    return(s/ptp);
         
 def gcd(a, b):
     '''
@@ -292,7 +344,7 @@ def search_direction(start_ang, d_ang, num_dir, para, fixed_angle_set= None):
         para_list.append(res)     
     return(para_list)
 
-def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, f = 300):
+def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, f = 300, zero = False):
     '''
         Generate the fouriermask:
             num_dir: number of directions
@@ -304,6 +356,7 @@ def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, 
             pixel_size in um
            
             f: focal lenght of collimating lens in mm Standard is 300 mm
+            zero: zeros order?
             
             The output mask is in pixels in the Fourierspace
     '''
@@ -328,16 +381,76 @@ def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, 
         y_pos = d*np.cos((wanted_dir+180/num_dir*i)*np.pi/180)/bfp_px_size[1]
         mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (x_pos,y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
         mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (-x_pos,-y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
+    if zero:
+        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (0,0), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
     return([mask_wanted_dir, mask_unwanted_dir])
 
-def clear_para_list(pl, al, n_dir):
+def clear_para_list(pl, al, n_dir,lam):
     '''
         This removes all entries from the parameter list, where the angle is not availible for every wavelength:
         pl: parameter list
         al: angle list:
         n_dir: number of directiones
     '''
-    return(list(filter(lambda x: np.mod(x.angle,180/n_dir) in al, pl)))
+    if len(al) >0:
+        wl_set = set(lam);
+        new_l = []
+        for ang in al:
+            ang_set = set(ang+n*180/n_dir for n in range(n_dir ))
+           # print(ang_set)
+            ang_set_ok = 1;
+            for angle in ang_set:
+                if len(list(filter(lambda x: x.angle == angle, pl)))>0:
+                    ang_set_ok*=1;
+                else:
+                    ang_set_ok*=0;
+            
+            new_l += [p for p in pl if (ang_set_ok > 0) and p.angle in ang_set]
+            
+            anglist =[];
+        for p in new_l:
+            if p.angle not in anglist: anglist+=[p.angle];
+        new_l2 = [];
+        for el in anglist:
+            sub_list = list(filter(lambda x: x.angle == el, new_l))
+            wl_set_ok = 1;
+            for wavelength in wl_set:
+                if len(list(filter(lambda x: x.wavelength == wavelength, sub_list)))>0:
+                    wl_set_ok *=1;
+                else:
+                    wl_set_ok *=0;
+            if wl_set_ok == 1:
+                new_l2+=sub_list;
+    else:
+        new_l2 = [];
+    return(new_l2);
+
+
+#def clear_para_list(pl, al, n_dir):
+#    '''
+#        This removes all entries from the parameter list, where the angle is not availible for every wavelength:
+#        pl: parameter list
+#        al: angle list:
+#        n_dir: number of directiones
+#    '''
+#    return(list(filter(lambda x: np.mod(x.angle,180/n_dir) in al, pl)))
+
+def optimize_grating_sum(para_sets, num_phase, num_dir, dim_slm,h,generation, px_size, f ):
+    count = 0;
+    for p in para_sets:
+        
+        p.filter_sum_ratios(num_phase, num_dir, dim_slm, generation, px_size, f, h, square  =True)
+        if p.para_list.ndim == 2:
+            print('Filtering grating sum ... set '+str(count)+' / '+str(len(para_sets))+'  --> '+str(p.para_list.shape[1])+' sets possible');
+        elif p.para_list.ndim == 1 and p.para_list.size!=0:
+            print('Filtering grating sum ... set '+str(count)+' / '+str(len(para_sets))+'  --> 1 set possible');
+        elif p.para_list.size == 0:
+            print('Filtering grating sum ... set '+str(count)+' / '+str(len(para_sets))+'  --> 0 sets possible');
+        count +=1;
+    para_sets = [p for p in para_sets if p.para_list.size > 0]
+    return(para_sets);
+    #get_sum_ratios(self, num_phase, num_dir, dim_slm, generation, pxs, f, h, square  =True):
+    
 
 def find_optimum_set(pl, w_gauss, px_size, h, angle_array, num_dir,num_phases, dim_slm=[1024,1024], f=300, criterion = 'maximum'):
     average_list = []
@@ -346,8 +459,9 @@ def find_optimum_set(pl, w_gauss, px_size, h, angle_array, num_dir,num_phases, d
         p.get_ratio_unwanted_order(w_gauss,px_size,h,dim_slm,f,num_dir, num_phases)
     for angle in angle_array:
         new_list = list(filter(lambda x: np.mod(x.angle, 180//num_dir)==angle, pl));
-        average_list.append(sum(list(map(lambda x: x.opt_ratio, new_list)))/len(new_list))
-        max_list.append(max(list(map(lambda x: x.opt_ratio, new_list))));
+        if len(new_list)!= 0:                       
+            average_list.append(sum(list(map(lambda x: x.opt_ratio, new_list)))/len(new_list))
+            max_list.append(max(list(map(lambda x: x.opt_ratio, new_list))));
     if criterion == 'average':
         opt_angle= angle_array[np.argmin(average_list)]
     if criterion == 'maximum':
@@ -406,8 +520,9 @@ def save_gratings(ol, period, error_period, num_dir, num_phase,px_size, w_gauss,
             plt.imsave(path+name,grat,format = "TIFF", cmap = 'Greys_r')    
     '''
     return();
-    
-def create_para_list(start, end, k0, dk0_R, d_ang, lam, num_dir, num_phase, fixed_angle = [-1], fixed_angle_set = None,PhaseCheckMethod=2):
+
+     
+def create_para_list(start, end, k0, dk0_R, d_ang, lam, num_dir, num_phase,dim_slm,h,generation,px_size,f,opt_grating_sum, fixed_angle = [-1], fixed_angle_set = None,PhaseCheckMethod=2):
     if (fixed_angle == [-1]):
         angle_array = np.arange(1,180/num_dir,1);       #scan whole start angle range
     else:
@@ -432,7 +547,7 @@ def create_para_list(start, end, k0, dk0_R, d_ang, lam, num_dir, num_phase, fixe
             print('Scanning start angles and searching for directions...')
         angle_arr=np.asarray([])   # I dont't know what that was supposed to be!
         
-        print(angle_array.shape)
+        #print(angle_array.shape)
         for start_ang in angle_array:                                        # Scan every possible starting angle -> 
             liste = search_direction(start_ang, d_ang, num_dir, res, fixed_angle_set)   
             tester = 1;  # Tells you if there is at least 1 parameter set for each direction begining at starting angle
@@ -452,8 +567,8 @@ def create_para_list(start, end, k0, dk0_R, d_ang, lam, num_dir, num_phase, fixe
                 print(str(np.size(angle_arr))+' possible starting angles found:')
                 print(angle_arr);
             angle_array = angle_arr;
-        
-    return(clear_para_list(para_list, angle_array, num_dir), angle_array,error)  # Remove all entries from the parameter list, where not all direction for all wavelengths are possible for a given starting angle
+    
+    return(clear_para_list(para_list, angle_array, num_dir,lam), angle_array,error)  # Remove all entries from the parameter list, where not all direction for all wavelengths are possible for a given starting angle
 
 
 def get_period(lam, eta, pixelpitch=8.2, NA = 1.46, magnification=76.8):
@@ -470,7 +585,7 @@ def get_period(lam, eta, pixelpitch=8.2, NA = 1.46, magnification=76.8):
 
     
 
-def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase = 3, wavelength = [488, 561, 638, 405], error_period = 0.01, error_angle = 0.1,fixed_angle=None, px_size = 8.2, w_gauss = 0.5,h =0.3, dim_slm = [1024,1024], f = 250, NA = 1.46, magnification = 76.8, BFP_filling = 83.4, period =None, fixed_angle_set = None, PhaseCheckMethod=2 ,optimize_for_unwanted_orders = True):
+def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase = 3, wavelength = [488, 561, 638, 405], error_period = 0.01, error_angle = 0.1,fixed_angle=None, px_size = 8.2, w_gauss = 0.5,h =0.3, dim_slm = [1024,1024], f = 250, NA = 1.46, magnification = 76.8, BFP_filling = 83.4, period =None, fixed_angle_set = None, PhaseCheckMethod=2 ,optimize_for_unwanted_orders = True, opt_grating_sum = True, generation = 1):
     '''
     Created on Wed Nov 16 19:26:01 2016
     
@@ -537,8 +652,8 @@ def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase
                                                        -   However I generally did not encounter any problems yet, it is not one houndret percent clear what happened here and if it always gives correct phase steps. In case you use this: Check the gratings afterwards
         
         optimize_for_unwanted_orders    do you want to optimize for unwanted orders? if not, the whole list will be stored!
-        
-        
+        opt_grating_sum                 do you want to optimize the grating sums? In this case for each potential grating set, the num_phase gratings will be computed, filtered and summed up. The ratio between the summed peak-to-peak and the ptp-value for one grating is below 5% the parameter set will be excepted. Otherwise it will be expelled.
+        generation                      for the opt_grating_sum -> how to shift the phases? 1: shift phases between 0 and py, 2: shift hte phases between 0 and 2pi;
         
       Returns the path of the parameter file so it can easily be read afterwards
       
@@ -588,8 +703,15 @@ def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase
       
         name='para_'+str(np.round(period,3))+'_'+str(num_phase)+'phases_'+str(num_dir)+'Dir.txt';
         #name='QXGA_TEST_PARA.txt';
-        para_list, angle_array,error = create_para_list(start, end, period, error_period, error_angle, lam, num_dir, num_phase, fixed_angle, fixed_angle_set = fixed_angle_set, PhaseCheckMethod=PhaseCheckMethod);
-                                                       
+        para_list, angle_array,error = create_para_list(start, end, period, error_period, error_angle, lam, num_dir, num_phase,dim_slm,h,generation,px_size,f,opt_grating_sum, fixed_angle, fixed_angle_set = fixed_angle_set, PhaseCheckMethod=PhaseCheckMethod);
+        #return(para_list,angle_array)
+        if opt_grating_sum:
+            para_list = optimize_grating_sum(para_list, num_phase, num_dir, dim_slm,h,generation, px_size, f);
+        #return(para_list, angle_array)
+        para_list = clear_para_list(para_list, angle_array, num_dir, lam)
+        if len(para_list) == 0:
+            error = -1;
+            print('No elements after para list creation');                                                       
         if (error ==0):
             if optimize_for_unwanted_orders:
                 ol = find_optimum_set(para_list, w_gauss, px_size, h,angle_array,num_dir,num_phase, dim_slm, f);

@@ -26,6 +26,8 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
         mysize = mysize.shape;
     if freq!=None and not placement=='center':
         raise ValueError("ramp1D: Illegal placement: ("+placement+"). (freq="+freq+") argument can only be used with (center) placement.")
+     
+    
         
     if placement == 'negative':
         miniramp = np.arange(-mysize+1,1,1);

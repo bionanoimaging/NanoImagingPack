@@ -87,7 +87,8 @@ def resizeft(data,factors=2):
     return data
 
 
-def ft2d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = None, norm = 'DEFAULT'):
+# TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
+def ft2d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = "ortho"):
     '''
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
     '''
@@ -96,8 +97,7 @@ def ft2d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = 
         return(im);
     else:
         return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-2,-1),  s = s, norm = norm));
-
-def ift2d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
+def ift2d(im, shift = True,shift_before = True, ret ='complex', s = None, norm = "ortho"):
     '''
         Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     '''
@@ -107,9 +107,7 @@ def ift2d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = No
         return(im);
     else:
         return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
-
-
-def ft3d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = None, norm = 'DEFAULT'):
+def ft3d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = "ortho"):
     '''
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
     '''
@@ -118,10 +116,7 @@ def ft3d(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT',  s = 
         return(im);
     else:
         return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-3,-2,-1),  s = s, norm = norm));
-        
-
-
-def ift3d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
+def ift3d(im, shift = True,shift_before = True, ret ='complex', s = None, norm = "ortho"):
     '''
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     '''
@@ -131,7 +126,6 @@ def ift3d(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = No
         return(im);
     else:
         return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
-
 def __ret_val__(im, mode):
     if mode == 'abs':
         return(np.abs(im));
@@ -143,7 +137,6 @@ def __ret_val__(im, mode):
         return(np.imag(im));
     else:
         return(im);
-
 def __fill_real_return__(im, ax, real_return, origi_shape):
     '''
         if real_return == 'full',
@@ -171,8 +164,6 @@ def __fill_real_return__(im, ax, real_return, origi_shape):
         return(np.concatenate((im,half), axis));
     else:
         return(im);
-
-
 def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
     '''
         Check the data dtype and potentially change pixelsizes
@@ -200,7 +191,10 @@ def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
                 if type(orig.unit) is str:
                     im.unit += orig.unit+'^-1 ';
             else:
-                pxs += [orig.pixelsize[i]];
+                try:    # TODO: FIX THIS!!!
+                    pxs += [orig.pixelsize[i]];
+                except:
+                    print('Error in setting pixel size')
                 if type(orig.unit) is str:
                     im.unit += orig.unit+' ';
         im.pixelsize = pxs;
@@ -210,8 +204,7 @@ def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
           
         
         # ifft shift        
-
-def ft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
+def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s = None, norm = "ortho"):
     '''
         Fouriertransform of image
         
@@ -239,10 +232,6 @@ def ft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = 
                 
         
     '''
-    if shift == 'DEFAULT': shift = __DEFAULTS__['FT_SHIFT'];
-    if shift_before == 'DEFAULT': shift_before = __DEFAULTS__['FT_SHIFT_FIRST'];
-    if ret == 'DEFAULT': ret = __DEFAULTS__['FT_RETURN'];
-    if norm == 'DEFAULT': norm = __DEFAULTS__['FT_NORM'];
     #create axes list
     if axes == None:
             axes = list(range(len(im.shape)));
@@ -263,8 +252,7 @@ def ft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = 
             return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
         else:
             return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-
-def rft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT', real_return = 'DEFAULT', real_axis = None):
+def rft(im, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = "ortho", real_return = 'DEFAULT', real_axis = None):
     '''
         real Fouriertransform of image
         
@@ -375,9 +363,7 @@ def rft(im, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes =
                 return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
             else:
                 return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-
-
-def ift(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT'):
+def ift(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = "ortho"):
     '''
         Performs the inverse Fourier transform
         
@@ -394,10 +380,6 @@ def ift(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = N
         
     ''' 
     
-    if shift == 'DEFAULT': shift = __DEFAULTS__['IFT_SHIFT'];
-    if shift_before == 'DEFAULT': shift_before = __DEFAULTS__['IFT_SHIFT_FIRST'];
-    if ret == 'DEFAULT': ret = __DEFAULTS__['IFT_RETURN'];
-    if norm == 'DEFAULT': norm = __DEFAULTS__['IFT_NORM'];
 
     
     if type(axes) == int:
@@ -421,9 +403,9 @@ def ift(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = N
             return image((__check_type__(__ret_val__(np.fft.ifftshift((np.fft.ifftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
         else:
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
-        
 
-def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT', real_axis = 'DEFAULT'):
+
+def irft(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = "ortho", real_axis = 'DEFAULT'):
     '''
         Performs the inverse Fourier transform
         
@@ -444,12 +426,13 @@ def irft(im, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = 
                     Can be 'DEFAULT'
                         Default value will be used
         
-    ''' 
-    
-    if shift == 'DEFAULT': shift = __DEFAULTS__['IRFT_SHIFT'];
-    if shift_before == 'DEFAULT': shift_before = __DEFAULTS__['IRFT_SHIFT_FIRST'];
-    if ret == 'DEFAULT': ret = __DEFAULTS__['IRFT_RETURN'];
-    if norm == 'DEFAULT': norm = __DEFAULTS__['IRFT_NORM'];
+    '''
+    # TODO: add mandatory desired image shape
+    # if the real dimension is odd of the initial picture the back transformation looses one pixel
+    # in this case giving the original shape is necessary by giving the s paramer
+    # when only 1D -> orig shape musst be s = (orig_size,)#
+    # real axis should always be 0th axis
+
     if real_axis == 'DEFAULT': real_axis = __DEFAULTS__['IRFT_REAL_AXIS'];
     
     if type(axes) == int:

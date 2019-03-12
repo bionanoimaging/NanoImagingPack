@@ -126,8 +126,7 @@ class HAMAMATSU_SLM():
         if self.use_corr_pat:
             from .image import readim, cat;
             import numpy as np;
-            self.corr_img = cat([readim(corr_pattern_path+'CAL_LSH0701847_'+self.wavelength+'nm.bmp'), np.zeros((8,600))],0).astype(np.uint8);
-            
+            self.corr_img = cat([readim(corr_pattern_path+'CAL_LSH0701847_'+self.wavelength+'nm.bmp').transpose(), np.zeros((8,600))],0).astype(np.uint8);
             print('Correction pattern read :  '+corr_pattern_path+'CAL_LSH0701847_'+self.wavelength+'nm.bmp');
             print('Correction factor is '+str(self.corr_fac));
         else: 
@@ -160,6 +159,7 @@ class HAMAMATSU_SLM():
                 im           image array (shape: 800 X 600, dType: uint8);
                 im_number:   address: (0...255)
         '''
+        
         import numpy as np;
         if im.dtype != np.uint8:
                 print('WARNING: Wrong data type! uint8 required! currently is '+ str(im.dtype)+' ... RECASTING AS UINT8');
