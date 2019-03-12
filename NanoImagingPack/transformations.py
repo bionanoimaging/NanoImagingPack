@@ -107,6 +107,7 @@ def ift2d(im, shift = True,shift_before = True, ret ='complex', s = None, norm =
         return(im);
     else:
         return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
+        
 def ft3d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = "ortho"):
     '''
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
@@ -116,6 +117,7 @@ def ft3d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm
         return(im);
     else:
         return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-3,-2,-1),  s = s, norm = norm));
+        
 def ift3d(im, shift = True,shift_before = True, ret ='complex', s = None, norm = "ortho"):
     '''
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
@@ -126,6 +128,7 @@ def ift3d(im, shift = True,shift_before = True, ret ='complex', s = None, norm =
         return(im);
     else:
         return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
+        
 def __ret_val__(im, mode):
     if mode == 'abs':
         return(np.abs(im));
@@ -363,7 +366,8 @@ def rft(im, shift = False, shift_before = False, ret = 'complex', axes = None,  
                 return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
             else:
                 return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-def ift(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = "ortho"):
+
+def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = None, norm = "ortho"):
     '''
         Performs the inverse Fourier transform
         
@@ -405,7 +409,7 @@ def ift(im, shift = False,shift_before = False, ret ='complex', axes = None, s =
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
 
 
-def irft(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = "ortho", real_axis = 'DEFAULT'):
+def irft(im, shift = True,shift_before = True, ret ='complex', axes = None, s = None, norm = "ortho", real_axis = 'DEFAULT'):
     '''
         Performs the inverse Fourier transform
         
