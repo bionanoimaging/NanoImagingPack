@@ -835,7 +835,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
             -> can be integer, than every (given) axis is damped by the same size
             -> can be list or tupel -> than individual damping for given axis
             
-        axes-> which axes to be damped (default is (0,1))
+        axes-> which axes to be damped (default is None, meaning all axes)
 
         func   - which function shall be used for damping -> some are stated in functions.py, first element should be x, second one the length (Damping length!)
                 e.g. cossqr, coshalf, linear
@@ -897,14 +897,14 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
                 raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
             #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
 #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
-        if method!="moisan":
-            line = nip.castdim(line,img.ndim,i) # The broadcasting works only for Python versions >3.5
-            try:
-                res = res*line + (1.0-line)*goal
-            except ValueError:
-                print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-                from numpy.matlib import repmat;
-                res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
+            if method!="moisan":
+                line = nip.castdim(line,img.ndim,i) # The broadcasting works only for Python versions >3.5
+                try:
+                    res = res*line + (1.0-line)*goal
+                except ValueError:
+                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+                    from numpy.matlib import repmat;
+                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])),res.shape, order = 'F');
     if method=="moisan":
         den=nip.MidValAsg(nip.image(den),1);  # to avoid the division by zero error
         den=nip.ft(mysum)/den;
@@ -1283,6 +1283,12 @@ def histogram(im,name ='', bins=65535, range=None, normed=False, weights=None, d
     h = np.histogram(im, bins = bins)
     graph(y=h[0],x=h[1][:len(h[0])], title = 'Histogram of image '+name, x_label = 'Bins', y_label = 'Counts', legend = [])
     return(h);
+
+def shiftby(img,avec):
+    return np.real(nip.ift(nip.applyPhaseRamp(nip.ft(img),avec)))
+
+def shift2Dby(img,avec):
+    return np.real(nip.ift2d(nip.applyPhaseRamp(nip.ft2d(img),avec)))
         
 def shift(M,delta,direction =0):
     '''
@@ -1332,9 +1338,9 @@ def shift(M,delta,direction =0):
     for d, ax in zip(delta, axes):        
         if ax == real_ax:
             
-            phaseramp += ramp(FT.shape,ramp_dim = ax, corner = 'positive')*2*np.pi*d/(M.shape[ax]);
+            phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'positive')*2*np.pi*d/(M.shape[ax]);
         else:
-            phaseramp += ramp(FT.shape,ramp_dim = ax, corner = 'center')*2*np.pi*d/(M.shape[ax]);
+            phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'center')*2*np.pi*d/(M.shape[ax]);
     phaseramp = np.exp(-1j*phaseramp)
     if M.dtype == np.complexfloating:
         M = ift(FT*phaseramp, shift = False,shift_before=True, axes = axes,s= None, norm = None, ret = 'complex');

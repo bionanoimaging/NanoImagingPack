@@ -415,11 +415,16 @@ def applyPhaseRamp(img,shiftvec):
         applies a frequency ramp as a phase factor according to the shiftvec to a Fourier transform to shift the image
         
         img: input Fourier transform
-        shiftvec: real-space shifts
+        shiftvec: real-space shift(s).  If multiple vectors are provided (stacked as a list), different shifts are applied to each outermost dimension [0]
     '''
     res=np.copy(img);
-    for d in range(1,img.ndim+1):
-        res *= np.exp((1j*2*np.pi*shiftvec[-d])*ramp1D(img.shape[-d], ramp_dim = -d,freq='ftfreq'))
+    ShiftDims=shiftvec.shape[-1]
+    for d in range(1,ShiftDims+1):
+        if type(shiftvec[0]) is list or (shiftvec.ndim > 1):
+            myshifts=nip.castdim(shiftvec[:,-d],img.ndim) # apply different shifts to outermost dimension
+        else:
+            myshifts=shiftvec[-d]
+        res *= np.exp((1j*2*np.pi*myshifts)*ramp1D(img.shape[-d], ramp_dim = -d,freq='ftfreq'))
     return res
 
 def px_freq_step(im = (256,256), pxs = 62.5):

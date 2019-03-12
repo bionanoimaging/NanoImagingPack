@@ -342,6 +342,9 @@ def castdimvec(mysize,ndims,wanteddim=0):
     newshape=wanteddim*(1,)+mysize+(ndims-wanteddim-len(mysize))*(1,)
     return newshape
 
+def clip(img,minval=0.0,maxval=None):
+    return np.clip(img,minval,maxval)
+
 def castdim(img,ndims,wanteddim=0):
     '''
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
