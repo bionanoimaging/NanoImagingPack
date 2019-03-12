@@ -39,7 +39,26 @@ def RFTShift(img,maxdim=3,ShiftAfter=True):
 #    print(shift1)
     return np.roll(img,shift1,axes)
 
-def Resample(img,factors=2.0):
+def Resample(img,factors=[2.0,2.0]):
+    '''
+    resamples and image by an RFT, applying a phase factor and performing an inverse RFT.
+
+    Parameters
+    ----------
+    tfin : tensorflow array to be convolved with the PSF
+    newsize : size to cut to
+    Returns
+    -------
+    tensorflow array
+        The cut RFT
+
+    See also
+    -------
+    Convolve, TFRFT, RFIRFT, PSF2ROTF, preFFTShift
+
+    Example
+    -------    
+    '''
     rf=rft(img)
     oldsize=rf.shape
 #    print(oldsize)
@@ -203,10 +222,9 @@ def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
         im.pixelsize = pxs;
         return(im);
     else:
-        return(im);
-          
-        
+        return(im);         
         # ifft shift        
+
 def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s = None, norm = "ortho"):
     '''
         Fouriertransform of image
@@ -255,6 +273,7 @@ def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s =
             return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
         else:
             return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
+
 def rft(im, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = "ortho", real_return = 'DEFAULT', real_axis = None):
     '''
         real Fouriertransform of image
@@ -409,7 +428,7 @@ def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = N
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
 
 
-def irft(im, shift = True,shift_before = True, ret ='complex', axes = None, s = None, norm = "ortho", real_axis = 'DEFAULT'):
+def irft(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = "ortho", real_axis = 'DEFAULT'):
     '''
         Performs the inverse Fourier transform
         

@@ -181,7 +181,7 @@ def rotate2DVec(myvec,myangle):
     if res.ndim == 1:
         res[-1] = np.cos(myangle)*myvec[-1] - np.sin(myangle)*myvec[-2]
         res[-2] = np.sin(myangle)*myvec[-1] + np.cos(myangle)*myvec[-2]
-    elif res.ndim == 1:
+    elif res.ndim == 2:
         res[:,-1] = np.cos(myangle)*myvec[:,-1] - np.sin(myangle)*myvec[:,-2]
         res[:,-2] = np.sin(myangle)*myvec[:,-1] + np.cos(myangle)*myvec[:,-2]
     else:
@@ -244,6 +244,7 @@ def toList(val):
         return [val]
     else:
         return val
+
 
 def repToList(val,ndim):
     '''
