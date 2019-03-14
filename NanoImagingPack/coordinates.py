@@ -418,8 +418,12 @@ def applyPhaseRamp(img,shiftvec):
         
         img: input Fourier transform
         shiftvec: real-space shift(s).  If multiple vectors are provided (stacked as a list), different shifts are applied to each outermost dimension [0]
+        
+        Example:
+            nip.shiftby(nip.readim(),[100.2,120.4])
     '''
     res=np.copy(img);
+    shiftvec=np.array(shiftvec)
     ShiftDims=shiftvec.shape[-1]
     for d in range(1,ShiftDims+1):
         if type(shiftvec[0]) is list or (shiftvec.ndim > 1):

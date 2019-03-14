@@ -245,6 +245,8 @@ def toList(val):
     else:
         return val
 
+def equalsizevec(vec1,vec2):
+    return np.linalg.norm(vec1-vec2)==0.0
 
 def repToList(val,ndim):
     '''
