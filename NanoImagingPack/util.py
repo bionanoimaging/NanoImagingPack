@@ -442,11 +442,19 @@ def MidValAsg(img,val):
         assigns val to the middle position of an image (where ft has its zero frequency)
         -----
         img : input image to assign to
-        mydim : dimension into which the subslice is chosen
-        start : offset along this dimension
+        val : value to assing
     '''
     img[img.mid()]=val
     return img
+
+def MidVal(img):
+    '''
+        returns the value to the middle position of an image (where ft has its zero frequency)
+        -----
+        img : input image to assign to
+        start : offset along this dimension
+    '''    
+    return img[img.mid()]
 
 def abssqr(img):
     return np.real(img*np.conjugate(img))
