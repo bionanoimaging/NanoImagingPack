@@ -306,7 +306,6 @@ def rft(im, shift = False, shift_before = False, ret = 'complex', axes = None,  
         full_shift:  Def = False If true, the shift operations will be performed over all axes (given by axes) including the real one. Otherwise the shift operations will exclude the real axis direction.
         
     '''
-    global __REAL_AXIS__;
     #create axes list
     if axes is None:
             axes = list(range(len(im.shape)));
@@ -453,7 +452,7 @@ def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = N
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
 
 
-def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None,  norm = None, real_axis = 'DEFAULT'):
+def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None,  norm = None, full_shift = False):
     '''
         Performs the inverse Fourier transform
         
@@ -466,63 +465,28 @@ def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None, 
         ret:   return type
         axes: which axes
         norm: normalization
-        rfft:  Are rfft data supposed to be transformed back? (only half space!, shift does not apply for this axis! -> use if you were using force_full_fft == wrong and real_return wasn't 'full' and dtype of array wasn't complex and even axis was found!)
-        real_axis: along which axes was the real fft done? 
-                    Can be None:
-                        The last axis will be taken
-                    Can be 'GLOBAL'
-                        A stored axis will be taken
-                    Can be 'DEFAULT'
-                        Default value will be used
-        
+
     '''
-    # TODO: add mandatory desired image shape
-    # if the real dimension is odd of the initial picture the back transformation looses one pixel
-    # in this case giving the original shape is necessary by giving the s paramer
-    # when only 1D -> orig shape musst be s = (orig_size,)#
-    # real axis should always be 0th axis
-
-    if real_axis == 'DEFAULT': real_axis = __DEFAULTS__['IRFT_REAL_AXIS'];
-    
-    if type(axes) == int:
+    # create axis, shift_ax and real_ax
+    if axes is None:
+            axes = list(range(len(im.shape)));
+    if isinstance(axes, int):
         axes = [axes];
-    try: 
-        if np.issubdtype(axes.dtype, np.integer):
-            axes = [axes];
-    except AttributeError:
-        pass;
-    
-    if axes== None:
-        axes = list(range(len(im.shape)));
-    
-    if  real_axis == None:
-        real_axis = axes[len(axes)-1];
-        print('No real axis given -> taking last one (number: '+str(real_axis)+')');
-    elif real_axis == 'GLOBAL':
-        real_axis = __REAL_AXIS__;
-        print('Taking real axis from global variable (number: '+str(real_axis)+')!');
-
-    if real_axis in axes:
-        im = im.swapaxes(axes[-1], real_axis)   
-        s_axes =[];
-        if shift_before == True:        
-            if shift:
-                #iftim = __ret_val__(np.fft.ifftshift(np.fft.irfftn(np.fft.ifftshift(im,axes = axes[:-1]), norm = norm, axes = axes, s = s),axes = axes[:-1]), ret);
-                iftim = __ret_val__(np.fft.ifftshift(np.fft.irfftn(np.fft.ifftshift(im,axes = axes[:-1]), norm = norm, axes = axes, s = s),axes = axes), ret);
-                s_axes = axes[:-1];
-            else:
-                iftim = __ret_val__(np.fft.irfftn(np.fft.ifftshift(im,axes = axes[:-1]), norm = norm, axes = axes, s = s), ret);
-        else:    
-            if shift:
-                #iftim = __ret_val__(np.fft.ifftshift(np.fft.irfftn(im, norm = norm, axes = axes, s = s),axes = axes[:-1]), ret);
-                iftim = __ret_val__(np.fft.ifftshift(np.fft.irfftn(im, norm = norm, axes = axes, s = s),axes = axes), ret);
-                s_axes = axes;
-            else:
-                iftim = __ret_val__(np.fft.irfftn(im, norm = norm, axes = axes, s = s), ret);
-        return image(__check_type__(iftim.swapaxes(axes[-1], real_axis),axes,im, 'IRFT', axes[-1], shift_axes = s_axes))
+    real_axis = max(axes);              # always the last axis is the real one   as Default
+    if full_shift == False:
+        shift_ax = [i for i in axes if i != real_axis];
     else:
-        print('Real axis not in ift axes list -> Performing normal ifft!')
-        return image(ift(im, shift = shift,shift_before = shift_before, ret =ret, axes = axes, s = s, norm =norm))
-     
+        shift_ax = axes;
 
+    if shift_before == True:
+        if shift == True:
 
+            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.irfftn(np.fft.ifftshift(im, axes=shift_ax), axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'IFT', shift_axes=shift_ax)))
+        else:
+            return image((__check_type__(__ret_val__(np.fft.irfftn(np.fft.ifftshift(im, axes=shift_ax), axes=axes, s=s, norm=norm), ret), axes, im, 'IFT')))
+    else:
+        if shift == True:
+            return image((__check_type__(
+                __ret_val__(np.fft.fftshift((np.fft.irfftn(im, axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'IFT', shift_axes=shift_ax)))
+        else:
+            return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes=axes, s=s, norm=norm), ret), axes, im, 'IFT')))
