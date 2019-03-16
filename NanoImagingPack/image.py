@@ -306,9 +306,9 @@ class image(np.ndarray):
         from .transformations import ft3d;
         return(ft3d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
 
-    def rft(self, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None, real_return = None, real_axis = None):
+    def rft(self, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None, full_shift = False):
         from .transformations import rft;
-        return(rft(self, shift = shift, shift_before = shift_before, ret = ret, axes = axes,  s = s, norm = norm, real_return = real_return, real_axis = real_axis))
+        return(rft(self, shift = shift, shift_before = shift_before, ret = ret, axes = axes,  s = s, norm = norm, full_shift =full_shift))
     def irft(self,s, shift = False,shift_before = False, ret ='complex', axes = None,  norm = None, real_axis = None):
         from .transformations import irft;
         return(irft(self,s, shift = shift,shift_before = shift_before, ret =ret, axes = axes, norm = norm, real_axis = real_axis))

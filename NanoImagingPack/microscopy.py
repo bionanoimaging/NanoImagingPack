@@ -1008,6 +1008,7 @@ def PSF2ROTF(psf):
     '''
         Transforms a real-valued PSF to a half-complex RFT, at the same time precompensating for the fftshift
     '''
+    # TODO: CHECK HERE IF FULL_SHIFT MIGTH BE NEEDED!!!
     o = image(rft(psf,shift_before=True))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
     return o.astype('complex64')
