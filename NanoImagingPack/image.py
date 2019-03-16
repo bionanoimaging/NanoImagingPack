@@ -19,6 +19,7 @@ Created on Thu Jul 27 17:21:21 2017
 
 import tifffile as tif;
 import numpy as np;
+# TODO: WTF!!!! DON'T IMPORT THE PACKAGE AT ITSELF!!!!
 import NanoImagingPack as nip
 from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;

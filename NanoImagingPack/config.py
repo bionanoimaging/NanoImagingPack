@@ -10,6 +10,29 @@ Basic settings:
 '''
 from .FileUtils import str_to_path;
 import os;
+from .util import struct;
+
+
+# DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
+PSF_PARAMS = struct();
+PSF_PARAMS.NA = 0.9;
+PSF_PARAMS.n = 1;
+PSF_PARAMS.dimension = 2;
+PSF_PARAMS.wavelength = 500;
+PSF_PARAMS.pol = 'lin_x';
+PSF_PARAMS.vectorized = False;
+PSF_PARAMS.aplanar = 'excitation';
+PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
+PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
+PSF_PARAMS.explanation= ' \nNA \t \t \t \t Numerical aperture \n'
+PSF_PARAMS.explanation+=' n \t \t \t \t \t refractive index \n'
+PSF_PARAMS.explanation+=' dimension \t \t \t 2 or 3 -> dimenstion of the Transfere function \n'
+PSF_PARAMS.explanation+=' wavelenght \t \t \t wavelength in units of the image pixel size \n'
+PSF_PARAMS.explanation+=' pol \t \t \t polarization: give "lin_x","lin_y", "azimuthal", "radial", "circular", or a polarization map of dim [2, dim_y_image, dim_x_image] where the elments of the first dimension map x and y polarization strength \n'
+PSF_PARAMS.explanation+=' vectorized \t \t \t True or False -> Vectorial computation \n'
+PSF_PARAMS.explanation+=' aplanar \t \t \t "excitation", "emission", None, aplanatic factor  \n'
+PSF_PARAMS.explanation+=' Z_PXS_FOR_2D_IMG \t \t \t ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: what is the pixelsize in z \n'
+PSF_PARAMS.explanation+=' Z_STEPS_FOR_2D_IMG \t \t \t ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: Number of z-slices \n'
 
 
 

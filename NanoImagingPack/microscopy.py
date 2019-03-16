@@ -17,6 +17,9 @@ from .util import get_type,abssqr;
 from .transformations import rft,irft,ft2d,ift2d;
 from .coordinates import rr, ramp
 from .view5d import v5 # for debugging
+from .config import PSF_PARAMS
+
+
 
 class transfer():
     '''
