@@ -293,16 +293,16 @@ class image(np.ndarray):
     def ift(self, shift = True,shift_before = True, ret ='complex', axes = None, s = None, norm = None):  # RH: Changed this
         from .transformations import ift;
         return(ift(self, shift = shift,shift_before =shift_before, ret = ret, axes = axes, s = s, norm = norm));
-    def ift2d(self, shift = False,shift_before = True, ret ='complex', s = None, norm = None):
+    def ift2d(self, shift = True,shift_before = True, ret ='complex', s = None, norm = None):
         from .transformations import ift2d;
         return(ift2d(self, shift = shift,shift_before =shift_before, ret = ret, s = s, norm = norm));
-    def ift3d(self, shift = False,shift_before = True, ret ='complex', s = None, norm = None):
+    def ift3d(self, shift = True,shift_before = True, ret ='complex', s = None, norm = None):
         from .transformations import ift3d;
         return(ift3d(self, shift = shift,shift_before =shift_before, ret = ret, s = s, norm = norm));
-    def ft2d(self, shift = True ,shift_before = False, ret = 'complex',  s = None, norm = None):
+    def ft2d(self, shift = True ,shift_before = True, ret = 'complex',  s = None, norm = None):
         from .transformations import ft2d;
         return(ft2d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
-    def ft3d(self, shift = True ,shift_before = False, ret = 'complex',  s = None, norm = None):
+    def ft3d(self, shift = True ,shift_before = True, ret = 'complex',  s = None, norm = None):
         from .transformations import ft3d;
         return(ft3d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
 
