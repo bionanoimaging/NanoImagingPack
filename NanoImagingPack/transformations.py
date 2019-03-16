@@ -435,17 +435,18 @@ def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = N
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
 
 
-def irft(im, shift = False,shift_before = False, ret ='complex', axes = None, s = None, norm = None, real_axis = 'DEFAULT'):
+def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None,  norm = None, real_axis = 'DEFAULT'):
     '''
         Performs the inverse Fourier transform
         
         im is the input spectrum. Generally it is complex
-        
+        s is the shape of the output image. In this irft function it is mandatory to give!
+
+
         shift: Shift AFTER Backtransfomr
         shift_before: Sshift BEFORE Bakacktransform
         ret:   return type
         axes: which axes
-        s Shape (like in in np.fft.ifft help)
         norm: normalization
         rfft:  Are rfft data supposed to be transformed back? (only half space!, shift does not apply for this axis! -> use if you were using force_full_fft == wrong and real_return wasn't 'full' and dtype of array wasn't complex and even axis was found!)
         real_axis: along which axes was the real fft done? 
