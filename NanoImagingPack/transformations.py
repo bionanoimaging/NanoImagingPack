@@ -15,7 +15,7 @@ from .view5d import v5 # for debugging
 
 __REAL_AXIS__ = 0;
 
-def ResampledSize(oldsize,factors):
+def resampledSize(oldsize,factors):
     oldsize=np.array(oldsize)
     RFTMirrorAx=-1
     if isinstance(factors,numbers.Number):
@@ -39,22 +39,22 @@ def RFTShift(img,maxdim=3,ShiftAfter=True):
 #    print(shift1)
     return np.roll(img,shift1,axes)
 
-def Resample(img,factors=[2.0,2.0]):
+def resample(img,factors=[2.0,2.0]):
     '''
-    resamples and image by an RFT, applying a phase factor and performing an inverse RFT.
+    resamples and image by an RFT, applying a phase factor and performing an inverse RFT. The sum of values is kept constant.
 
     Parameters
     ----------
     tfin : tensorflow array to be convolved with the PSF
-    newsize : size to cut to
+    factors (default=[2.0,2.0]: resampling factor to use (approximately). A single value applies to all dimensions, a vector specifies the trailing dimensions and others are not resampled.
+
     Returns
     -------
-    tensorflow array
-        The cut RFT
+    the resampled result
 
     See also
     -------
-    Convolve, TFRFT, RFIRFT, PSF2ROTF, preFFTShift
+    Convolve, rft irft, PSF2ROTF, preFFTShift
 
     Example
     -------    
@@ -62,13 +62,15 @@ def Resample(img,factors=[2.0,2.0]):
     rf=rft(img)
     oldsize=rf.shape
 #    print(oldsize)
-    newsize=ResampledSize(oldsize,factors)
+    newsize=resampledSize(oldsize,factors)
 #    print(newsize)
-    rfre=ResampleRFT(rf,newsize)
+    rfre=resampleRFT(rf,newsize)
 #    print(rfre)
-    return irft(rfre)
+    res=irft(rfre)
+    res*=np.sqrt(np.prod(img.shape)/np.prod(res.shape)) # to warrand that the integral does not change
+    return res
 
-def ResampleRFT(img,newsize,maxdim=3):
+def resampleRFT(img,newsize,maxdim=3):
     '''
     Cuts (or expands) an RFT to the appropriate size to perform downsampling
 
@@ -94,17 +96,16 @@ def ResampleRFT(img,newsize,maxdim=3):
     mycenter=np.array(oldsize)//2
     newXcenter=newsize[RFTMirrorAx]//2
     mycenter[RFTMirrorAx]=newXcenter
-    return RFTShift(nip.centered_extract(RFTShift(img,maxdim),newsize,mycenter),maxdim,ShiftAfter=False) # this can probably be done more efficiently ...
+    return RFTShift(nip.extractFt(RFTShift(img,maxdim),newsize,mycenter),maxdim,ShiftAfter=False) # this can probably be done more efficiently ...
 
 def resizeft(data,factors=2):
     '''
-        resizes data based on FFTs by estimating the nearest interger size in expanded Fourier space and using centered_extract in Fourier space
+        resizes data based on FFTs by estimating the nearest interger size in expanded Fourier space and using extractFt in Fourier space
     '''
     factors = nip.repToList(factors,data.ndim)
     intfac=[np.floor(data.shape[d] * factors[d]).astype("int32") for d in range(data.ndim)]
-    data=np.real(nip.ift(nip.centered_extract(nip.ft(data),list(intfac))))
+    data=np.real(nip.ift(nip.extractFt(nip.ft(data),list(intfac))))
     return data
-
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
 def ft2d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = "ortho"):
