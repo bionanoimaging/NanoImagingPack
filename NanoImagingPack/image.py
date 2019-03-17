@@ -1633,7 +1633,7 @@ def line_cut(im,coord1 = 0, coord2 = None,thickness = 10):
         im = np.reshape(im, (im.shape[0], im.shape[1], np.prod(np.asarray(im.shape)[2:])));
         return([__get_line__(im[:,:,i]) for i in range(im.shape[2])])      
 
-def extractFt(img,ROIsize=None,ModifyInput=False):
+def extractFt(img,ROIsize=None,mycenter=None,ModifyInput=False,ignoredim=None):
     '''
     Identical to exctract, but fixes the zero positon (highest frequency) for even array sizes
     
@@ -1642,6 +1642,8 @@ def extractFt(img,ROIsize=None,ModifyInput=False):
         ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
         centerpos: center of the ROI in source image to exatract
         PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
+        ModifyInput: If True, the input img will be modified a bit, but this saves computation time and memory. Use only, if you are discarding img anyway.
+        ignoredim: a dimension that is ignored in the process of adjusting the extracted bit. This is useful for RFTs and the RFT transform direction.
        
     Example:
     ----------
@@ -1658,13 +1660,15 @@ def extractFt(img,ROIsize=None,ModifyInput=False):
     else:
         ROIsize=nip.expanddimvec(ROIsize,len(mysize),mysize)
 
-    res=centered_extract(img,ROIsize,checkComplex=False)
+    res=centered_extract(img,ROIsize,mycenter,checkComplex=False)
     if ModifyInput==False:
         img=img+0.0 # make a copy
-    res=fixFtAfterExtract(res,img) # MODIFES also the img input!
+#    if not (ignoredim is None):
+    res=fixFtAfterExtract(res,img,ignoredim) # MODIFES also the img input!
+
     return res
 
-def fixFtAfterExtract(res,img):
+def fixFtAfterExtract(res,img,ignoredim):
     '''
     corrects for the even-size issues when extracting. ATTENTION! THIS ROUTINE MODIFIES img
     
@@ -1683,17 +1687,20 @@ def fixFtAfterExtract(res,img):
     sznew=res.shape
     midnew=res.mid()
     for d in range(len(szold)):
-        if (sznew[d]>szold[d]) and nip.iseven(szold[d]): # the slice needs to be "distributed" to low and high frequency position
-            ROILeftPos=midnew[d]-midold[d] # position of the old border pixel in the new array
-            aslice=subslice(res,d,ROILeftPos)
-            res=subsliceAsg(res,d,ROILeftPos+szold[d],aslice/2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
-            res=subsliceAsg(res,d,ROILeftPos,aslice/2.0)            # distribute it evenly, also to keep parseval happy and real arrays real
-        if (sznew[d] < szold[d]) and nip.iseven(sznew[d]): # the slice corresponds to both sides of the fourier transform as a sum
-            ROIRightPos=szold[d]-(midold[d]-midnew[d]) # position of the removed top border pixel in the old array
-            aslice=subslice(img,d,ROIRightPos)  # this is one pixel beyond what is cut out
-            res=subsliceCenteredAdd(res,d,0,aslice) # sum both
-            ROILeftPos=(midold[d]-midnew[d]) # position of the new corner start positon in the old array
-            img=subsliceCenteredAdd(img,d,ROILeftPos,aslice) # to adress the corners (and edges in 3D!) correctly
+        if d != ignoredim:
+            if (sznew[d]>szold[d]) and nip.iseven(szold[d]): # the slice needs to be "distributed" to low and high frequency position
+                ROILeftPos=midnew[d]-midold[d] # position of the old border pixel in the new array
+                aslice=subslice(res,d,ROILeftPos)
+                res=subsliceAsg(res,d,ROILeftPos+szold[d],aslice/2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
+                res=subsliceAsg(res,d,ROILeftPos,aslice/2.0)            # distribute it evenly, also to keep parseval happy and real arrays real
+            if (sznew[d] < szold[d]) and nip.iseven(sznew[d]): # the slice corresponds to both sides of the fourier transform as a sum
+                ROIRightPos=szold[d]-(midold[d]-midnew[d]) # position of the removed top border pixel in the old array
+                aslice=subslice(img,d,ROIRightPos)  # this is one pixel beyond what is cut out
+                res=subsliceCenteredAdd(res,d,0,aslice) # sum both
+                ROILeftPos=(midold[d]-midnew[d]) # position of the new corner start positon in the old array
+                img=subsliceCenteredAdd(img,d,ROILeftPos,aslice) # to adress the corners (and edges in 3D!) correctly
+                
+#            print("Dimension ignored:"+str(d))    
     return res
 
 def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0,checkComplex=True):

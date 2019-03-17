@@ -38,13 +38,14 @@ def RFTShift(img,maxdim=3,ShiftAfter=True):
         shift1=-shift1
 #    print(shift1)
     return np.roll(img,shift1,axes)
+
 def resample(img,factors=[2.0,2.0]):
     '''
-    resamples and image by an RFT, applying a phase factor and performing an inverse RFT. The sum of values is kept constant.
+    resamples an image by an RFT (or FFT for complex data), extracting a ROI and performing an inverse RFT. The sum of values is kept constant.
 
     Parameters
     ----------
-    tfin : tensorflow array to be convolved with the PSF
+    img : tensorflow array to be convolved with the PSF
     factors (default=[2.0,2.0]: resampling factor to use (approximately). A single value applies to all dimensions, a vector specifies the trailing dimensions and others are not resampled.
 
     Returns
@@ -58,18 +59,24 @@ def resample(img,factors=[2.0,2.0]):
     Example
     -------    
     '''
-    rf=rft(img)
-    oldsize=rf.shape
-#    print(oldsize)
-    newsize=resampledSize(oldsize,factors)
-#    print(newsize)
-    rfre=resampleRFT(rf,newsize)
-#    print(rfre)
-    res=irft(rfre)
-    res*=np.sqrt(np.prod(img.shape)/np.prod(res.shape)) # to warrand that the integral does not change
+    if np.iscomplexobj(img):
+        myft=nip.ft(img)
+        newsize=resampledSize(img.shape,factors)
+        res=nip.ift(nip.extractFt(myft,newsize,ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
+    else:
+        rf=rft(img,shift_before=True,full_shift=True) # why is the shift necessary??
+        oldsize=rf.shape
+#       print(oldsize)
+        newrftsize=resampledSize(oldsize,factors)
+        newsize=resampledSize(img.shape,factors)
+#       print(newsize)
+        rfre=resampleRFT(rf,newrftsize,newsize,ModifyInput=True)
+#       print(rfre)
+        res=irft(rfre,newsize,shift=True,full_shift=True)  # why is the shift necessary??
+# no modification is needed to warrand that the integral does not change!
     return res
 
-def resampleRFT(img,newsize,maxdim=3,ModifyInput=False):
+def resampleRFT(img,newsize,newfullsize,maxdim=3,ModifyInput=False):
     '''
     Cuts (or expands) an RFT to the appropriate size to perform downsampling
 
@@ -95,19 +102,13 @@ def resampleRFT(img,newsize,maxdim=3,ModifyInput=False):
     mycenter=np.array(oldsize)//2
     newXcenter=newsize[RFTMirrorAx]//2
     mycenter[RFTMirrorAx]=newXcenter
-    return RFTShift(nip.extractFt(RFTShift(img,maxdim,ModifyInput),newsize,mycenter),maxdim,ShiftAfter=False) # this can probably be done more efficiently ...
+    
+    res=nip.extractFt(RFTShift(img,maxdim),newsize,mycenter,ModifyInput,ignoredim=img.ndim-1)
+    if (newsize[-1] < oldsize[-1]) and nip.iseven(newfullsize[-1]): # the slice corresponds to both sides of the fourier transform as a sum
+        aslice=nip.subslice(res,-1,-1)
+        res=nip.subsliceAsg(res,-1,-1,aslice*2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
 
-def resizeft(data,factors=2):
-    '''
-        resizes data based on FFTs by estimating the nearest interger size in expanded Fourier space and using extractFt in Fourier space
-    '''
-    factors = nip.repToList(factors,data.ndim)
-    intfac=[np.floor(data.shape[d] * factors[d]).astype("int32") for d in range(data.ndim)]
-    if np.iscomplexobj(data):
-        data=nip.ift(nip.extractFt(nip.ft(data),list(intfac),ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
-    else:
-        data=np.real(nip.ift(nip.extractFt(nip.ft(data),list(intfac),ModifyInput=True)))  # the FT can be modified since it is anyway temporarily existing only
-    return data
+    return RFTShift(res,maxdim,ShiftAfter=False) # this can probably be done more efficiently directly in the rft
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
 def ft2d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = None):
@@ -491,4 +492,4 @@ def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None, 
             return image((__check_type__(
                 __ret_val__(np.fft.fftshift((np.fft.irfftn(im, axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'IFT', shift_axes=shift_ax)))
         else:
-            return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes=axes, s=s, norm=norm), ret), axes, im, 'IFT')))
+            return image((__check_type__(__ret_val__(np.fft.irfftn(im, axes=axes, s=s, norm=norm), ret), axes, im, 'IFT')))
