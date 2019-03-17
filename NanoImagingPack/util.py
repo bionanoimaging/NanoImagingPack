@@ -283,7 +283,7 @@ def coordsToPos(coords,ashape):
     return [coords[d]+(coords[d]<0)*ashape[d] for d in range(mylen)]
  #   return [coords[d]%ashape[d] for d in range(len(coords))]
 
-def dimToPos(dimpos,ndims):
+def dimToPositive(dimpos,ndims):
     '''
         converts a dimension position to a positive number using a given length.
         
@@ -410,9 +410,9 @@ def slicecoords(mydim,ndim,start):
         constructs a coordinate vector reducing dimension mydim, such that numpy can extract the slice via an array access 
     '''
     if start!=-1:
-        end=start+1
+        end=start+1 # just use a single slice
     else:
-        end=None
+        end=None # this is the appropriate end for a single slice
     return tuple((mydim)*[slice(None)]+[slice(start,end)]+(ndim-mydim-1)*[slice(None)])
 
 def subslice(img,mydim,start):
@@ -420,12 +420,12 @@ def subslice(img,mydim,start):
         extracts an N-1 dimensional subslice at dimension dim and position start        
         It keeps empty slices as singleton dimensions
     '''
-    mydim=dimToPos(mydim,img.ndim)
+    mydim=dimToPositive(mydim,img.ndim)
     return img[slicecoords(mydim,img.ndim,start)]
 
 def subsliceAsg(img,mydim,start,val):
     '''
-        assigns val to an N-1 dimensional subslice at dimension dim and position start
+        assigns val or subslice to an N-1 dimensional subslice at dimension dim and position start
         -----
         img : input image to assign to
         mydim : dimension into which the subslice is chosen
@@ -433,8 +433,63 @@ def subsliceAsg(img,mydim,start,val):
         val : value(s) to assign into the array
         It keeps empty slices as singleton dimensions
     '''
-    mydim=dimToPos(mydim,img.ndim)
+    mydim=dimToPositive(mydim,img.ndim)
     img[slicecoords(mydim,img.ndim,start)]=val
+    return img
+
+def subsliceAdd(img,mydim,start,val):
+    '''
+        assigns val or subslice to an N-1 dimensional subslice at dimension dim and position start
+        -----
+        img : input image to assign to
+        mydim : dimension into which the subslice is chosen
+        start : offset along this dimension
+        val : value(s) to assign into the array
+        It keeps empty slices as singleton dimensions
+    '''
+    mydim=dimToPositive(mydim,img.ndim)
+    img[slicecoords(mydim,img.ndim,start)]+=val
+    return img
+
+def subsliceCenteredAdd(img,mydim,start,val):
+    '''
+        adds a val to an N-1 dimensional subslice at dimension dim and position start, centered in the other dimensions
+        -----
+        img : input image to assign to
+        mydim : dimension into which the subslice is chosen
+        start : offset along this dimension
+        val : value(s) to assign into the array
+        It keeps empty slices as singleton dimensions
+    '''
+    if start!=-1:
+        end=start+1 # just use a single slice
+    else:
+        end=None # this is the appropriate end for a single slice
+    mydim=dimToPositive(mydim,img.ndim)
+    szSrc=val.shape; szDest=img.shape
+    midDest=img.mid()
+    midSrc=val.mid()
+    destCoord=[]; srcCoord=[]
+    for d in range(img.ndim):
+        if d==mydim:
+            destCoord.append(slice(start,end))
+            srcCoord.append(slice(None)) # could also be zero postion here
+        else:
+            if szSrc[d]>szDest[d]:
+                srcstart=midSrc[d]-midDest[d]; srcend=srcstart+szDest[d]
+                destCoord.append(slice(None))
+                srcCoord.append(slice(srcstart,srcend))
+            elif szSrc[d]<szDest[d]:
+                dststart=midDest[d]-midSrc[d]; dstend=dststart+szSrc[d]
+                destCoord.append(slice(dststart,dstend))
+                srcCoord.append(slice(None))
+            else:
+                destCoord.append(slice(None))
+                srcCoord.append(slice(None))
+#    print(srcCoord)
+#    print(destCoord)
+ 
+    img[tuple(destCoord)]+=val[tuple(srcCoord)]
     return img
 
 def MidValAsg(img,val):
@@ -447,7 +502,7 @@ def MidValAsg(img,val):
     img[img.mid()]=val
     return img
 
-def MidVal(img):
+def midVal(img):
     '''
         returns the value to the middle position of an image (where ft has its zero frequency)
         -----
@@ -694,6 +749,9 @@ def get_min(M,region = [-1,-1,-1,-1]):
     
 def isnp(animg):
     return isinstance(animg,np.ndarray)
+
+def iseven(anumber):
+    return np.mod(anumber,2)==0
 
 def ones(s,dtype=None,order='C'):
     from .image import image

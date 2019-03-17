@@ -25,7 +25,7 @@ from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
 from .functions import cossqr, gaussian, coshalf, linear;
-from .util import make_damp_ramp,get_type,subslice,expanddim, __cast__, castdim;
+from .util import make_damp_ramp,get_type,subslice,subsliceAsg,subsliceCenteredAdd, expanddim, __cast__, castdim;
 from .view5d import v5 # for debugging
 from .FileUtils import list_files;
 
@@ -1633,8 +1633,70 @@ def line_cut(im,coord1 = 0, coord2 = None,thickness = 10):
         im = np.reshape(im, (im.shape[0], im.shape[1], np.prod(np.asarray(im.shape)[2:])));
         return([__get_line__(im[:,:,i]) for i in range(im.shape[2])])      
 
+def extractFt(img,ROIsize=None,ModifyInput=False):
+    '''
+    Identical to exctract, but fixes the zero positon (highest frequency) for even array sizes
+    
+    Parameters
+    ----------
+        ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
+        centerpos: center of the ROI in source image to exatract
+        PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
+       
+    Example:
+    ----------
+        nip.extractFt(nip.ft(nip.readim()),[400,400]) # subsamples
+    
+    See also
+    -------
+    extract
+    
+    '''
+    mysize=img.shape
+    if ROIsize is None:
+        ROIsize=mysize
+    else:
+        ROIsize=nip.expanddimvec(ROIsize,len(mysize),mysize)
 
-def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0):
+    res=centered_extract(img,ROIsize,checkComplex=False)
+    if ModifyInput==False:
+        img=img+0.0 # make a copy
+    res=fixFtAfterExtract(res,img) # MODIFES also the img input!
+    return res
+
+def fixFtAfterExtract(res,img):
+    '''
+    corrects for the even-size issues when extracting. ATTENTION! THIS ROUTINE MODIFIES img
+    
+    Parameters
+    ----------
+        res: result after extracting the normal way
+        img: input image before extraction (WILL BE MODIFED!)
+       
+    See also
+    -------
+    extract
+    
+    '''
+    szold=img.shape
+    midold=img.mid()
+    sznew=res.shape
+    midnew=res.mid()
+    for d in range(len(szold)):
+        if (sznew[d]>szold[d]) and nip.iseven(szold[d]): # the slice needs to be "distributed" to low and high frequency position
+            ROILeftPos=midnew[d]-midold[d] # position of the old border pixel in the new array
+            aslice=subslice(res,d,ROILeftPos)
+            res=subsliceAsg(res,d,ROILeftPos+szold[d],aslice/2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
+            res=subsliceAsg(res,d,ROILeftPos,aslice/2.0)            # distribute it evenly, also to keep parseval happy and real arrays real
+        if (sznew[d] < szold[d]) and nip.iseven(sznew[d]): # the slice corresponds to both sides of the fourier transform as a sum
+            ROIRightPos=szold[d]-(midold[d]-midnew[d]) # position of the removed top border pixel in the old array
+            aslice=subslice(img,d,ROIRightPos)  # this is one pixel beyond what is cut out
+            res=subsliceCenteredAdd(res,d,0,aslice) # sum both
+            ROILeftPos=(midold[d]-midnew[d]) # position of the new corner start positon in the old array
+            img=subsliceCenteredAdd(img,d,ROILeftPos,aslice) # to adress the corners (and edges in 3D!) correctly
+    return res
+
+def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0,checkComplex=True):
     '''
         extracts a part in an n-dimensional array based on stating the destination ROI size and center in the source
         
@@ -1646,7 +1708,11 @@ def centered_extract(img,ROIsize=None,centerpos=None,PadValue=0.0):
             nip.centered_extract(nip.readim(),[799,799],[-1,-1],100) # extracts the right bottom quarter of the image
             
         RH Version
-   '''
+    '''
+    if checkComplex:
+       if np.iscomplexobj(img):
+           raise ValueError("Found complex-valued input image. For Fourier-space extraction use extractFt, which handles the borders or use checkComplex=False as an argument to this function")
+           
     mysize=img.shape
     
     if ROIsize is None:
