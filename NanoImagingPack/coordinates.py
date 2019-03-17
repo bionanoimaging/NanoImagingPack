@@ -211,11 +211,11 @@ def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
         
     '''
     np.seterr(divide ='ignore', invalid = 'ignore');
-    x = ramp(mysize,0,'center');
-    y = ramp(mysize,1,'center');
+    x = ramp(mysize,1,'center');
+    y = ramp(mysize,0,'center');
     #phi = np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1);
     if angle_range == 1:
-        phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset)+np.pi, 2*np.pi) -np.pi;
+        phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset)+np.pi, 2*np.pi)-np.pi;
     elif angle_range == 2:
         phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset), 2*np.pi);
     phi[phi.shape[0]//2,phi.shape[1]//2]=0;
