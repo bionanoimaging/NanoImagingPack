@@ -17,6 +17,9 @@ from .util import get_type,abssqr;
 from .transformations import rft,irft,ft2d,ift2d;
 from .coordinates import rr, ramp
 from .view5d import v5 # for debugging
+from .config import PSF_PARAMS
+
+
 
 class transfer():
     '''
@@ -1008,6 +1011,7 @@ def PSF2ROTF(psf):
     '''
         Transforms a real-valued PSF to a half-complex RFT, at the same time precompensating for the fftshift
     '''
+    # TODO: CHECK HERE IF FULL_SHIFT MIGTH BE NEEDED!!!
     o = image(rft(psf,shift_before=True))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
     return o.astype('complex64')
@@ -1017,4 +1021,4 @@ def convROTF(img,otf): # should go into nip
     '''
         convolves with a half-complex OTF, which can be generated using PSF2ROTF
     '''
-    return irft(rft(img,shift_before=False,shift=False) * nip.expanddim(otf,img.ndim),shift_before=False,shift=False);
+    return irft(rft(img,shift_before=False,shift=False) * nip.expanddim(otf,img.ndim),shift_before=False,shift=False, s = img.shape);

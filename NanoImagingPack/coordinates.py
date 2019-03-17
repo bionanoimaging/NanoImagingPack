@@ -98,7 +98,7 @@ def ramp(mysize=(256,256), ramp_dim=-1, placement='center', freq=None, shift=Fal
         raise ValueError("negative ramp dimension has to be smaller or equal than number of available dimensions specified by the size vector")
     if ramp_dim >= 0:
         ramp_dim=ramp_dim-ndims # 0 in a 2D image should become -2
-    if rftdir >= 0:
+    if rftdir >= 0:     # WHAT IS THIS??? CK 16.03.2019
         rftdir=rftdir-ndims # 0 in a 2D image should become -2
 
     if freq=="rfreq" and ramp_dim!=rftdir:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
