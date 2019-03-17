@@ -69,7 +69,7 @@ def resample(img,factors=[2.0,2.0]):
     res*=np.sqrt(np.prod(img.shape)/np.prod(res.shape)) # to warrand that the integral does not change
     return res
 
-def resampleRFT(img,newsize,maxdim=3):
+def resampleRFT(img,newsize,maxdim=3,ModifyInput=False):
     '''
     Cuts (or expands) an RFT to the appropriate size to perform downsampling
 
@@ -95,7 +95,7 @@ def resampleRFT(img,newsize,maxdim=3):
     mycenter=np.array(oldsize)//2
     newXcenter=newsize[RFTMirrorAx]//2
     mycenter[RFTMirrorAx]=newXcenter
-    return RFTShift(nip.extractFt(RFTShift(img,maxdim),newsize,mycenter),maxdim,ShiftAfter=False) # this can probably be done more efficiently ...
+    return RFTShift(nip.extractFt(RFTShift(img,maxdim,ModifyInput),newsize,mycenter),maxdim,ShiftAfter=False) # this can probably be done more efficiently ...
 
 def resizeft(data,factors=2):
     '''
@@ -103,7 +103,10 @@ def resizeft(data,factors=2):
     '''
     factors = nip.repToList(factors,data.ndim)
     intfac=[np.floor(data.shape[d] * factors[d]).astype("int32") for d in range(data.ndim)]
-    data=np.real(nip.ift(nip.extractFt(nip.ft(data),list(intfac))))
+    if np.iscomplexobj(data):
+        data=nip.ift(nip.extractFt(nip.ft(data),list(intfac),ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
+    else:
+        data=np.real(nip.ift(nip.extractFt(nip.ft(data),list(intfac),ModifyInput=True)))  # the FT can be modified since it is anyway temporarily existing only
     return data
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
