@@ -72,7 +72,7 @@ def resample(img,factors=[2.0,2.0]):
 #       print(newsize)
         rfre=resampleRFT(rf,newrftsize,newsize,ModifyInput=True)
 #       print(rfre)
-        res=irft(rfre,newsize,shift=True,full_shift=True)  # why is the shift necessary??
+        res=irft(rfre,newsize,shift_after=True,full_shift=True)  # why is the shift necessary??
 # no modification is needed to warrand that the integral does not change!
     return res
 
@@ -281,7 +281,7 @@ def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s =
         else:
             return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
 
-def rft(im, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None, full_shift = False):
+def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
     '''
         real Fouriertransform of image. Note the real axis is always the last (of the given) axes
         
@@ -327,22 +327,14 @@ def rft(im, shift = False, shift_before = False, ret = 'complex', axes = None,  
         warnings.warn('Input type is Complex -> using full fft');
         return(ft(im, shift = shift, shift_before = shift_before, ret = ret, axes = axes, s = s, norm = norm));
     else:
-        if full_shift == False:
-            shift_ax = [i for i in axes if i != real_axis];
-        else:
-            shift_ax = axes;
 
         if shift_before == True:
-            if shift == True:
-                return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.rfftn(np.fft.ifftshift(im, axes=shift_ax), axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'FT', shift_axes=shift_ax)))
-            else:
-                return image((__check_type__(__ret_val__(np.fft.rfftn(np.fft.ifftshift(im, axes=shift_ax), axes=axes, s=s, norm=norm), ret), axes, im, 'FT')))
-        else:
-            if shift == True:
-                return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.rfftn(im, axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'FT', shift_axes=shift_ax)))
-            else:
-
-                return image((__check_type__(__ret_val__(np.fft.rfftn(im, axes=axes, s=s, norm=norm), ret), axes, im, 'FT')))
+            im=np.fft.ifftshift(im, axes=axes) # mid to corner
+        im=np.fft.rfftn(im, axes=axes, s=s, norm=norm)
+        if shift_after == True:
+            shift_ax = [i for i in axes if i != real_axis];
+            im=np.fft.fftshift(im, axes=shift_ax)  # corner freq to mid freq
+        return image(__ret_val__(im, ret))
 
 
 # DEPRICATED:
@@ -440,8 +432,8 @@ def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = N
     
     if axes== None:
         axes = list(range(len(im.shape)));
-    
-    if shift_before == True: 
+
+    if shift_before == True:
         if shift == True:
 
             return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
@@ -455,7 +447,7 @@ def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = N
             return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
 
 
-def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None,  norm = None, full_shift = False):
+def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
     '''
         Performs the inverse Fourier transform
         
@@ -463,8 +455,8 @@ def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None, 
         s is the shape of the output image. In this irft function it is mandatory to give!
 
 
-        shift: Shift AFTER Backtransfomr
-        shift_before: Sshift BEFORE Bakacktransform
+        shift_after: Shift AFTER Backtransform
+        shift_before: Shift BEFORE Bakacktransform
         ret:   return type
         axes: which axes
         norm: normalization
@@ -476,20 +468,11 @@ def irft(im, s,shift = False,shift_before = False, ret ='complex', axes = None, 
     if isinstance(axes, int):
         axes = [axes];
     real_axis = max(axes);              # always the last axis is the real one   as Default
-    if full_shift == False:
-        shift_ax = [i for i in axes if i != real_axis];
-    else:
-        shift_ax = axes;
 
     if shift_before == True:
-        if shift == True:
-
-            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.irfftn(np.fft.ifftshift(im, axes=shift_ax), axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'IFT', shift_axes=shift_ax)))
-        else:
-            return image((__check_type__(__ret_val__(np.fft.irfftn(np.fft.ifftshift(im, axes=shift_ax), axes=axes, s=s, norm=norm), ret), axes, im, 'IFT')))
-    else:
-        if shift == True:
-            return image((__check_type__(
-                __ret_val__(np.fft.fftshift((np.fft.irfftn(im, axes=axes, s=s, norm=norm)), axes=shift_ax), ret), axes, im, 'IFT', shift_axes=shift_ax)))
-        else:
-            return image((__check_type__(__ret_val__(np.fft.irfftn(im, axes=axes, s=s, norm=norm), ret), axes, im, 'IFT')))
+        shift_ax = [i for i in axes if i != real_axis];
+        im=np.fft.ifftshift(im, axes=shift_ax) # mid freq to corner
+    im=np.fft.irfftn(im, axes=axes, s=s, norm=norm)
+    if shift_after == True:
+        im=np.fft.fftshift(im, axes=axes)  # corner to mid
+    return image(__ret_val__(im, ret))

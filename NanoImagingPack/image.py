@@ -307,12 +307,12 @@ class image(np.ndarray):
         from .transformations import ft3d;
         return(ft3d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
 
-    def rft(self, shift = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None, full_shift = False):
+    def rft(self, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
         from .transformations import rft;
-        return(rft(self, shift = shift, shift_before = shift_before, ret = ret, axes = axes,  s = s, norm = norm, full_shift =full_shift))
-    def irft(self,s, shift = False,shift_before = False, ret ='complex', axes = None,  norm = None, full_shift = False):
+        return(rft(self, shift_after = shift, shift_before = shift_before, ret = ret, axes = axes,  s = s, norm = norm))
+    def irft(self,s, shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
         from .transformations import irft;
-        return(irft(self,s, shift = shift,shift_before = shift_before, ret =ret, axes = axes, norm = norm, full_shift = full_shift))
+        return(irft(self,s, shift_after = shift,shift_before = shift_before, ret =ret, axes = axes, norm = norm))
     def poisson(self, NPhot = 100):
         from .noise import poisson;
         im = poisson(self, NPhot).view(image);
@@ -882,12 +882,11 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
                 line = cat((ramp[::-1],np.ones(img.shape[i]-2*width[i]),ramp),-1);
                 goal=0.0 # dim down to zero
             elif method=="moisan":
-#                for d=1:ndims(img)
                 top=nip.subslice(img,i,0)
                 bottom=nip.subslice(img,i,-1)
                 mysum=nip.subsliceAsg(mysum,i,0,bottom-top + nip.subslice(mysum,i,0));
                 mysum=nip.subsliceAsg(mysum,i,-1,top-bottom + nip.subslice(mysum,i,-1));
-                den=den+2*np.cos(2*np.pi*nip.ramp(nip.dimVec(i,sz[i],len(sz)),i,freq='freq'))
+                den=den+2*np.cos(2*np.pi*nip.ramp(nip.dimVec(i,sz[i],len(sz)),i,freq='ftfreq'))
             elif method=="damp":
                 line = nip.cat((ramp[::-1],np.ones(img.shape[i]-2*width[i]+1),ramp[:-1]),0);  # to make it perfectly cyclic
                 top=nip.subslice(img,i,0)
@@ -1332,7 +1331,7 @@ def shift(M,delta,direction =0):
         FT = ft(M, shift = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex');
         real_ax = -1;
     else:
-        FT = rft(M, shift = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex',real_return = None);
+        FT = rft(M, shift_after = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex',real_return = None);
         from .transformations import __REAL_AXIS__;
         real_ax = __REAL_AXIS__;
         
@@ -1346,7 +1345,7 @@ def shift(M,delta,direction =0):
     if M.dtype == np.complexfloating:
         M = ift(FT*phaseramp, shift = False,shift_before=True, axes = axes,s= None, norm = None, ret = 'complex');
     else:
-        M = irft(FT*phaseramp,s = M.shape, shift = False,shift_before=True, axes = axes,norm = None, ret = 'complex', full_shift = False);
+        M = irft(FT*phaseramp,s = M.shape, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'complex');
     for d, ax in zip(delta, axes):
         M = M.swapaxes(0,ax);
         M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
@@ -1421,12 +1420,12 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
         from .transformations import ft, ift, rft, irft;
         
         if M1.dtype == np.complexfloating or M2.dtype == np.complexfloating:
-            FT1 = ft(M1, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes);
-            FT2 = ft(M2, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes);
+            FT1 = ft(M1, shift = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
+            FT2 = ft(M2, shift = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
         else:
 
-            FT1 = rft(M1, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes);
-            FT2 = rft(M2, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes);
+            FT1 = rft(M1, shift_after = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
+            FT2 = rft(M2, shift_after = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
 
         if norm2nd == True:
             FT2 = FT2 / np.abs(FT2.flat[0])
@@ -1448,9 +1447,9 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
             return(__cast__(ift(cor, shift = True, shift_before = False, norm = None, ret ='complex', axes = axes),old_arr))
         else:
             if __DEFAULTS__['CC_ABS_RETURN']:
-                return(__cast__(irft(cor,s = old_arr.shape(), shift = True, shift_before = False, norm = None,ret = 'abs', axes =axes), old_arr));
+                return(__cast__(irft(cor,s = old_arr.shape, shift_after = True, shift_before = False, norm = None,ret = 'abs', axes =axes), old_arr))
             else:
-                return(__cast__(irft(cor,s = old_arr.shape(), shift = True, shift_before = False, norm = None, axes =axes), old_arr));
+                return(__cast__(irft(cor,s = old_arr.shape, shift_after = True, shift_before = False, norm = None, axes =axes), old_arr))
     else:
         raise ValueError('Images have different dimensions')
         return(M1)
@@ -1838,7 +1837,7 @@ def supersample(im, factor = 2, axis = (0,1), full_fft = False):
         real_ax = -1;
         r = [[float(im.real.max()), float(im.real.min())],[float(im.imag.max()), float(im.imag.min())]]
     else:
-        FT = rft(im, shift = True,shift_before=False, axes = axis, ret = 'complex');
+        FT = rft(im, shift_after = True,shift_before=False, axes = axis, ret = 'complex');
         from .transformations import __REAL_AXIS__;
         real_ax = __REAL_AXIS__;
         r = [float(im.max()),float(im.min())];
@@ -1876,7 +1875,7 @@ def supersample(im, factor = 2, axis = (0,1), full_fft = False):
         im = ift(FT, shift = False,shift_before=True, axes = axis,s= None, norm = None, ret = 'real');
         r = r[0];
     else:
-        im = irft(FT,s = new_shape, shift = False,shift_before=True, axes = axis, norm = None, ret = 'complex',full_shift = False);
+        im = irft(FT,s = new_shape, shift_after = False,shift_before=True, axes = axis, norm = None, ret = 'complex');
     if type(orig) == image:
         im = image(im)
         im.__array_finalize__(orig);
