@@ -355,9 +355,9 @@ class transfer():
         
         np.nan_to_num(ret,copy = False);
         if ret_val == 'field':
-            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
         elif ret_val == 'intensity':
-            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
             ret = (np.abs(ret)**2).astype(np.float64);
             if self.vectorial:
                 ret = np.sum(ret, axis = -4).squeeze();
@@ -365,16 +365,16 @@ class transfer():
             ret = ret/ret.sum();
                 
         elif ret_val == 'ctf':
-            ret = ft(ret, shift = True, shift_before = True, norm = None, axes=(-3));
+            ret = ft(ret, shift_after= True, shift_before = True, norm = None, axes=(-3));
         elif ret_val == 'otf':
-            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
             ret = np.abs(ret)**2;
             if self.vectorial:
                 ret = np.sum(ret, axis = -4);
                 ret = ret.squeeze();
             ret = ret/ret.max();
             ret = ret/ret.sum();
-            ret = ft(ret, shift = True, shift_before = True, norm =None, ret = 'abs');
+            ret = ft(ret, shift_after= True, shift_before = True, norm =None, ret ='abs');
         else:
             raise ValueError('Wrong ret_val: "ctf", "otf", "field" or "intensity"');    
     
@@ -420,10 +420,10 @@ class transfer():
             np.seterr(divide='warn', invalid ='warn');  
             ret = ret/np.sum(np.abs(ret));      
         elif self.foc_field_mode == 'circular':
-            ret = ift((self.r<= 1)*1.0,  shift = True, shift_before = True, norm = None);
+            ret = ift((self.r<= 1) * 1.0, shift_after= True, shift_before = True, norm = None);
             ret = ret/np.max(np.abs(ret))
         self.TEST =ret;         # TODO: ERASE
-        ret = ft(ret, shift = True, shift_before =True, norm = None);
+        ret = ft(ret, shift_after= True, shift_before =True, norm = None);
         self.TEST1 = ret        # TODO: ERASE
         # add aplanatic factor
         oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
@@ -492,9 +492,9 @@ class transfer():
         np.nan_to_num(ret,copy = False);  # is this still necessary?
 
         if ret_val == 'field':
-            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
         elif ret_val == 'intensity':
-            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
             ret = np.real(abssqr(ret)) # RH 3.2.19  .astype(np.float64);
             if self.vectorial:
                 ret = np.sum(ret, axis = -4).squeeze();
@@ -503,14 +503,14 @@ class transfer():
         elif ret_val == 'ctf':
             pass;
         elif ret_val == 'otf':
-            ret = ift2d(ret, shift = True, shift_before = True, norm = None);
+            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
             ret = abssqr(ret);
             if self.vectorial:
                 ret = np.sum(ret, axis = -4);
                 ret = ret.squeeze();
             ret = ret/ret.max();
             ret = ret/ret.sum();
-            ret = ft(ret, shift = True, shift_before = True, norm = None, ret ='complex');
+            ret = ft(ret, shift_after= True, shift_before = True, norm = None, ret ='complex');
         else:
             raise ValueError('Wrong ret_val: "ctf", "otf", "field" or "intensity"');    
     
@@ -1003,7 +1003,7 @@ def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_spac
     propagator = kz * z*pixel_sizes[-3];
 #    field_spectrum_at_z = np.rollaxis(field*np.exp(-1j*propagator),0,3);
     field_spectrum_at_z = field*np.exp(-1j*propagator) # np.rollaxis(field*np.exp(-1j*propagator),0,3);
-    return ift2d(field_spectrum_at_z,shift=True) # changed to use the ft2d routines. RH 3.2.19
+    return ift2d(field_spectrum_at_z, shift_after=True) # changed to use the ft2d routines. RH 3.2.19
 #    return(np.fft.fftshift(ift(field_spectrum_at_z, axes =(-1,-2)), axes = (-1,-2)))
 
 

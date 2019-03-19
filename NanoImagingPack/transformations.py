@@ -111,47 +111,47 @@ def resampleRFT(img,newsize,newfullsize,maxdim=3,ModifyInput=False):
     return RFTShift(res,maxdim,ShiftAfter=False) # this can probably be done more efficiently directly in the rft
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
-def ft2d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = None):
+def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
     '''
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
     '''
     if np.ndim(im)<2:
-        print('Too less dimensions');
+        print('Too few dimensions');
         return(im);
     else:
-        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-2,-1),  s = s, norm = norm));
+        return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
 
-def ift2d(im, shift = True,shift_before = True, ret ='complex', s = None, norm = None):
+def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
     '''
         Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     '''
     
     if np.ndim(im)<2:
-        print('Too less dimensions');
+        print('Too few dimensions');
         return(im);
     else:
-        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
+        return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
 
-def ft3d(im, shift = True, shift_before = True, ret = 'complex',  s = None, norm = None):
+def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
     '''
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
     '''
     if np.ndim(im)<3:
-        print('Too less dimensions');
+        print('Too few dimensions');
         return(im);
     else:
-        return(ft(im, shift = shift, shift_before= shift_before, ret = ret, axes = (-3,-2,-1),  s = s, norm = norm));
+        return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm));
 
-def ift3d(im, shift = True,shift_before = True, ret ='complex', s = None, norm = None):
+def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
     '''
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     '''
     
     if np.ndim(im)<3:
-        print('Too less dimensions');
+        print('Too few dimensions');
         return(im);
     else:
-        return(ift(im, shift = shift,shift_before= shift_before,  ret = ret, axes = (-2,-1), s = s, norm = norm));
+        return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
         
 def __ret_val__(im, mode):
     if mode == 'abs':
@@ -232,7 +232,25 @@ def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
         
         # ifft shift        
 
-def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s = None, norm = None):
+def __checkAxes__(axes,im):
+    '''
+    checks axes. If None, all axes are meant and a list of axes is created. A single int number is also cast to a list.
+    :param axes: 
+    :return: axes
+    '''
+    if axes is None:
+            axes = list(range(len(im.shape)));
+    if isinstance(axes, int):
+        axes = [axes];
+    # TODO: What was the reason for that?
+    # try:
+    #     if np.issubdtype(axes.dtype, np.integer):
+    #         axes = [axes];
+    # except AttributeError:
+    #     pass;
+    return axes
+
+def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = None):
     '''
         Fouriertransform of image
         
@@ -261,25 +279,14 @@ def ft(im, shift = True, shift_before = True, ret = 'complex', axes = None,  s =
         
     '''
     #create axes list
-    if axes == None:
-            axes = list(range(len(im.shape)));
-    if type(axes) == int:
-        axes = [axes];
-    try: 
-        if np.issubdtype(axes.dtype, np.integer):
-            axes = [axes];
-    except AttributeError:
-        pass;
-    if shift_before == True: 
-        if shift == True:
-            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
-        else:
-            return image((__check_type__(__ret_val__(np.fft.fftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-    else:
-        if shift == True:
-            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
-        else:
-            return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
+    axes=__checkAxes__(axes,im)
+
+    if shift_before == True:
+        im=np.fft.ifftshift(im, axes=axes) # mid to corner
+    im=np.fft.fftn(im, axes=axes, s=s, norm=norm)
+    if shift_after == True:
+        im=np.fft.fftshift(im, axes=axes)  # corner freq to mid freq
+    return image(__ret_val__(im, ret))
 
 def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
     '''
@@ -310,24 +317,14 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
         
     '''
     #create axes list
-    if axes is None:
-            axes = list(range(len(im.shape)));
-    if isinstance(axes, int):
-        axes = [axes];
+    axes=__checkAxes__(axes,im)
     real_axis = max(axes);              # always the last axis is the real one   as Default
 
-        # TODO: What was the reason for that?
-    # try:
-    #     if np.issubdtype(axes.dtype, np.integer):
-    #         axes = [axes];
-    # except AttributeError:
-    #     pass;
-
     if (np.issubdtype(im.dtype, np.complexfloating)):
-        warnings.warn('Input type is Complex -> using full fft');
-        return(ft(im, shift = shift, shift_before = shift_before, ret = ret, axes = axes, s = s, norm = norm));
+        raise ValueError("rft needs real-valued input")
+        # warnings.warn('Input type is Complex -> using full fft');
+        # return(ft(im, shift_after= shift, shift_before = shift_before, ret = ret, axes = axes, s = s, norm = norm));
     else:
-
         if shift_before == True:
             im=np.fft.ifftshift(im, axes=axes) # mid to corner
         im=np.fft.rfftn(im, axes=axes, s=s, norm=norm)
@@ -336,74 +333,7 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
             im=np.fft.fftshift(im, axes=shift_ax)  # corner freq to mid freq
         return image(__ret_val__(im, ret))
 
-
-# DEPRICATED:
-    # if (np.issubdtype(im.dtype, np.floating) or np.issubdtype(im.dtype, np.integer)):
-    #     if real_axis == None:
-    #         real_axis = axes[-1];
-    #     if real_axis not in axes:
-    #         real_axis = axes[-1];
-    #         DBG_MSG('Real axis is not in axes list -> taking last one (number '+str(real_axis)+')', 2);
-    #     if np.mod(im.shape[real_axis],2) == 1:   # This stuff ensures that only axis with even dimension will be used for rFFT!
-    #         ax_index = 0;
-    #         while np.mod(im.shape[axes[ax_index]],2) == 1:
-    #             ax_index+=1;
-    #             if ax_index >= len(axes):
-    #                 ax_index = -1;
-    #                 break;
-    #         if ax_index >= 0:
-    #             DBG_MSG('Axis has odd shape ... taking axis '+str(axes[ax_index]),2);
-    #             real_axis = axes[ax_index];
-    #         else:
-    #             DBG_MSG('All axis have odd dimension size -> taking full fft!!',2);
-    #             real_axis = -1;
-    #     __REAL_AXIS__ = real_axis;
-    #     if real_axis >=0:
-    #         ret_im = im.swapaxes(real_axis, axes[-1]);
-    #         if shift_before == True:
-    #             if real_return == 'full':
-    #                 ret_im = np.fft.fftshift(ret_im, axes = axes);
-    #             else:
-    #                 ret_im = np.fft.fftshift(ret_im, axes = axes);  # axes[:-1]   RH 22.12.2018
-    #         ret_im = np.fft.rfftn(ret_im, axes = axes, s = s, norm = norm)
-    #         ret_im = __fill_real_return__(ret_im, ax =axes, real_return=real_return, origi_shape=im.shape);
-    #         s_axes=[];
-    #         if shift == True:
-    #             if real_return == 'full':
-    #                 ret_im = np.fft.fftshift(ret_im, axes = axes);
-    #                 s_axes = axes;
-    #             else:
-    #                 ret_im = np.fft.fftshift(ret_im, axes = axes); # axes[-1]  RH 22.12.2018
-    #                 s_axes = axes[:-1];
-    #         ret_im = __ret_val__(ret_im, ret);
-    #         ret_im = np.swapaxes(ret_im, real_axis, axes[-1]);
-    #         return image((__check_type__(ret_im, axes, im, 'FT', shift_axes = s_axes)))
-    #     else:
-    #
-    #         if shift_before == True:
-    #             if shift == True:
-    #                 return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
-    #             else:
-    #                 return image((__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-    #         else:
-    #             if shift == True:
-    #                 return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
-    #             else:
-    #                 return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-    # else:
-    #     DBG_MSG('Complex data. rft not possible. Doing FFT',2);
-    #     if shift_before == True:
-    #         if shift == True:
-    #             return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
-    #         else:
-    #             return image((__check_type__(__ret_val__(np.fft.fftn(np.fft.fftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-    #     else:
-    #         if shift == True:
-    #             return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.fftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'FT', shift_axes = axes)))
-    #         else:
-    #             return image((__check_type__(__ret_val__(np.fft.fftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'FT')))
-
-def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = None, norm = None):
+def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = None):
     '''
         Performs the inverse Fourier transform
         
@@ -419,32 +349,15 @@ def ift(im, shift = True,shift_before = True, ret ='complex', axes = None, s = N
         real_axis: along which axes was the real fft done?
         
     ''' 
-    
 
-    
-    if type(axes) == int:
-        axes = [axes];
-    try: 
-        if np.issubdtype(axes.dtype, np.integer):
-            axes = [axes];
-    except AttributeError:
-        pass;
-    
-    if axes== None:
-        axes = list(range(len(im.shape)));
+    axes=__checkAxes__(axes,im)
 
     if shift_before == True:
-        if shift == True:
-
-            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
-        else:
-            return image((__check_type__(__ret_val__(np.fft.ifftn(np.fft.ifftshift(im, axes = axes), axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
-    else:
-        if shift == True:
-
-            return image((__check_type__(__ret_val__(np.fft.fftshift((np.fft.ifftn(im, axes = axes, s = s, norm = norm)), axes = axes), ret),axes,im, 'IFT', shift_axes = axes)))
-        else:
-            return image((__check_type__(__ret_val__(np.fft.ifftn(im, axes = axes, s = s, norm = norm), ret),axes,im, 'IFT')))
+        im=np.fft.ifftshift(im, axes=axes) # mid to corner
+    im=np.fft.ifftn(im, axes=axes, s=s, norm=norm)
+    if shift_after == True:
+        im=np.fft.fftshift(im, axes=axes)  # corner freq to mid freq
+    return image(__ret_val__(im, ret))
 
 
 def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
@@ -463,10 +376,7 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
 
     '''
     # create axis, shift_ax and real_ax
-    if axes is None:
-            axes = list(range(len(im.shape)));
-    if isinstance(axes, int):
-        axes = [axes];
+    axes=__checkAxes__(axes,im)
     real_axis = max(axes);              # always the last axis is the real one   as Default
 
     if shift_before == True:

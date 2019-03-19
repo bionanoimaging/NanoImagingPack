@@ -261,23 +261,23 @@ class image(np.ndarray):
     def ft(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
         from .transformations import ft;
         #im = ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm);
-        return(ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm));
+        return(ft(self, shift_after= shift, shift_before= shift_before, ret = ret, axes = axes, s = s, norm = norm));
 
     def ift(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', axes = None, s = None, norm = 'DEFAULT'):
         from .transformations import ift;
-        return(ift(self, shift = shift,shift_before =shift_before, ret = ret, axes = axes, s = s, norm = norm));
+        return(ift(self, shift_after= shift, shift_before =shift_before, ret = ret, axes = axes, s = s, norm = norm));
     def ift2d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
         from .transformations import ift2d;
-        return(ift2d(self, shift = shift,shift_before =shift_before, ret = ret, s = s, norm = norm));
+        return(ift2d(self, shift_after= shift, shift_before =shift_before, ret = ret, s = s, norm = norm));
     def ift3d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret ='DEFAULT', s = None, norm = 'DEFAULT'):
         from .transformations import ift3d;
-        return(ift3d(self, shift = shift,shift_before =shift_before, ret = ret, s = s, norm = norm));
+        return(ift3d(self, shift_after= shift, shift_before =shift_before, ret = ret, s = s, norm = norm));
     def ft2d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
         from .transformations import ft2d;
-        return(ft2d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
+        return(ft2d(self, shift_after= shift, shift_before= shift_before, ret = ret, s = s, norm = norm));
     def ft3d(self, shift = 'DEFAULT',shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT'):
         from .transformations import ft3d;
-        return(ft3d(self, shift = shift, shift_before= shift_before,ret = ret,  s = s, norm = norm));
+        return(ft3d(self, shift_after= shift, shift_before= shift_before, ret = ret, s = s, norm = norm));
     def rft(self, shift = 'DEFAULT', shift_before = 'DEFAULT', ret = 'DEFAULT', axes = None,  s = None, norm = 'DEFAULT', real_return = 'DEFAULT', real_axis = None):
         from .transformations import rft;
         return(rft(self, shift = shift, shift_before = shift_before, ret = ret, axes = axes,  s = s, norm = norm, real_return = real_return, real_axis = real_axis))
@@ -954,8 +954,8 @@ def FRC(im1,im2, pixel_size = 62, num_rings = 10, correct_shift = True):
         from numpy.matlib import repmat;
         from .coordinates import xx, yy;
         from .transformations import ft;
-        im1 = ft(im1,shift = True, shift_before= False, ret = 'complex', axes = (0,1));
-        im2 = ft(im2,shift = True, shift_before= False, ret = 'complex', axes = (0,1));
+        im1 = ft(im1, shift_after= True, shift_before= False, ret ='complex', axes = (0, 1));
+        im2 = ft(im2, shift_after= True, shift_before= False, ret ='complex', axes = (0, 1));
         
         
         if type(im1) == image:
@@ -1176,7 +1176,7 @@ def shift(M,delta,direction =0):
     M = np.lib.pad(M,tuple(t),'constant');                                    # Change Boundaries to avoid ringing
     
     if M.dtype == np.complexfloating:
-        FT = ft(M, shift = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex');
+        FT = ft(M, shift_after= True, shift_before=False, axes = axes, s= None, norm = None, ret ='complex');
         real_ax = -1;
     else:
         FT = rft(M, shift = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex',real_return = None);
@@ -1192,7 +1192,7 @@ def shift(M,delta,direction =0):
             phaseramp += ramp(FT.shape,ramp_dim = ax, corner = 'center')*2*np.pi*d/(M.shape[ax]);
     phaseramp = np.exp(-1j*phaseramp)
     if M.dtype == np.complexfloating:
-        M = ift(FT*phaseramp, shift = False,shift_before=True, axes = axes,s= None, norm = None, ret = 'complex');
+        M = ift(FT * phaseramp, shift_after= False, shift_before=True, axes = axes, s= None, norm = None, ret ='complex');
     else:
         M = irft(FT*phaseramp, shift = False,shift_before=True, axes = axes,s= None, norm = None, ret = 'complex', real_axis = real_ax);
     for d, ax in zip(delta, axes):
@@ -1268,8 +1268,8 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
         from .transformations import ft, ift, rft, irft;
         
         if M1.dtype == np.complexfloating or M2.dtype == np.complexfloating:
-            FT1 = ft(M1, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes);
-            FT2 = ft(M2, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes);
+            FT1 = ft(M1, shift_after= False, shift_before = False, norm = None, ret ='complex', axes = axes);
+            FT2 = ft(M2, shift_after= False, shift_before = False, norm = None, ret ='complex', axes = axes);
         else:
             FT1 = rft(M1, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes, real_return = None);
             FT2 = rft(M2, shift = False, shift_before = False, norm = None, ret = 'complex', axes = axes, real_return = None);
@@ -1288,7 +1288,7 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
             raise ValueError('Wrong mode');
             return(M1);
         if M1.dtype == np.complexfloating or M2.dtype == np.complexfloating:
-            return(ift(cor, shift = True, shift_before = False, norm = None, ret ='complex', axes = axes))
+            return(ift(cor, shift_after= True, shift_before = False, norm = None, ret ='complex', axes = axes))
         else:
             if __DEFAULTS__['CC_ABS_RETURN']:
                 return(irft(cor, shift = True, shift_before = False, norm = None,ret = 'abs', axes =axes, real_axis='GLOBAL'));
@@ -1561,7 +1561,7 @@ def supersample(im, factor = 2, axis = (0,1), full_fft = False):
     
     from .transformations import ft , ift, rft, irft;
     if im.dtype == np.complexfloating or full_fft:
-        FT = ft(im, shift = True,shift_before=False, axes = axis, ret = 'complex');
+        FT = ft(im, shift_after= True, shift_before=False, axes = axis, ret ='complex');
         real_ax = -1;
         r = [[float(im.real.max()), float(im.real.min())],[float(im.imag.max()), float(im.imag.min())]]
     else:
@@ -1598,9 +1598,9 @@ def supersample(im, factor = 2, axis = (0,1), full_fft = False):
         FT = extract_c(FT, center = center, roi = roi, axes_roi = axis, extend = False);
     
     if im.dtype == np.complexfloating:
-        im = ift(FT, shift = False,shift_before=True, axes = axis,s= None, norm = None, ret = 'complex');
+        im = ift(FT, shift_after= False, shift_before=True, axes = axis, s= None, norm = None, ret ='complex');
     elif full_fft:
-        im = ift(FT, shift = False,shift_before=True, axes = axis,s= None, norm = None, ret = 'real');
+        im = ift(FT, shift_after= False, shift_before=True, axes = axis, s= None, norm = None, ret ='real');
         r = r[0];
     else:
         im = irft(FT, shift = False,shift_before=True, axes = axis,s = None, norm = None, ret = 'complex', real_axis = real_ax);
