@@ -21,6 +21,7 @@ objd=nip.DampEdge(obj, rwidth=0.1) # method="zero"
 nip.cat((objd,objd),-1)
 #objd=nip.DampEdge(obj) # method="zero"
 objd2=nip.DampEdge(obj,method="moisan") # method="zero"
+nip.cat((objd2,objd2),-1)
 
 nip.cat((objd,objd2,nip.ft(objd),nip.ft(objd2)),2)
 
