@@ -10,7 +10,7 @@ import numbers
 import NanoImagingPack as nip;
 from .config import DBG_MSG,__DEFAULTS__;
 # from .util import get_type;
-from .image import image;
+from .image import image, extractFt;
 from .view5d import v5 # for debugging
 import warnings;
 __REAL_AXIS__ = 0;

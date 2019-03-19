@@ -12,248 +12,136 @@ Also SIM stuff
 
 import numpy as np;
 import NanoImagingPack as nip;
-from .image import image;
-from .util import get_type,abssqr;
-from .transformations import rft,irft,ft2d,ift2d;
-from .coordinates import rr, ramp
+from .image import image, cat;
+from .mask import create_circle_mask;
+from .util import get_type,abssqr, zernike;
+from .transformations import rft,irft,ft2d,ift2d, ft, ift;
+from .coordinates import rr, ramp, phiphi, px_freq_step, freq_ramp, zz;
 from .view5d import v5 # for debugging
-from .config import PSF_PARAMS
+from .config import PSF_PARAMS, __DEFAULTS__;
+import numbers;
+import warnings;
+from scipy.special import j1;
 
-
-
-class transfer():
+def __setPol__(im, psf_params= PSF_PARAMS):
     '''
-        A class to create transfer functions
-        
-        Parameters:
-            im                   The image for which to compute the NA -> if None -> An image of standard dimensions (according to NA, n, pixelsize is created)
-            NA                   Numerical aperture
-            n                    Refractive index
-            wavelength           wavelength
-            pixelsize            pixelsize (if not given taken from image or config file)
-            
-            resample             Resample transfere function at computation to speed up the computation time
-            vectorial            Treat computation vectorial or not? if not -> polarization can be ignored
-            pol                  Light polarization (give: angle in degree for linear polarization, or 'lin', 'lin_x', 'lin_y', 'circular','eliptical' ,'arb', 'azimuthal', 'radial', for eliptical you have to give pol_xy_phase_shift)
-            pol_xy_phase_shift   Only for elliptic polarization: Enter the phase shift (in multiples of pi)
-            aplanar              Aplanatic behaviour:    'illumination' for inbound, 'detection' for outbound, None if you want to ignore it
-            r                    normalized radial vector
-            z_sampling           optionally z sampling, (in units) -> only used if image is 2D
-            
+    Create the polarization maps (x and y), returned as tuple of 2 2D images based on the polarization parameters (pol, pol_xy_phase_shift, pol_lin_angle) of the psf parameter structure
 
+    :param im: input image
+    :param psf_params: psf parameter structure
+    :return: returns the polarization map (tuple of 2 images with x and y polarization components)
     '''
-    def __init__(self, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT'):
-        from .config import __DEFAULTS__;    
-        from .image import image;
-        from .coordinates import rr;
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
-        
-        self.__TEST__ = None;
-        # Prepare settings
-        if type(im) == list or type(im) == tuple:
-            self.__orig_shape__ = im;
-        elif isinstance(im,np.ndarray):
-            self.__orig_shape__ = im.shape;
-        
-        self.set_shape(im);  
-        
-        if NA == 'DEFAULT': self.NA = __DEFAULTS__['TRANSFER_NA']; 
-        else: self.NA = NA;
-        if n == 'DEFAULT': self.n = __DEFAULTS__['TRANSFER_n']; 
-        else: self.n = n;
-        if wavelength == 'DEFAULT': self.wavelength = __DEFAULTS__['TRANSFER_wavelength']; 
-        else: self.wavelength = wavelength;
-        self.foc_length = __DEFAULTS__['TRANSFER_FOCAL_LENGTH']; 
-        self.pol_xy_phase_shift = pol_xy_phase_shift;
-        self.set_pol(pol, pol_xy_phase_shift)
-        
-        if vectorial == 'DEFAULT': self.vectorial = __DEFAULTS__['TRANSFER_VECTORIAL']; 
-        else: self.vectorial = vectorial;
-        if resample == 'DEFAULT': self.resample = __DEFAULTS__['TRANSFER_RESAMPLE']; 
-        else: self.resample = resample;
-        if aplanar == 'DEFAULT': self.aplanar = __DEFAULTS__['TRANSFER_APLANATIC']; 
-        else: self.aplanar = aplanar;
-        self.foc_field_mode =  __DEFAULTS__['TRANSFER_FOC_ FIELD_MODE'];
-        
-        if unit == 'DEFAULT': self.unit = __DEFAULTS__['IMG_PIXEL_UNITS'];
-        else: self.unit = unit;
-        
-        if isinstance(im,image):
-            self.set_pxs(im.pixelsize);
-            self.name = im.name+' - Transfer';
-        else:
-            self.set_pxs(pixelsize);
-            self.name = 'Transfer fct'
-        self.check_sampling();
-        
-     
-        # rr are lateral abbe coordinates!
-        r = rr(self.shape, scale = self.px_freq_step)*self.wavelength/self.NA # [:2]
-        #self.r = (r<=1)*r;
-        self.r = r;
-        self.s = self.NA/self.n; 
-        self.r[self.r>1] = 1/self.s;      # r is only defined between 0 and 1
-        
-        self.aberration_map = nip.zeros(self.shape[-2:]);
-
-    def set_vals(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None):
-        from .coordinates import rr;
-        if NA is not None: self.NA = NA;
-        if n is not None:  self.n = n;
-        if wavelength is not None: self.wavelength = wavelength;
-        if pixelsize is not None: self.set_pxs(pixelsize);
-        if resample is not None: self.resample = resample;
-        if vectorial is not None: self.vectorial = vectorial; 
-        if pol is not None: self.set_pol(pol, pol_xy_phase_shift);
-        if aplanar is not None: self.aplanar = aplanar;
-        if foc_field_mode is not None: self.foc_field_mode= foc_field_mode;
-        
-        r = rr(self.shape[-2:], scale = self.px_freq_step[-2:])*self.wavelength/self.NA
-        self.check_sampling();
-        #self.r = (r<=1)*r;
-        self.r = r;
-        self.s = self.NA/self.n; 
-        self.r[self.r>1] = 1/self.s;
-    
-    def set_pol(self, pol, pol_xy_phase_shift):
-        from .config import __DEFAULTS__; 
-        import numbers;
-        if pol == 'DEFAULT': pol = __DEFAULTS__['TRANSFER_POLARIZATION']; 
-        else: self.pol = pol;
-        
-        if pol == 'eliptical':
-            if pol_xy_phase_shift is None:
-                raise ValueError('Give pol_xy_phase_shift as multiples of pi for eliptical polaraization');
-            self.pol_type = 'circ';
-            self.pol_phase = pol_xy_phase_shift;
-        elif pol == 'circular':
-            self.pol_type = 'circ';
-            self.pol_phase = 1;
-        elif pol == 'arb':
-            self.pol_type = 'circ';
-            self.pol_phase = 0;
-        elif pol == 'lin' or pol == 'lin_x': 
-            self.pol = 0;
-            self.pol_type = 'lin';
-        elif pol == 'lin_y': 
-            self.pol = 90;
-            self.pol_type = 'lin';
-        elif pol == 'radial':
-            self.pol_type = 'lin';
-        elif pol == 'azimuthal':
-            self.pol_type = 'lin';
-        elif isinstance(pol, numbers.Real):
-            self.pol = pol;
-            self.pol_type = 'lin';
-        else:
-            raise ValueError('Wrong Polarization');
-    
-    def set_shape(self, im, z_shape = None):
-        '''
-            This sets the shape of the transfer volume
-            z-shape: If the original image is 2Dimensional you can give a z_shape here
-        '''
-        import numbers;
-#        from .image import image;
-        if type(im) == list or type(im) == tuple:
-            self.shape = im;
-        elif isinstance(im,np.ndarray): # includes image
-            self.shape = im.shape;
-        if z_shape is not None:
-            if isinstance(z_shape, numbers.Integral) == False:
-                raise TypeError('Wrong z_shape type: None or int');
-          
-            self.shape = list(self.shape);
-            if len(self.__orig_shape__) == 2:
-                if len(self.shape) ==2:
-                    self.shape = tuple([z_shape] + self.shape);
-                else:
-                    self.shape[-3] = z_shape;
-                    
-                    self.shape = tuple(self.shape);
-        
-    def set_pxs(self, pxs):
-        '''
-            This allows to set the pixelsize of the current Transfer class
-        '''
-        import numbers;
-        from .config import __DEFAULTS__; 
-        from .coordinates import px_freq_step; 
-        
-        if pxs == 'DEFAULT':
-            ret_pxs_lat = __DEFAULTS__['IMG_PIXELSIZES'][-2:];
-            ret_pxs_ax = __DEFAULTS__['IMG_PIXELSIZES'][-3];
-        else:
-            if isinstance(pxs, numbers.Real):
-                ret_pxs_lat = [pxs, pxs];
-                ret_pxs_ax = pxs;
-            elif type(pxs) == list or type(pxs) == tuple:
-                ret_pxs_lat = pxs[-2:];
-                if len(pxs) >2:
-                    ret_pxs_ax = pxs[-3];
-                else:
-                    ret_pxs_ax = __DEFAULTS__['IMG_PIXELSIZES'][-3];
+    pol = [image(np.zeros(im.shape[-2:], dtype=np.complex128)),image(np.zeros(im.shape[-2:], dtype=np.complex128))]
+    if psf_params.pol == 'elliptic':
+        pol[0]+=1/np.sqrt(2);
+        pol[1]+=1/np.sqrt(2)*np.exp(1j*psf_params.pol_xy_phase_shift);
+    elif psf_params.pol == 'circular':
+        pol[0] += 1/np.sqrt(2);
+        pol[1] += 1/np.sqrt(2) * np.exp(1j * np.pi/2);
+    elif psf_params.pol == 'lin':
+        pol[0]+=np.cos(psf_params.pol_lin_angle);
+        pol[1]+=np.sin(psf_params.pol_lin_angle);
+    elif psf_params.pol == 'lin_x':
+        pol[0]+=1;
+    elif psf_params.pol == 'lin_y':
+        pol[1]+=1;
+    elif psf_params.pol == 'radial':
+         phi = phiphi(im.shape);
+         pol[0]+=  np.cos(phi);
+         pol[1]+=  -np.sin(phi);
+    elif psf_params.pol == 'azimuthal':
+         phi = phiphi(im.shape);
+         pol[0] += np.sin(phi);
+         pol[1] += np.cos(phi);
+    elif isinstance(psf_params.pol, list) or isinstance(psf_params.pol, tuple):
+        if isinstance(psf_params.pol[0], np.ndarray) and isinstance(psf_params.pol[1], np.ndarray):
+            if psf_params.pol[0].shape == im.shape[-2:] and psf_params.pol[1].shape == im.shape[-2:]:
+                pol = psf_params.pol;
             else:
-                raise ValueError('Invalid pixelsize');
-        if len(self.shape) == 2:
-            self.px_freq_step = px_freq_step(im = self.shape, pxs = ret_pxs_lat);
+                ValueError('Wrong Polarization setting -> give list or tuple of two arrays (x,y polarization maps) of xy shape like image ');
         else:
-            self.px_freq_step = px_freq_step(im = self.shape, pxs = ret_pxs_lat+[ret_pxs_ax]);
-        self.pixelsize = ret_pxs_lat;
-        self.axial_pixelsize = ret_pxs_ax;
-        
-    def add_aberration(self, strength, aberration):
-        '''
-            add zernike aberation term:
-                
-                give:
-                    strength      strength of the aberation as multiples of 2pi in the phase (polynomial reach from -1 to 1) 
-                    type         can be
-                                    tuple (m, n) describing the Z^m_n polynomial
-                                or phasemap
-                                
-                                or string 
-                                        piston     -> (Z0,0)
-                                        tiltY      -> (Z-11)
-                                        tiltX      -> (Z11)
-                                        astigm     -> (Z-22)
-                                        defoc      -> (Z02)
-                                        vastig     -> (Z22)
-                                        vtrefoil   -> (Z-33)
-                                        vcoma      -> (Z-13)
-                                        hcoma      -> (Z13)
-                                        obtrefoil  -> (Z33)
-                                        obquadfoil -> (Z-44)
-                                        asti2nd    -> (Z-24)
-                                        spheric    -> (Z04)
-                                        vasti2nd   -> (Z24)
-                                        vquadfoil  -> (Z44)
-                                        
-            can be also lists or tuples -> Then everything will summed up
-        '''
-        import numbers;
-        from .util import zernike   
-        from .image import image;
-        zernike_para = {'piston': (0,0),
-                        'tiltY': (-1,1),
-                        'tiltX': (1,1),
-                        'astigm': (-2,2),
-                        'defoc': (0,2),
-                        'vastig': (2,2),
-                        'vtrefoil': (-3,3),
-                        'vcoma': (-1,3),
-                        'hcoma': (1,3),
-                        'obtrefoil': (3,3),
-                        'obquadfoil': (-4,4),
-                        'asti2nd': (-2,4),
-                        'spheric': (0,4),
-                        'vasti2nd': (2,4),
-                        'vquadfoil': (4,4),
-                }
+            ValueError('Wrong Polarization setting -> give list or tuple of two arrays (x,y polarization maps) of xy shape like image ');
+    else:
+        raise ValueError('Wrong Polarization: "lin", "lin_x", "lin_y", "azimuthal", "radial", "circular", "elliptic" or tuple or list of polarization maps (polx,poly)');
+    return(tuple(pol));
+def setAberrationMap(im, psf_params= PSF_PARAMS):
+    '''
+    create a aberration phase map (based on Zernike polynomials) or a transmission matrix (aperture) for PSF generation
 
+    uses:
+        PSF_PARAMS.aberration_strength = None;
+        PSF_PARAMS.aberration_types = None;
+        PSF_PARAMS.aperture_transmission = None;
+
+
+
+    strength:           strength of the aberration as multiples of 2pi in the phase (polynomial reach from -1 to 1)
+    aberration_types:   can be
+                            tuple (m, n) describing the Z^m_n polynomial
+                        or phasemap
+
+                        or string
+                                piston     -> (Z0,0)
+                                tiltY      -> (Z-11)
+                                tiltX      -> (Z11)
+                                astigm     -> (Z-22)
+                                defoc      -> (Z02)
+                                vastig     -> (Z22)
+                                vtrefoil   -> (Z-33)
+                                vcoma      -> (Z-13)
+                                hcoma      -> (Z13)
+                                obtrefoil  -> (Z33)
+                                obquadfoil -> (Z-44)
+                                asti2nd    -> (Z-24)
+                                spheric    -> (Z04)
+                                vasti2nd   -> (Z24)
+                                vquadfoil  -> (Z44)
+
+                    can be also lists or tuples -> Then everything will summed up
+    transmission:   The transmission map
+    '''
+    zernike_para = {'piston': (0,0),
+                    'tiltY': (-1,1),
+                    'tiltX': (1,1),
+                    'astigm': (-2,2),
+                    'defoc': (0,2),
+                    'vastig': (2,2),
+                    'vtrefoil': (-3,3),
+                    'vcoma': (-1,3),
+                    'hcoma': (1,3),
+                    'obtrefoil': (3,3),
+                    'obquadfoil': (-4,4),
+                    'asti2nd': (-2,4),
+                    'spheric': (0,4),
+                    'vasti2nd': (2,4),
+                    'vquadfoil': (4,4),
+
+            }
+    aberration_map = image(np.ones(im.shape[-2:], dtype=np.complex128));
+    strength = psf_params.aberration_strength;
+    aberration = psf_params.aberration_types;
+    transmission = psf_params.aperture_transmission;
+
+    if transmission is not None:
+        if isinstance(transmission, np.ndarray):
+            if transmission.shape == im.shape[-2:]:
+                if np.min(transmission)<0:
+                    warnings.warn('Transmission mask is negative at some values');
+                if np.max(transmission)>1:
+                    warnings.warn('Transmission mask is larger than one at some values');
+                aberration_map*= transmission;
+            else:
+                raise ValueError('Wrong dimension of transmission matrix');
+        else:
+            raise ValueError('Wrong transmission -> must be 2D image or array of the same xy-dimension as the image');
+    if strength is not None and aberration is not None:
+        if isinstance(im, image):
+            pxs=im.px_freq_step()[-2:];
+        else:
+            pxs = __DEFAULTS__['IMG_PIXELSIZES'];
+            pxs = px_freq_step(im, pxs)[-2:];
+
+        r = rr(im.shape[-2:], scale=pxs) * psf_params.wavelength / psf_params.NA;
         if isinstance(strength, numbers.Real):
             strength = [strength];
         if type(aberration) == str or isinstance(aberration,np.ndarray):
@@ -262,546 +150,903 @@ class transfer():
             if  isinstance(aberration[0], numbers.Integral):
                 aberration= [aberration];
         for s, ab in zip(strength, aberration):
+       #TODO: CHEKC if ZERNICKE MAP HAS TO BE STRETCHED OVER PI or over 2PI!!!
+       # ZERNICKE value range is between -1 and 1;
             if type(ab) == str:
                 m = zernike_para[ab][0];
                 n = zernike_para[ab][1];
-                self.aberration_map += s*zernike(self.r,m,n)*np.pi;
-            elif isinstance(aberration,np.ndarray):
-                self.aberration_map += ab;
-            else:     
+                aberration_map *= np.exp(1j*s*zernike(r,m,n)*np.pi);
+            elif isinstance(ab,np.ndarray):
+                aberration_map *= np.exp(1j*ab);
+            else:
                 m = ab[0];
                 n = ab[1];
-                self.aberration_map += s*zernike(self.r,m,n)*np.pi;
-        
-    def check_sampling(self):   
-        for fs, size,i in zip(self.px_freq_step,self.shape, [-2,-1]):
-            if 2*self.NA/self.wavelength*fs > size/2:  print('Warning: Undersampling along axis '+str(i));
-        #if len(self.px_freq_step) >2:        
-        #    if self.NA**2/self.wavelength*self.px_freq_step[-3]: print('Warning: Undersampling along z');
+                aberration_map *= np.exp(1j*s*zernike(r,m,n)*np.pi);
+    return(aberration_map);
 
-    def otf2d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None,off_focal_dist= 0):
-        #self.set_vals(self, NA, n, wavelength, pixelsize, resample , pol, pol_xy_phase_shift,aplanar, foc_field_mode);
-        self.set_vals(NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.foc_field(ret_val = 'otf', off_focal_dist = off_focal_dist));
-    
-    def psf2d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, off_focal_dist = 0):
-        self.set_vals(NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.foc_field(ret_val = 'intensity', off_focal_dist=off_focal_dist));
-    
-    def ctf2d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None,off_focal_dist= 0):
-        self.set_vals(NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.foc_field(ret_val = 'ctf',off_focal_dist=off_focal_dist));
-    
-    def apsf2d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, off_focal_dist= 0):
-        self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.foc_field(ret_val = 'field',off_focal_dist=off_focal_dist));    
-    
-    def psf3d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, z_shape = None):
-        self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.propagate(z_shape, method = 'angle', ret_val = 'intensity'));
-    
-    def otf3d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, z_shape = None):
-        self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.propagate(z_shape, method = 'angle', ret_val = 'otf'));
-    
-    def ctf3d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, z_shape = None):
-        self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.propagate(z_shape, method = 'angle', ret_val = 'ctf'));
-    
-    def apsf3d(self, NA = None, n = None, wavelength = None, pixelsize = None, resample = None, vectorial = None, pol = None, pol_xy_phase_shift = None ,aplanar = None, foc_field_mode = None, z_shape = None):
-        self.set_vals( NA = NA, n = n, wavelength = wavelength, pixelsize = pixelsize, resample = resample, vectorial = vectorial, pol = pol, pol_xy_phase_shift = pol_xy_phase_shift ,aplanar = aplanar, foc_field_mode = foc_field_mode);
-        return(self.propagate(z_shape, method = 'angle', ret_val = 'field'));
-        
-    def propagate(self, z_shape = None, method = 'kz', ret_val = 'ctf'):
-        '''
-            propagate field
-            
-            field: which field (in focus) to propagate
-            
-            methods: -> currently implemented for testing purposes
-                kz:  Rainers method
-                angle: my method
-        '''
-        from .transformations import ft, ift;
-        from .coordinates import freq_ramp, zz, px_freq_step;
-        from .image import image;
-        field = self.foc_field(ret_val = 'ctf');
-        field = np.nan_to_num(field, copy = False);
-        
-        if len(self.__orig_shape__) == 2:
-            if z_shape is None:
-                raise ValueError('No z_shape given');
-            self.set_shape(self.shape, z_shape);
-        
-        if method == 'kz':
-            # Transposing is necessary for broadcasting
-            fx = freq_ramp((field.shape[-2],field.shape[-1]),self.pixelsize[-1], axis =-1); # .transpose();   # RH 2.2.19
-            fy = freq_ramp((field.shape[-2],field.shape[-1]),self.pixelsize[-2], axis =-2); # .transpose();
-            z = zz(self.shape); # .transpose();
-            
-            np.seterr(invalid = 'ignore');
-            kz = np.nan_to_num(2*np.pi*np.sqrt(self.n**2/self.wavelength**2-(fx**2+fy**2)))   
-            np.seterr(invalid = 'warn');
-            propagator = kz * z*self.axial_pixelsize; 
-            ret = (field.np.exp(-1j*propagator));  # RH 2.2.19
-            
-        elif method == 'angle':
-            z = zz(self.shape); # .transpose();
-            np.seterr(invalid = 'ignore');
+def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier'):
+    '''
+    Compute the field propagation matrix
 
-            propagator = self.n*np.pi*2/self.wavelength*np.sqrt(1-self.r**2*self.s**2)* self.axial_pixelsize*z;
-            np.seterr(invalid = 'warn');
-            ret = (field*np.exp(-1j*propagator));      # RH 2.2.19   .transpose()   field.transpose()*np.exp(-1j*propagator.transpose()
-        
-        np.nan_to_num(ret,copy = False);
-        if ret_val == 'field':
-            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
-        elif ret_val == 'intensity':
-            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
-            ret = (np.abs(ret)**2).astype(np.float64);
-            if self.vectorial:
-                ret = np.sum(ret, axis = -4).squeeze();
-            ret = ret/ret.max();
-            ret = ret/ret.sum();
-                
-        elif ret_val == 'ctf':
-            ret = ft(ret, shift_after= True, shift_before = True, norm = None, axes=(-3));
-        elif ret_val == 'otf':
-            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
-            ret = np.abs(ret)**2;
-            if self.vectorial:
-                ret = np.sum(ret, axis = -4);
-                ret = ret.squeeze();
-            ret = ret/ret.max();
-            ret = ret/ret.sum();
-            ret = ft(ret, shift_after= True, shift_before = True, norm =None, ret ='abs');
-        else:
-            raise ValueError('Wrong ret_val: "ctf", "otf", "field" or "intensity"');    
-    
-        ret = image(ret, pixelsize = self.pixelsize, unit = self.unit, name = self.name+' ('+ret_val+')', info = 'NA='+str(self.NA)+', n='+str(self.n)+', wavelength='+str(self.wavelength)+', mode='+self.foc_field_mode)
-        
-        if len(ret.pixelsize) == 2:
-            ret.pixelsize += [self.axial_pixelsize]; 
-        else:
-            ret.pixelsize[-3] = self.axial_pixelsize;
-        if ret_val == 'ctf' or ret_val == 'otf':
-            ret.pixelsize = px_freq_step(self.shape, ret.pixelsize);
-        if self.vectorial and ret_val == 'ctf' or ret_val == 'field':
-            ret.dim_description['d3'] = ['Ex','Ey','Ez'];
-        return(ret)            
-    
-    def foc_field(self, ret_val = 'ctf', off_focal_dist = 0):
-        '''
-            compute the field in the focal plane
-                mode:
-                    'theoretical':        compute from sinc
-                    'circular':           compute field from circular transfer
-        
-            ret_val:
-                'field'      returns apsf
-                'intensity'  returns psf
-                'ctf'        returns ctf
-                'otf'        returns otf
-            
-            norm : Normalization of return
-        '''
-        from scipy.special import j1;
-        from .coordinates import phiphi;
-        from .image import image, cat;
-        from .transformations import ft, ift;
-        
-        shape = self.shape[-2:];
+    :param im:              input image
+    :param psf_params:      psf params structure
+    :param mode:            "Fourier" the normal fourier based propagation matrix
 
-        if self.foc_field_mode == 'theoretical':
-            np.seterr(divide ='ignore', invalid ='ignore');
-            arg = rr(shape,scale=np.array(self.pixelsize)*2*np.pi*self.NA/self.wavelength)#  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
-            ret = 2*j1(arg)/arg;
-            ret[shape[-2]//2, shape[-1]//2] = 1;
-            np.seterr(divide='warn', invalid ='warn');  
-            ret = ret/np.sum(np.abs(ret));      
-        elif self.foc_field_mode == 'circular':
-            ret = ift((self.r<= 1) * 1.0, shift_after= True, shift_before = True, norm = None);
-            ret = ret/np.max(np.abs(ret))
-        self.TEST =ret;         # TODO: ERASE
-        ret = ft(ret, shift_after= True, shift_before =True, norm = None);
-        self.TEST1 = ret        # TODO: ERASE
-        # add aplanatic factor
-        oms2r2=1-self.s**2*self.r**2  # one minus s^2*r^2
-        
-        validmask=oms2r2>0
-        ret[~validmask]=0.0;
-        if self.aplanar == 'illumination':
-            ret[validmask] *=  (oms2r2[validmask])**0.25;   # RH 3.2.19
-        elif self.aplanar == 'detection':
-            ret[validmask] *=  1/(oms2r2[validmask])**0.25;   #RH 3.2.19
-        # add focal distance
-        if off_focal_dist !=0:
-            np.seterr(invalid = 'ignore');
-            propagator = self.n*np.pi*2* self.axial_pixelsize*off_focal_dist/self.wavelength*np.sqrt(oms2r2);
-            np.seterr(invalid = 'warn');
-            ret*= np.exp(-1j*propagator);
-           
-        # add aberration
-        ret *= np.exp(1j*self.aberration_map);
-        # add vectorlial effects
-        
-        if self.vectorial:
-            def __make_components__(pol, phase):
-                phase = np.exp(1j*phase*np.pi/2);
-                rs=self.r*self.s;
-                #rs[rs>0.95]=0.95
-                oms2r2=1-rs**2  # one minus s^2*r^2
-#                oms2r2[oms2r2<0]=0.0;
-                soms2r2=np.sqrt(oms2r2)  # sqrt(one minus s^2*r^2# )
-                self.__TEST__= rs;
-                if pol == 'x':
-                    theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase; 
-                    Ey = ( np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase; 
-                    Ez = np.cos(theta)*rs*phase;
-                elif pol == 'y':
-                    theta = phiphi(shape, offset = 0);
-                    Ex = (np.sin(theta)*np.cos(theta)*(soms2r2-1))*phase;Ey = (np.sin(theta)**2*soms2r2+np.cos(theta)**2)*phase; Ez = np.sin(theta)*rs*phase;
-                elif pol == 'radial':
-                    theta = phiphi(shape, offset = 0);
-                    Ex = (np.cos(theta)*soms2r2)*phase; Ey = (np.sin(theta)*soms2r2)*phase; Ez = rs*phase;                
-                elif pol == 'azimuthal':
-                    theta = phiphi(shape, offset = 0);
-                    Ex = np.sin(theta)*phase; Ey =  +np.cos(theta)*phase; Ez = np.zeros_like(theta);
-                else:
-                    theta = -phiphi(shape, offset = pol*np.pi/180);
-                    Ex = (np.cos(theta)**2*soms2r2+np.sin(theta)**2)*phase;  # RH: Please fix this, yield rundtime warning
-                    Ey = (np.sin(theta)*np.cos(theta)*(soms2r2-1) )*phase;  # RH: Please fix this, yield rundtime warning
-                    Ez = np.cos(theta)*rs*phase;
-                return(Ex,Ey,Ez);
-            nfac=1/np.sqrt(2);
-            if self.pol_type == 'lin':
-                Ex,Ey,Ez = __make_components__(self.pol, 0);
-            elif self.pol_type == 'circ':
-                Exx, Eyx, Ezx = __make_components__('x',0);
-                Exy, Eyy, Ezy = __make_components__('y',self.pol_phase);
-                Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
-            elif self.pol_type == 'unpolarized':
-                print('Waring: Unpolarized light is modelled by overlaying azimuthally and radially')
-                Exx, Eyx, Ezx = __make_components__('azimuthal',0);
-                Exy, Eyy, Ezy = __make_components__('radial',0);
-                Ex = nfac*(Exx+Exy);Ey = nfac*(Eyx+Eyy);Ez = nfac*(Ezx+Ezy);
-            self.__TEST__ = cat((Ez, Ey, Ex, ret),-3);
-            ret = cat((ret*Ez, ret*Ey, ret*Ex),-4);
-        
-        np.nan_to_num(ret,copy = False);  # is this still necessary?
+                            TODO: Include chirp Z transform method
+    :return:                Returns the phase propagation matrix (exp^i*delta_phi)
+    '''
 
-        if ret_val == 'field':
-            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
-        elif ret_val == 'intensity':
-            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
-            ret = np.real(abssqr(ret)) # RH 3.2.19  .astype(np.float64);
-            if self.vectorial:
-                ret = np.sum(ret, axis = -4).squeeze();
-#            ret = ret/ret.max();
-            ret = ret/ret.sum(); # RH 2.2.19
-        elif ret_val == 'ctf':
-            pass;
-        elif ret_val == 'otf':
-            ret = ift2d(ret, shift_after= True, shift_before = True, norm = None);
-            ret = abssqr(ret);
-            if self.vectorial:
-                ret = np.sum(ret, axis = -4);
-                ret = ret.squeeze();
-            ret = ret/ret.max();
-            ret = ret/ret.sum();
-            ret = ft(ret, shift_after= True, shift_before = True, norm = None, ret ='complex');
-        else:
-            raise ValueError('Wrong ret_val: "ctf", "otf", "field" or "intensity"');    
-    
-        ret = image(ret, pixelsize = self.pixelsize, unit = self.unit, name = self.name+' ('+ret_val+')', info = 'NA='+str(self.NA)+', n='+str(self.n)+', wavelength='+str(self.wavelength)+', mode='+self.foc_field_mode)
-        if ret_val == 'ctf' or ret_val == 'otf':
-            ret.pixelsize = self.px_freq_step;
-        if self.vectorial and ret_val == 'ctf' or ret_val == 'field':
-            ret.dim_description['d3'] = ['Ez','Ey','Ex'];
-        return(ret)
-    
+    if isinstance(im, image):
+        pxs = im.pixelsize;
+        ft_pxs = im.px_freq_step();
+    else:
+        pxs = __DEFAULTS__['IMG_PIXELSIZES'];
+        ft_pxs = px_freq_step(im, pxs);
+
+    if (len(pxs)<3) and (len(im.shape)>2):
+        axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0];
+        warnings.warn('Only 2 Dimensional image given -> using default ('+str(axial_pxs)+')');
+    else:
+        axial_pxs = pxs[0];
+    if len(im.shape)>2:
+        r = rr(im.shape[-2:], scale=ft_pxs[-2:]) * psf_params.wavelength / psf_params.NA;
+        r = (r <= 1) * r;
+        s = psf_params.NA/psf_params.n;
+
+        propagator = psf_params.n * np.pi * 2 / psf_params.wavelength * np.sqrt(1 - r ** 2 *s ** 2) * axial_pxs * zz(im);
+    else:
+        propagator = np.zeros(im.shape);
+    return(np.exp(-1j*propagator))
+
+def simLens(im, psf_params = PSF_PARAMS):
+    '''
+    Compute the focal plane field (fourier transform of the electrical field in the plane (at position PSF_PARAMS.off_focal_dist)
+
+    The following influences will be included:
+        1.)     Mode of plane field generation (from sinc or circle)
+        2.)     Aplanatic factor
+        3.)     Potential aberrations (set by set_aberration_map)
+        4.)     Vectorial effects
+
+    returns image of shape (3,y_im,x_im) where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
+    '''
+
+    # setting up parameters:
+    NA = psf_params.NA;
+    wl = psf_params.wavelength;
+    n = psf_params.n;
+    if isinstance(im, image):
+        pxs = im.pixelsize[-2:];
+        ft_pxs = im.px_freq_step()[-2:];
+    else:
+        pxs = __DEFAULTS__['IMG_PIXELSIZES'];
+        ft_pxs = px_freq_step(im, pxs)[-2:];
+    shape = im.shape[-2:];
+
+    r = rr(shape, scale=ft_pxs) * wl / NA  # [:2]
+    aperture = (r<=1)*1.0           # aperture transmission
+    r = (r<=1)*r;                   # normalized aperture coordinate
+    s = NA / n;
+    cos_alpha = np.sqrt(1-(s*r)**2);   # angle map cos
+    sin_alpha = s*r;                   # angle map sin
+
+    # Make base field
+    if psf_params.foc_field_method == 'theoretical':
+        np.seterr(divide='ignore', invalid='ignore');
+        arg = rr(shape,scale=np.array(pxs)*2*np.pi*NA/wl)#  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
+        ret = 2*j1(arg)/arg;                        # that again creates the dip!
+        ret[shape[-2]//2, shape[-1]//2] = 1;
+        ret = ret / np.sum(np.abs(ret));
+        plane = ft2d(ret);
+        np.seterr(divide='warn', invalid='warn');
+    elif psf_params.foc_field_method == 'circle':
+        plane = aperture*1j;
+    else:
+        raise ValueError('Wrong focal_field_method in PSF_PARAM structure');
+
+    # Apply aplanatic factor:
+    if psf_params.aplanar is None:
+        pass;
+    elif psf_params.aplanar == 'excitation':
+        plane *= np.sqrt(cos_alpha);
+    elif psf_params.aplanar == 'emission':
+        plane /= np.sqrt(cos_alpha);
+    elif psf_params.aplanar == 'excitation2':
+        plane *= cos_alpha;
+    elif psf_params.aplanar == 'emission2':
+        plane /= cos_alpha;
+    else:
+        raise ValueError('Wrong aplanatic factor in PSF_PARAM structure:  "excitation", "emission","excitation2","emission2" or None, 2 means squared aplanatic factor for flux measurement');
+
+    # Apply aberrations and apertures
+    plane *= setAberrationMap(im, psf_params);
+
+    # Apply z-offset:
+    plane *= np.exp(-2j*n*np.pi/wl * cos_alpha * psf_params.off_focal_distance);
+
+    # expand to 4 Dims, the 4th will contain the electric fields
+    plane = plane.cat([plane,plane],-4);
+    plane.dim_description = {'d3': ['Ex','Ey','Ez']}
+
+    #Apply vectorized distortions
+    polx, poly = __setPol__(im, psf_params= psf_params);
+    if psf_params.vectorized:
+        theta = phiphi(shape);
+        E_radial     = np.cos(theta)*polx-np.sin(theta)*poly;
+        E_tangential = np.sin(theta)*polx+np.cos(theta)*poly;
+        E_z = E_radial*sin_alpha;
+        E_radial *=cos_alpha;
+        plane[0]*= np.cos(theta)*E_radial+np.sin(theta)*E_tangential;
+        plane[1]*=-np.sin(theta)*E_radial+np.cos(theta)*E_tangential;
+        plane[2]*= E_z;
+    else:
+        plane[0]*=polx;
+        plane[1]*=poly;
+        plane[2]*=0;
+    return(plane*aperture);
+
+def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
+    '''
+    Creates the transfer function
+    Also adds members PSF_PARAMS
+
+    :param im:                  input image
+    :param psf_params:          PSF Parameter struct
+    :param mode:                'ctf', 'otf', 'psf', 'apsf'
+    :param dimension:           if 2-> only 2D, if None like input image
+    :return:                    returns the transfer function (dimension x,y, potentially z and field components for ctf and apsf
+    '''
+
+    ret = simLens(im, psf_params);
+    if dimension is None:
+        ret= ret*__make_propagator__(im, psf_params = PSF_PARAMS);     # field (kx,ky) propagated along the z - component
+    if mode == 'ctf':  # Field transfer function is ft along z axis
+        if ret.shape[1] >1:
+            ret = ret.ft(axes = 1);
+    elif mode ==  'apsf':                # field spread function is ft along kx-ky-axes
+        ret = ret.ift2d();
+    elif mode == 'psf':                  # psf: like apsf and then abs square of field components
+        ret = ret.ift2d();
+        ret *= ret.conjugate();
+        ret = ret.sum(axis=0);
+        ret = np.real(ret);
+    elif mode == 'otf':                  # otf: ft (over whole space) of psf
+        ret = ret.ift2d();
+        ret *= ret.conjugate();
+        ret = ret.sum(axis=0);
+        ret = np.real(ret);
+        ret = ret.ft();
+    ret.PSF_PARAMS = psf_params;
+    return(ret)
+
+def otf(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
 
 
-class otf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.otf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
-        px = obj.pixelsize;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.off_focal_dist = off_focal_dist;
-        return(obj)
-    
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.otf2d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, off_focal_dist = self.off_focal_dist).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.off_focal_dist = getattr(obj,'off_focal_dist',0);
-class psf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.psf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
-        px = obj.pixelsize;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.off_focal_dist = off_focal_dist;
-        return(obj)
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.psf2d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, off_focal_dist = self.off_focal_dist).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.off_focal_dist = getattr(obj,'off_focal_dist',0);
-        
-class apsf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
+        Example:
+        -------
+        - Create 2D PSF of 3d image
 
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.apsf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
-        px = obj.pixelsize;
-        descr = obj.dim_description;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.dim_description = descr;
-        obj.off_focal_dist = off_focal_dist;
-        return(obj)
-    
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.apsf2d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, off_focal_dist = self.off_focal_dist).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.dim_description= getattr(obj, 'dim_description', [])
-        self.off_focal_dist = getattr(obj,'off_focal_dist',0);
-        
-class ctf2d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, off_focal_dist =0):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
 
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.ctf2d(foc_field_mode = foc_field_mode, off_focal_dist= off_focal_dist).view(cls);
-        px = obj.pixelsize;
-        descr = obj.dim_description;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.dim_description = descr;
-        obj.off_focal_dist = off_focal_dist;
-        return(obj)
-    
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.ctf2d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, off_focal_dist = self.off_focal_dist).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])    
-        self.dim_description= getattr(obj, 'dim_description', [])
-        self.off_focal_dist = getattr(obj,'off_focal_dist',0);
-        
-class otf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
+         - Create 3D PSF with circular polarization:
 
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.otf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
-        px = obj.pixelsize;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.z_shape = z_shape;
-        return(obj)
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.otf3d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, z_shape = self.z_shape).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.z_shape=getattr(obj, 'z_shape', None)
-        self.trans = getattr(obj, 'trans', None)
-        
-      
-class psf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
 
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.psf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
-        px = obj.pixelsize;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.z_shape = z_shape;
-        return(obj)
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.psf3d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, z_shape = self.z_shape).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.z_shape=getattr(obj, 'z_shape', None)
-        self.trans = getattr(obj, 'trans', None)
-        
-class ctf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
 
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.ctf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
-        px = obj.pixelsize;
-        descr = obj.dim_description;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.z_shape = z_shape;
-        obj.dim_description = descr;
-        return(obj)
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.ctf3d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, z_shape = self.z_shape).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.z_shape=getattr(obj, 'z_shape', None)
-        self.trans = getattr(obj, 'trans', None)
-        self.dim_description= getattr(obj, 'dim_description', [])
-class apsf3d(image):
-    def __new__(cls, im, NA = 'DEFAULT', n = 'DEFAULT', wavelength = 'DEFAULT', resample = 'DEFAULT', vectorial = 'DEFAULT', pol = 'DEFAULT', pol_xy_phase_shift = None ,aplanar = 'DEFAULT', unit = 'DEFAULT', foc_field_mode  =None, z_shape = None):
-        if hasattr(im, 'pixelsize'):
-            pixelsize=im.pixelsize
-        else:
-            pixelsize='DEFAULT'
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
 
-        t = transfer(im, NA, n, wavelength, resample, vectorial, pol, pol_xy_phase_shift ,aplanar, unit);
-        opx = t.__dict__['pixelsize'];
-        obj = t.otf3d(foc_field_mode = foc_field_mode, z_shape = z_shape).view(cls);
-        px = obj.pixelsize;
-        descr = obj.dim_description;
-        obj.__dict__ = t.__dict__;
-        obj.__dict__['pixelsize'] = px;
-        obj.old_pxs = opx
-        obj.trans = t;
-        obj.z_shape = z_shape;
-        obj.dim_description = descr;
-        return(obj)
-    def add_aberration(self, strength, aberration):
-        self.trans.add_aberration(strength, aberration);
-        self.recalc();
-    def recalc(self):
-         self[:] = self.trans.apsf3d(NA = self.NA, n = self.n, wavelength = self.wavelength, pixelsize = self.old_pxs, resample = self.resample, vectorial = self.vectorial, pol = self.pol, pol_xy_phase_shift = self.pol_xy_phase_shift ,aplanar = self.aplanar, foc_field_mode = self.foc_field_mode, z_shape = self.z_shape).view(type(self))
-        
-    def __array_finalize__(self, obj):
-        if obj is None: return;
-        self.pixelsize = getattr(obj, 'pixelsize', [100,100]);
-        self.old_pxs =getattr(obj, 'old_pxs', [100,100])
-        self.z_shape=getattr(obj, 'z_shape', None)
-        self.trans = getattr(obj, 'trans', None)
-        self.dim_description= getattr(obj, 'dim_description', [])
-# def create_psf(NA, n, wavelength,pixelsize,magnification):
-#     '''
-#
-#         IS NOT NEEDED ANYMORE : TODO: ELIMINATE IN NEXT VERSION     CK 21.02.2019
-#         Computes an ordinary 2D PSF:
-#             If the first zero point of the Besselfunction is smaller than half of the pixelsize, than it
-#             the psf is just one. Otherwise it is computed according to the grid given by the pixels
-#         NA: numerical aperture
-#         n: refractive index
-#         wavelength in nm
-#         pixelsize in mum
-#         magnificiation
-#
-#         We scale the PSF up to the fifths zero point of the besselfunction!
-#     '''
-#     from scipy import special as spec;
-#     N = 1/(2*np.tan(np.arcsin(NA/n)));         # F number
-#     wavelength = wavelength/1000;              # wavelength in mum
-#     pixelsize = pixelsize/magnification;
-#     max_normalize = 7;        # Maximum normalized x -> 16.706 is the 5th zero point of the J1 -function -> can of course be canged
-#     if (3.8317*wavelength*N/(np.pi) <= (pixelsize/2)):
-#         psf = np.asarray([[1]]);
-#     else:
-#         x1 = np.arange(0,max_normalize,pixelsize*np.pi/(wavelength*N))
-#         x2 = x1[1:];
-#         x2 = -1*x2[::-1];
-#         x = np.append(x2,x1);
-#         X,Y = np.meshgrid(x,x);
-#         R = np.sqrt(X**2+Y**2);
-#         psf = (2*spec.j1(R)/R)**2
-#         psf[np.int8((np.size(x)-1)/2),np.int8((np.size(x)-1)/2)] = 1;
-#     return(psf);
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'otf', dimension = None));
+def ctf(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function. The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'ctf', dimension = None))
+def apsf(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = None))
+def psf(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = None))
+def otf2d(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'otf', dimension = 2).squeeze());
+def ctf2d(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'ctf', dimension = 2).squeeze())
+def apsf2d(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = 2).squeeze())
+def psf2d(im, psf_params = PSF_PARAMS):
+    '''
+        A set of functions to compute a transfer function of an objective
+            psf         Point spread function
+            apsf        Field transfer function
+            otf         Optical transfer function
+            ctf         Spectral transfer function of the field
+
+        Parameters
+        ----------
+        :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
+
+        - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
+        - 3D method is slice propagation method
+        - Transfer functions can be forced to be 2D (even for 3D input images via using: psf2d, otf2d, apsf2d, ctf2d
+        - All parameters will be set via using the PSF_PARAM struct (refere the help of that!)
+
+        See also:
+        ---------
+        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+
+
+        Example:
+        -------
+        - Create 2D PSF of 3d image
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            psf = nip.psf2d(im, para);
+
+         - Create 3D PSF with circular polarization:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            para = nip.PSF_PARAMS;
+            nip.para.pol = nip.para.pols.elliptical;
+            psf = nip.psf(im, para);
+
+         -  Create 2D OTF (because the image is 2D) and add some aberrations and a soft aperture
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
+            aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
+            para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
+            para.aberration_strength =[0.5,0.8,0.2];
+            otf = nip.otf(im, para);
+
+        -   Create a non-Vectorial, emission APSF in 3D based on a circle in the Fourier space instead of a jinc in the real space
+
+            import NanoImagingPack as nip;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            para.vectorized = False;
+            para.aplanar = para.apl.emission
+            para.foc_field_method = "circle"
+            apsf = nip.apsf(im, para);
+
+        Examples regarding the PSF_PARAMS:
+
+        -   Set up linear polarization of arbitrary angle:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_lin_angle = np.pi*3/17;
+
+        -   Set up elliptical polarization of arbitrary angle phase shift between x and y component:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            para = nip.PSF_PARAMS;
+            para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
+            para.pol_xy_phase_shift = np.pi*3/17;
+
+        -   Set up x and y components of the polarization indendently:
+
+            import NanoImagingPack as nip;
+            import numpy as np;
+            im = nip.readim('erika');
+            para = nip.PSF_PARAMS;
+            polx = nip.xx(im).normalize(1)*8.0;
+            poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
+            para.pol = [polx, poly]
+    '''
+    return(__make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = 2).squeeze())
 
 def jinc(mysize=[256,256],myscale=None):
     '''
@@ -837,175 +1082,6 @@ def jinc(mysize=[256,256],myscale=None):
     res=j1(2*myradius) / (myradius)
     nip.MidValAsg(res,1.0)
     return res
-
-def perfect_psf(im, NA, n, wavelength, pixelsize, mode = 'lateral'):
-    from .image import image;
-    #if isinstance(aberration,np.ndarray):
-    from numbers import Real;
-    from scipy.special import j1;
-    from .coordinates import xx,yy;
-    if isinstance(pixelsize, Real):
-        pixelsize = [pixelsize, pixelsize];
-    if type(im) == image:
-        pixelsize = im.pixelsize;
-    arg = rr(im,scale=(2*pi*np.array(pixelsize)/wavelength/NA));   # RH 3.2.19
-#    arg = 2*np.pi*np.sqrt((xx(im)*pixelsize[0])**2+(yy(im)*pixelsize[1])**2)/(wavelength*NA);
-    atf = 2*j1(arg)/arg;
-    return(atf)
-    
-
-def otf2D(im = (256,256), px_size=50, wavelength=500, NA=1.0, exp_damping = 1.0):
-    '''
-        Compute the OTF in 2D:
-            
-             im: Image or 2D shape (default is (256,256))
-             px_size: pixelsize in nm (Default is 50)
-             wavelength in nm (Default is 500)
-             Numerical aperture (Default is 1.0)
-             exp_damping:   Exponential factor for correcting aberations (default is 1.0)
-             
-        Algorithm: 
-            use "nip.otf_support" using NA/2 to create ATF and autocorrelate those!
-            
-    '''
-    from .mask import otf_support;
-    from .image import correl;
-    atf = otf_support(im, px_size, wavelength, NA/2);
-    otf = correl(atf, atf);
-    otf = np.abs(otf)**exp_damping/np.max(np.abs(otf))*np.exp(1j*np.angle(otf));
-    return(otf);
-    
-def get_field_spec_in_focus(im = (256,256), px_size = [50,50], wavelength = 500, NA =1.0, n = 1, method = 'disc', input_pol = 'y', direction = 'confocal'):
-    '''
-        returns the field spectrum in the focals plane
-        im:             image or shape
-        px_size:        pixelsizes 
-        wavelength:     wavelength
-        NA:             NA
-        n               refractive index
-        method:         method of computation:
-                            disc:    returns disc mask accroding to abbe_limit
-                            TODO:
-                                ft(sinc)
-                                much more
-                                
-            
-        input_pol       polarization of incomming beam
-        
-        
-        
-    '''    
-    if method == 'disc':
-        from .mask import otf_support;
-        return(otf_support((im[-2], im[-1]), (px_size[-2], px_size[-1]), NA = NA/2, l= wavelength))
-
-def PSF3D(im = (256,256,32), px_size=[50,50,100], wavelength=500, NA=1.0,n = 1.0,method = 'propagation', focal_plane = 'disc', ret_val = 'PSF'):
-    '''
-        compute the 3D OTF for a given volume:
-            
-            im:           image or shape of the image
-            px_size:      pixelsizes in x,y,z  (if integer given, the pixelsizes will be the same for all)
-            wavelngth:    wavelengths;
-            NA            NA
-            n             refractive index
-            method:       How to be computed?
-                            - 'propagation'      propagates focal plane around z at given range
-            
-            focal_plane:  How is the field in the focal plane value to be computed
-                            - 'disc'             simple disk mask according to Abbe limit
-                            TODO: IMPLEMENT MORE 
-                            
-            ret_val:       what to return:
-                            'PSF':        Intensity PSF
-                            'FIELD':      field distribution
-                            'OTF':        OTF (ft(PSF))
-                            'CTF':        CTF (ft(FIELD))
-                            'ALL':        A list of all four in order (FIELD; PSF; OTF; CTF)
-            
-            
-            TODO:
-                EXTEND WITH DIFFERENT TECHNIQUES
-                INCLUDE MORE FOCAL PLANE VALUES
-                
-            
-    '''
-    
-    if isinstance(im,np.ndarray):
-        im = np.shape(im);        
-    
-    if method == 'propagation':
-        if focal_plane == 'disc':
-            from .mask import otf_support;
-            atf_focus = otf_support((im[-2], im[-1]), (px_size[-2], px_size[-1]), NA = NA/2, l= wavelength);
-            field = field_propagation(atf_focus, im[-3], px_size, wavelength = wavelength, refractive_index= n);
-        else:
-            print('NOT YET IMPLEMENTED');
-            return; 
-    else:
-        print('NOT YET IMPLEMENTED');
-        return;
-    
-    from .transformations import ft;
-    if ret_val == 'FIELD':
-        return(field);
-    elif ret_val == 'PSF':
-        return(np.real(abssqr(field)))
-    elif ret_val == 'OTF':
-        return (ft(abssqr(field),shift_before=True));
-    elif ret_val == 'CTF':
-        return (ft(field,shift_before=True));
-    elif ret_val == 'ALL':
-        return ([field,np.real(abssqr(field)), ft(abssqr(field),shift_before=True), ft(field,shift_before=True)])
-    
-def field_propagation(field, z_shape = 32, pixel_sizes = [50,50,100], field_space = 'fourier_space', wavelength= 500, refractive_index = 1):
-    '''
-        Propagate the given field in the plane 0 along a z-range
-        
-        - Field:           The field in the slice z0 (e.g. in the focus)
-        - z_shape:         The z-shape of the volume
-        
-        - pixel_sizes      Pixelsizes in x,y,z (if integer given, the pixelsizes will be the same for all)
-        - field_space:     is the field given as spectrum ('fourier_space')? Otherwise: it will be fourier transformened beforehand
-        - wavelength       wavelength
-        - refractive_index refractive_index
-    '''
-    
-    from .transformations import ft, ift;
-    import numbers
-    from .coordinates import freq_ramp, zz;
-
-    if isinstance(pixel_sizes,np.ndarray):
-        pixel_sizes = list(pixel_sizes)
-
-    if type(pixel_sizes) == list or type(pixel_sizes) == tuple:
-        if len(pixel_sizes) != 3:
-            print('Wrong length for pixel sizes');
-    elif isinstance(pixel_sizes, numbers.Number):
-        pixel_sizes = [pixel_sizes, pixel_sizes, pixel_sizes];
-
-
-    if field_space != 'fourier_space':
-        field = ft(field);
-    
-    #atf_focus = nip.otf_support((shape[0], shape[1]), pixel_size_x, NA = NA/2, l= l);
-    fx = freq_ramp((field.shape[-2],field.shape[-1]),pixel_sizes[-1], axis =-1);
-    fy = freq_ramp((field.shape[-2],field.shape[-1]),pixel_sizes[-2], axis =-2);
-    z = zz((z_shape,field.shape[-2], field.shape[-1])) # np.rollaxis(zz((field.shape[0], field.shape[1],z_shape)),2,0);  # RH 3.2.19
-    np.seterr(invalid = 'ignore');
-    kz = np.nan_to_num(2*np.pi*np.sqrt(refractive_index**2/wavelength**2-(fx**2+fy**2)))   
-    np.seterr(invalid = 'warn');
-
-    #  ALTERNATIVELY TO CHECK:    
-#    ang_x = np.arctan(fx*l);
-#    ang_y = np.arctan(fy*l);
-#    kz = 2*np.pi*n/(l*np.cos(ang_x)*np.cos(ang_y));
-    
-    propagator = kz * z*pixel_sizes[-3];
-#    field_spectrum_at_z = np.rollaxis(field*np.exp(-1j*propagator),0,3);
-    field_spectrum_at_z = field*np.exp(-1j*propagator) # np.rollaxis(field*np.exp(-1j*propagator),0,3);
-    return ift2d(field_spectrum_at_z, shift_after=True) # changed to use the ft2d routines. RH 3.2.19
-#    return(np.fft.fftshift(ift(field_spectrum_at_z, axes =(-1,-2)), axes = (-1,-2)))
-
 
 def PSF2ROTF(psf):
     '''

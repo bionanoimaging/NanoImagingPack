@@ -285,7 +285,11 @@ class image(np.ndarray):
             else:
                 pos+=[slice(0,self.shape[i])];
         return(tuple(pos));
-    
+
+    def expanddim(self, ndims, trailing = False):
+        # TODO: Dealing with pixel sizes of expanded image
+        return(expanddim(self, ndims = ndims, trailing= trailing));
+
     def ft(self, shift = True ,shift_before = True, ret = 'complex', axes = None,  s = None, norm = None): # RH: Changed this
         from .transformations import ft;
         #im = ft(self, shift = shift, shift_before= shift_before,ret = ret, axes = axes,  s = s, norm = norm);

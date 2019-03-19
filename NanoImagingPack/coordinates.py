@@ -199,28 +199,29 @@ def rr(mysize=(256,256), placement='center', offset = None,scale = None, freq=No
     '''
     return np.sqrt(rr2(mysize,placement,offset,scale,freq))
    
-def phiphi(mysize=(256,256), offset = 0, angle_range = 1):
+def phiphi(mysize=(256,256), angle_range = 1):
     '''
     creates a ramp in phi direction 
     standart size is 256 X 256
-    placement is always center
-    offset: angle offset in rad
-    angle_range:
-            1:   0 - pi for positive y, 0 - -pi for negative y
-            2:   0 - 2pi for around
-        
+
     '''
-    np.seterr(divide ='ignore', invalid = 'ignore');
-    x = ramp(mysize,1,'center');
-    y = ramp(mysize,0,'center');
-    #phi = np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1);
-    if angle_range == 1:
-        phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset)+np.pi, 2*np.pi)-np.pi;
-    elif angle_range == 2:
-        phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset), 2*np.pi);
-    phi[phi.shape[0]//2,phi.shape[1]//2]=0;
-    np.seterr(divide='warn', invalid = 'warn');
-    return(phi)
+    if isinstance(mysize, np.ndarray):
+        mysize = mysize.shape;
+    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim =-2),ramp1D(mysize[-1], ramp_dim =-1))
+    if angle_range == 2:
+        phi = np.flipud(np.fliplr(np.mod(phi + 3 * np.pi, 2 * np.pi)))
+    return(phi);
+    # np.seterr(divide ='ignore', invalid = 'ignore');
+    # x = ramp(mysize,1,'center');
+    # y = ramp(mysize,0,'center');
+    # #phi = np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1);
+    # if angle_range == 1:
+    #     phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset)+np.pi, 2*np.pi)-np.pi;
+    # elif angle_range == 2:
+    #     phi = np.mod((np.arctan(y/x)+(x<0)*np.pi*((y>0)*2-1)+offset), 2*np.pi);
+    # phi[phi.shape[0]//2,phi.shape[1]//2]=0;
+    # np.seterr(divide='warn', invalid = 'warn');
+    # return(phi)
 
 def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_axes = None, return_axes = 'all'):
         
@@ -388,7 +389,7 @@ def VolumeList(MyShape = (256,256), MyCenter = 'center', MyStretch = 1, polar_ax
 
 
 # The function below is obsolete as the ramp function contains the frequency options!!
-def freq_ramp(M, pxs = 50,  shift = True, real = False, axis =0):
+def freq_ramp(im, pxs = 50,  shift = True, real = False, axis =0):
     '''
         This function returns the frequency ramp along a given axis of the image M
         
@@ -404,12 +405,14 @@ def freq_ramp(M, pxs = 50,  shift = True, real = False, axis =0):
         shift: use true if the ft is shifted (default setup)
         real: use true if it is a real ft (default is false)
     '''
-    if real:
-        freq='rfreq'
+    if isinstance(im, np.ndarray):
+        im = im.shape;
+    if real and (axis == -1 or axis == max(im)):
+        res = ramp(im, ramp_dim=axis, placement='positive', shift=shift, pxs=1)*1/(im[axis]*pxs)
     else:
-        freq='freq'
+        res = ramp(im, ramp_dim=axis, placement='center', shift=shift, pxs=1)*1/(im[axis]*pxs)
 
-    res=ramp(M, ramp_dim=axis,placement='center', freq=freq, shift=shift,pxs=pxs)
+
     return(res);
 
 def applyPhaseRamp(img,shiftvec):

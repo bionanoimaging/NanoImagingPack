@@ -11,35 +11,83 @@ Basic settings:
 from .FileUtils import str_to_path;
 import os;
 from .util import struct;
+from enum import Enum;
 
+class __pols__():
+    lin = "lin";
+    lin_x = "lin_x";
+    lin_y = "lin_y";
+    azimuthal = "azimuthal";
+    radial = "radial";
+    circular = "circular";
+    elliptic = "elliptic";
+
+class __aplanars__():
+    excitation = "excitation";
+    emission = "emission";
+    excitation2 = "excitation2";
+    emission2 = "emission2";
+    no = None;
+
+class __zernikes__():
+    piston = "piston";
+    tiltY='tiltY';
+    tiltX='tiltX';
+    astigm='astigm';
+    defoc='defoc';
+    vastig='vastig';
+    vtrefoil='vtrefoil';
+    vcoma= 'vcoma';
+    hcoma = 'hcoma';
+    obtrefoil ='obtrefoil';
+    obquadfoil= 'obquadfoil';
+    asti2nd = 'asti2nd';
+    spheric = 'spheric';
+    vasti2nd ='vasti2nd';
+    vquadfoil='vquadfoil';
 
 # DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
 PSF_PARAMS = struct();
+PSF_PARAMS.explanation= '\n NA                    Numerical aperture \n'
+PSF_PARAMS.explanation+=' n                     refractive index \n'
+#PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
+PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
+PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
+PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n';
+PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
+PSF_PARAMS.explanation+=' pol_lin_angle         Only for linear polarization: whats the angle \n'
+PSF_PARAMS.explanation+=' vectorized            True or False -> Vectorial computation \n'
+PSF_PARAMS.explanation+=' aplanar               "excitation", "emission","excitation2","emission2" None, aplanatic factor, 2 means squared aplanatic factor  \n'
+PSF_PARAMS.explanation+=' apl                   choose aplanatic factor from a list  \n'
+PSF_PARAMS.explanation+=' off_focal_distance    distance (in image units!) of the computed focal field to the focus  \n'
+#PSF_PARAMS.explanation+=' Z_PXS_FOR_2D_IMG      ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: what is the pixelsize in z \n'
+#PSF_PARAMS.explanation+=' Z_STEPS_FOR_2D_IMG    ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: Number of z-slices \n'
+PSF_PARAMS.explanation+=' aberration_strength   For aberration -> refere to nip.set_aberration_map help \n'
+PSF_PARAMS.explanation+=' aberration_types      For aberration -> refere to nip.set_aberration_map help \n'
+PSF_PARAMS.explanation+=' aberration_zernikes   For aberration types -> choose Zernike polynomial from a list \n'
+PSF_PARAMS.explanation+=' aperture_transmission For defining an aperture -> refere to nip.set_aberration_map help \n'
+PSF_PARAMS.explanation+=' foc_field_method      How to compute the base focal field "theoretical" from ft(jinc), "circle" from circle in fourier space \n'
+
+
 PSF_PARAMS.NA = 0.9;
 PSF_PARAMS.n = 1;
-PSF_PARAMS.dimension = 2;
+#PSF_PARAMS.dimension = 2;
 PSF_PARAMS.wavelength = 500;
 PSF_PARAMS.pol = 'lin_x';
-PSF_PARAMS.vectorized = False;
+PSF_PARAMS.pols = __pols__;
+PSF_PARAMS.pol_xy_phase_shift =0;
+PSF_PARAMS.pol_lin_angle =0;
+PSF_PARAMS.vectorized = True;
 PSF_PARAMS.aplanar = 'excitation';
-PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
-PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
-PSF_PARAMS.explanation= ' \nNA \t \t \t \t Numerical aperture \n'
-PSF_PARAMS.explanation+=' n \t \t \t \t \t refractive index \n'
-PSF_PARAMS.explanation+=' dimension \t \t \t 2 or 3 -> dimenstion of the Transfere function \n'
-PSF_PARAMS.explanation+=' wavelenght \t \t \t wavelength in units of the image pixel size \n'
-PSF_PARAMS.explanation+=' pol \t \t \t polarization: give "lin_x","lin_y", "azimuthal", "radial", "circular", or a polarization map of dim [2, dim_y_image, dim_x_image] where the elments of the first dimension map x and y polarization strength \n'
-PSF_PARAMS.explanation+=' vectorized \t \t \t True or False -> Vectorial computation \n'
-PSF_PARAMS.explanation+=' aplanar \t \t \t "excitation", "emission", None, aplanatic factor  \n'
-PSF_PARAMS.explanation+=' Z_PXS_FOR_2D_IMG \t \t \t ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: what is the pixelsize in z \n'
-PSF_PARAMS.explanation+=' Z_STEPS_FOR_2D_IMG \t \t \t ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: Number of z-slices \n'
-
-
-
-'''
-    Do you want to use rfft for noncomplex inputs?
-'''
-__RFFT__ = True           # DEPRICATE
+PSF_PARAMS.apl = __aplanars__;
+PSF_PARAMS.off_focal_distance = 0;
+#PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
+#PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
+PSF_PARAMS.aberration_strength = None;
+PSF_PARAMS.aberration_types = None;
+PSF_PARAMS.aberration_zernikes = __zernikes__;
+PSF_PARAMS.aperture_transmission = None;
+PSF_PARAMS.foc_field_method = 'theoretical';
 
 
 __DEFAULTS__ ={
@@ -75,7 +123,6 @@ __DEFAULTS__ ={
         'VIEWER_IMG_ORIGIN': 'upper',       #where is the origin of the image? 'upper' or 'lower' for upper or lower left corner
          
         #Image-Class Default Settings
-        #'IMG_PIXELSIZES': [50,50,100],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXELSIZES': [100,50, 50],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
         'IMG_TIFF_FORMATS': ['tif', 'tiff'],
@@ -101,31 +148,31 @@ __DEFAULTS__ ={
         'TRANSFER_FOC_ FIELD_MODE': 'theoretical', # how to compute the focal field? theoretical -> from sinc, circular -> circular mask for ctf
         'TRANSFER_NORM': 'max',                   # normalization of the transfer functions ('max' -> norm to maximum value, 'sum' -> norm to sum)
         
-        
-        #FT Default settings
-        'FT_NORM': "ortho",           # None or "ortho": Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
-        'FT_SHIFT':True,          # Shift (AFTER TRANSFORMATION)
-        'FT_SHIFT_FIRST':True,    # Shift (BEFORE TRANSFORMATION)
-        'FT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
-        'FT_REAL_RETURN':None,   # fill up real return to full spectrum? ('full' or None)
-        #RFT Default settings   ----- RH 22.12.2018
-        'RFT_NORM': None,           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
-        'RFT_SHIFT':False,          # Shift (AFTER TRANSFORMATION)
-        'RFT_SHIFT_FIRST':False,    # Shift (BEFORE TRANSFORMATION)
-        'RFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
-        'RFT_REAL_RETURN':None,   # fill up real return to full spectrum? ('full' or None)
-        # Same like above but for IFT
-        'IFT_NORM': "ortho",           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
-        'IFT_SHIFT':True,          # Shift (AFTER TRANSFORMATION)
-        'IFT_SHIFT_FIRST':True,    # Shift (BEFORE TRANSFORMATION)
-        'IFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
-        'IFT_REAL_AXIS': 'GLOBAL',   # Which real axis to take for the ift? ('GLOBAL' as stored in global variable. That is useful if the rft was performed before, since there the real axis is defined), None -> the last axis is taken, value -> as stated in value
-        # Same like above but for IRFT
-        'IRFT_NORM': None,           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
-        'IRFT_SHIFT':False,          # Shift (AFTER TRANSFORMATION)
-        'IRFT_SHIFT_FIRST':False,    # Shift (BEFORE TRANSFORMATION)
-        'IRFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
-        'IRFT_REAL_AXIS': 'GLOBAL',   # Which real axis to take for the ift? ('GLOBAL' as stored in global variable. That is useful if the rft was performed before, since there the real axis is defined), None -> the last axis is taken, value -> as stated in value
+        # TODO DEPRICATED: DELETE AFTER TESTS
+        # #FT Default settings
+        # 'FT_NORM': "ortho",           # None or "ortho": Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
+        # 'FT_SHIFT':True,          # Shift (AFTER TRANSFORMATION)
+        # 'FT_SHIFT_FIRST':True,    # Shift (BEFORE TRANSFORMATION)
+        # 'FT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
+        # 'FT_REAL_RETURN':None,   # fill up real return to full spectrum? ('full' or None)
+        # #RFT Default settings   ----- RH 22.12.2018
+        # 'RFT_NORM': None,           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
+        # 'RFT_SHIFT':False,          # Shift (AFTER TRANSFORMATION)
+        # 'RFT_SHIFT_FIRST':False,    # Shift (BEFORE TRANSFORMATION)
+        # 'RFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
+        # 'RFT_REAL_RETURN':None,   # fill up real return to full spectrum? ('full' or None)
+        # # Same like above but for IFT
+        # 'IFT_NORM': "ortho",           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
+        # 'IFT_SHIFT':True,          # Shift (AFTER TRANSFORMATION)
+        # 'IFT_SHIFT_FIRST':True,    # Shift (BEFORE TRANSFORMATION)
+        # 'IFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
+        # 'IFT_REAL_AXIS': 'GLOBAL',   # Which real axis to take for the ift? ('GLOBAL' as stored in global variable. That is useful if the rft was performed before, since there the real axis is defined), None -> the last axis is taken, value -> as stated in value
+        # # Same like above but for IRFT
+        # 'IRFT_NORM': None,           # Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
+        # 'IRFT_SHIFT':False,          # Shift (AFTER TRANSFORMATION)
+        # 'IRFT_SHIFT_FIRST':False,    # Shift (BEFORE TRANSFORMATION)
+        # 'IRFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
+        # 'IRFT_REAL_AXIS': 'GLOBAL',   # Which real axis to take for the ift? ('GLOBAL' as stored in global variable. That is useful if the rft was performed before, since there the real axis is defined), None -> the last axis is taken, value -> as stated in value
         # correlator
         'CC_ABS_RETURN': True ,     # if true, the absolute value will be returned when correlating real images
         
