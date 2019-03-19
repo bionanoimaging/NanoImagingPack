@@ -1021,4 +1021,4 @@ def convROTF(img,otf): # should go into nip
     '''
         convolves with a half-complex OTF, which can be generated using PSF2ROTF
     '''
-    return irft(rft(img,shift_before=False,shift=False) * nip.expanddim(otf,img.ndim),shift_before=False,shift=False, s = img.shape);
+    return irft(rft(img,shift_before=False,shift_after=False) * nip.expanddim(otf,img.ndim),shift_before=False,shift_after=False, s = img.shape);
