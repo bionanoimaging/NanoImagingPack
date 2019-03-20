@@ -40,7 +40,7 @@ def RFTShift(img,maxdim=3,ShiftAfter=True):
     return np.roll(img,shift1,axes)
 
 def resample(img,factors=[2.0,2.0]):
-    '''
+    """
     resamples an image by an RFT (or FFT for complex data), extracting a ROI and performing an inverse RFT. The sum of values is kept constant.
 
     Parameters
@@ -57,8 +57,8 @@ def resample(img,factors=[2.0,2.0]):
     Convolve, rft irft, PSF2ROTF, preFFTShift
 
     Example
-    -------    
-    '''
+    -------
+    """
     if np.iscomplexobj(img):
         myft=nip.ft(img)
         newsize=resampledSize(img.shape,factors)
@@ -76,14 +76,14 @@ def resample(img,factors=[2.0,2.0]):
 # no modification is needed to warrand that the integral does not change!
     return res
 
-def resampleRFT(img,newsize,newfullsize,maxdim=3,ModifyInput=False):
-    '''
+def resampleRFT(img, newrftsize, newfullsize, maxdim=3, ModifyInput=False):
+    """
     Cuts (or expands) an RFT to the appropriate size to perform downsampling
 
     Parameters
     ----------
     tfin : tensorflow array to be convolved with the PSF
-    newsize : size to cut to
+    newrftsize : size to cut to
     Returns
     -------
     tensorflow array
@@ -94,17 +94,17 @@ def resampleRFT(img,newsize,newfullsize,maxdim=3,ModifyInput=False):
     Convolve, TFRFT, RFIRFT, PSF2ROTF, preFFTShift
 
     Example
-    -------    
-    '''
+    -------
+    """
     RFTMirrorAx=-1
     ndims=img.ndim
     oldsize=img.shape[-ndims::]
     mycenter=np.array(oldsize)//2
-    newXcenter=newsize[RFTMirrorAx]//2
+    newXcenter= newrftsize[RFTMirrorAx] // 2
     mycenter[RFTMirrorAx]=newXcenter
     
-    res=nip.extractFt(RFTShift(img,maxdim),newsize,mycenter,ModifyInput,ignoredim=img.ndim-1)
-    if (newsize[-1] < oldsize[-1]) and nip.iseven(newfullsize[-1]): # the slice corresponds to both sides of the fourier transform as a sum
+    res=nip.extractFt(RFTShift(img,maxdim), newrftsize, mycenter, ModifyInput, ignoredim=img.ndim - 1)
+    if (newrftsize[-1] < oldsize[-1]) and nip.iseven(newfullsize[-1]): # the slice corresponds to both sides of the fourier transform as a sum
         aslice=nip.subslice(res,-1,-1)
         res=nip.subsliceAsg(res,-1,-1,aslice*2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
 
@@ -112,9 +112,9 @@ def resampleRFT(img,newsize,newfullsize,maxdim=3,ModifyInput=False):
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
 def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
-    '''
+    """
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
-    '''
+    """
     if np.ndim(im)<2:
         print('Too few dimensions');
         return(im);
@@ -122,9 +122,9 @@ def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, 
         return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
 
 def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
-    '''
+    """
         Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
-    '''
+    """
     
     if np.ndim(im)<2:
         print('Too few dimensions');
@@ -133,9 +133,9 @@ def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None,
         return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
 
 def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
-    '''
+    """
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
-    '''
+    """
     if np.ndim(im)<3:
         print('Too few dimensions');
         return(im);
@@ -143,9 +143,9 @@ def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, 
         return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm));
 
 def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
-    '''
+    """
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
-    '''
+    """
     
     if np.ndim(im)<3:
         print('Too few dimensions');
@@ -165,10 +165,10 @@ def __ret_val__(im, mode):
     else:
         return(im);
 def __fill_real_return__(im, ax, real_return, origi_shape):
-    '''
+    """
         if real_return == 'full',
         this function makes out of a rfft result an fft result
-    '''
+    """
     
     if real_return == 'full':
         if type(ax) == tuple:
@@ -192,9 +192,9 @@ def __fill_real_return__(im, ax, real_return, origi_shape):
     else:
         return(im);
 def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
-    '''
+    """
         Check the data dtype and potentially change pixelsizes
-    '''
+    """
     from .image import image;
     if type(orig) == image:
         im = im.view(image);            # note: view casting -> this is not the viewer!
@@ -233,11 +233,11 @@ def __check_type__(im, ft_axes, orig, name, real_axis =0, shift_axes = []):
         # ifft shift        
 
 def __checkAxes__(axes,im):
-    '''
+    """
     checks axes. If None, all axes are meant and a list of axes is created. A single int number is also cast to a list.
-    :param axes: 
+    :param axes:
     :return: axes
-    '''
+    """
     if axes is None:
             axes = list(range(len(im.shape)));
     if isinstance(axes, int):
@@ -250,34 +250,34 @@ def __checkAxes__(axes,im):
     #     pass;
     return axes
 
-def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = None):
-    '''
+def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = 'ortho'):
+    """
         Fouriertransform of image
-        
+
         M - Incomming matrix
         shift -shift AFTER transformation? (True, False, 'DEFAULT')
         shift_before - shift BEFORE transformation (True, False, 'DEFAULT')
-        
-        ret - What to return 
+
+        ret - What to return
                 (string values: complex , abs , phase, real, imag, 'DEFAULT')
-        axes - axes over which to compute the FT -> give as tupel, list or int 
+        axes - axes over which to compute the FT -> give as tupel, list or int
                     e.g. axes = (0,2) computes over axes 0 and 2
         s - Shape (length of each transformed axis) of the output (s[0] referes to axis 0, s[1] to axis 1 etc.)
             Along any axis if the given shape is smaller than tht of the input the input is cropped, if larger its padded with zeros
             If not given, the shape of the input axes specified by axes is used
-        
+
         norm: Normalization mode, None or 'ortho' or 'DEFAULT' . Refere to np.fft help for further information
-        
-                None: 
-                    IFT and FT scaling differntly
-                    value at zero frequency contains number of photons in the image
-                
-                Ortho
-                    IFT and FT scale same
+
+                None:
+                    IFT and FT scale differently
+                    value at zero frequency contains number of photons in the image. Can then be used as OTF
+
+                'ortho' (default)
+                    IFT and FT scale identical
                     Value at zero freq. gives sqrt(number photons ) (check!!!)
-                
-        
-    '''
+
+
+    """
     #create axes list
     axes=__checkAxes__(axes,im)
 
@@ -289,33 +289,33 @@ def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None,
     return image(__ret_val__(im, ret))
 
 def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
-    '''
+    """
         real Fouriertransform of image. Note the real axis is always the last (of the given) axes
-        
+
         M - Incomming matrix
         shift - ft shift yes or no?
         shift_before - shift BEFORE transformation (True, False)
-        
-        ret - What to return 
+
+        ret - What to return
                 (string values: complex (default), abs (default), phase, real, imag)
-        axes - axes over which to compute the FT -> give as tupel, list or int 
+        axes - axes over which to compute the FT -> give as tupel, list or int
                     e.g. axes = (-1,-3) computes over axes -1 (x) and -3 (z)
         s - Shape (length of each transformed axis) of the output (s[0] referes to axis 0, s[1] to axis 1 etc.)
             Along any axis if the given shape is smaller than tht of the input the input is cropped, if larger its padded with zeros
             If not given, the shape of the input axes specified by axes is used
-        
+
         norm: Normalization mode, None or ortho (default). Refere to np.fft help for further information
-                None: 
-                    IFT and FT scaling differntly
-                    value at zero frequency contains number of photons in the image
-                
-                Ortho
-                    IFT and FT scale same
+                 None: (default)
+                    IFT and FT scale differently
+                    value at zero frequency contains number of photons in the image. Can then be used as OTF
+
+                'ortho'
+                    IFT and FT scale identical
                     Value at zero freq. gives sqrt(number photons ) (check!!!)
 
         full_shift:  Def = False If true, the shift operations will be performed over all axes (given by axes) including the real one. Otherwise the shift operations will exclude the real axis direction.
-        
-    '''
+
+    """
     #create axes list
     axes=__checkAxes__(axes,im)
     real_axis = max(axes);              # always the last axis is the real one   as Default
@@ -333,22 +333,32 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
             im=np.fft.fftshift(im, axes=shift_ax)  # corner freq to mid freq
         return image(__ret_val__(im, ret))
 
-def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = None):
-    '''
+def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm =  'ortho'):
+    """
         Performs the inverse Fourier transform
-        
+
         im is the input spectrum. Generally it is complex
-        
+
         shift: Shift AFTER Backtransfomr
         shift_before: Sshift BEFORE Bakacktransform
         ret:   return type
+                'complex' keep result complex (default)
+                'real': cast result to real
         axes: which axes
         s Shape (like in in np.fft.ifft help)
         norm: normalization
+                None:
+                    IFT and FT scale differently
+                    value at zero frequency contains number of photons in the image. Can then be used as OTF
+
+                'ortho' (default)
+                    IFT and FT scale identical
+                    Value at zero freq. gives sqrt(number photons ) (check!!!)
+
         rfft:  Are rfft data supposed to be transformed back? (only half space!, shift does not apply for this axis! -> use if you were using force_full_fft == wrong and real_return wasn't 'full' and dtype of array wasn't complex and even axis was found!)
         real_axis: along which axes was the real fft done?
-        
-    ''' 
+
+    """
 
     axes=__checkAxes__(axes,im)
 
@@ -361,9 +371,9 @@ def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None
 
 
 def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
-    '''
+    """
         Performs the inverse Fourier transform
-        
+
         im is the input spectrum. Generally it is complex
         s is the shape of the output image. In this irft function it is mandatory to give!
 
@@ -373,8 +383,15 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
         ret:   return type
         axes: which axes
         norm: normalization
+                None: (default)
+                    IFT and FT scale differently
+                    value at zero frequency contains number of photons in the image. Can then be used as OTF
 
-    '''
+                'ortho'
+                    IFT and FT scale identical
+                    Value at zero freq. gives sqrt(number photons ) (check!!!)
+
+    """
     # create axis, shift_ax and real_ax
     axes=__checkAxes__(axes,im)
     real_axis = max(axes);              # always the last axis is the real one   as Default

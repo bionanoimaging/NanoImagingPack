@@ -283,7 +283,7 @@ def simLens(im, psf_params = PSF_PARAMS):
         plane[0]*=polx;
         plane[1]*=poly;
         plane[2]*=0;
-    return(plane*aperture);
+    return plane # *aperture  # hard edge aperture at ?
 
 def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
     '''
@@ -301,22 +301,24 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
     if dimension is None:
         ret= ret*__make_propagator__(im, psf_params = PSF_PARAMS);     # field (kx,ky) propagated along the z - component
     if mode == 'ctf':  # Field transfer function is ft along z axis
-        if ret.shape[1] >1:
-            ret = ret.ft(axes = 1);
+        if ret.shape[-3] >1:
+            ret = ret.ft(axes = -3)
     elif mode ==  'apsf':                # field spread function is ft along kx-ky-axes
-        ret = ret.ift2d();
+        ret = ret.ift2d()
     elif mode == 'psf':                  # psf: like apsf and then abs square of field components
-        ret = ret.ift2d();
-        ret *= ret.conjugate();
-        ret = ret.sum(axis=0);
-        ret = np.real(ret);
+        ret = ret.ift2d()
+        ret *= ret.conjugate()
+        ret = ret.sum(axis=0)
+        ret = np.real(ret)
+        ret /= np.sum(ret)
     elif mode == 'otf':                  # otf: ft (over whole space) of psf
-        ret = ret.ift2d();
-        ret *= ret.conjugate();
-        ret = ret.sum(axis=0);
-        ret = np.real(ret);
-        ret = ret.ft();
-    ret.PSF_PARAMS = psf_params;
+        ret = ret.ift2d()
+        ret *= ret.conjugate()
+        ret = ret.sum(axis=0)
+        ret = np.real(ret)
+        ret /= np.sum(ret)
+        ret = ret.ft2d(norm=None)
+    ret.PSF_PARAMS = psf_params
     return(ret)
 
 def otf(im, psf_params = PSF_PARAMS):
@@ -1079,8 +1081,9 @@ def jinc(mysize=[256,256],myscale=None):
         ftradius=1/AbbeLimit*mysize;
         myscales=ftradius/mysize; # [100 100]/(488/0.3);
     myradius=np.pi*nip.rr(mysize,scale=myscale)
-    res=j1(2*myradius) / (myradius)
-    nip.MidValAsg(res,1.0)
+    nip.midValAsg(myradius, 1.0)
+    res=j1(2*myradius) /  myradius #  where(myradius == 0, 1.0e-20, myradius)
+    nip.midValAsg(res, 1.0)
     return res
 
 def PSF2ROTF(psf):

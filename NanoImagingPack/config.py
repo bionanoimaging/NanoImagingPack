@@ -68,18 +68,18 @@ PSF_PARAMS.explanation+=' aberration_zernikes   For aberration types -> choose Z
 PSF_PARAMS.explanation+=' aperture_transmission For defining an aperture -> refere to nip.set_aberration_map help \n'
 PSF_PARAMS.explanation+=' foc_field_method      How to compute the base focal field "theoretical" from ft(jinc), "circle" from circle in fourier space \n'
 
-
-PSF_PARAMS.NA = 0.9;
-PSF_PARAMS.n = 1;
+# Set the defaults to a standard widefield emission PSF at NA 1.4
+PSF_PARAMS.NA = 1.4;
+PSF_PARAMS.n = 1.518;
 #PSF_PARAMS.dimension = 2;
-PSF_PARAMS.wavelength = 500;
-PSF_PARAMS.pol = 'lin_x';
+PSF_PARAMS.wavelength = 520;
 PSF_PARAMS.pols = __pols__;
+PSF_PARAMS.pol = PSF_PARAMS.pols.circular;
 PSF_PARAMS.pol_xy_phase_shift =0;
 PSF_PARAMS.pol_lin_angle =0;
 PSF_PARAMS.vectorized = True;
-PSF_PARAMS.aplanar = 'excitation';
 PSF_PARAMS.apl = __aplanars__;
+PSF_PARAMS.aplanar = PSF_PARAMS.apl.emission;
 PSF_PARAMS.off_focal_distance = 0;
 #PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
 #PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
@@ -88,7 +88,6 @@ PSF_PARAMS.aberration_types = None;
 PSF_PARAMS.aberration_zernikes = __zernikes__;
 PSF_PARAMS.aperture_transmission = None;
 PSF_PARAMS.foc_field_method = 'theoretical';
-
 
 __DEFAULTS__ ={
         # General default settings
