@@ -398,9 +398,10 @@ class image(np.ndarray):
         return(self.__correllator__(M2, axes = axes, mode = 'correlation', phase_only = phase_only));
     def convolve(self, M2,  axes = None,phase_only = False):
         return(self.__correllator__(M2, axes = axes, mode = 'convolution', phase_only = phase_only));
-    def supersample(self, factor = 2, axis = (0,1)):
-        
-        return(supersample(self, factor, axis))
+    # Todo: DEPRICATED: DELET
+    # def supersample(self, factor = 2, axis = (0,1)):
+    #
+    #     return(supersample(self, factor, axis))
 
     def normalize(self, mode, r = None):    
         from .util import normalize;
@@ -1824,74 +1825,75 @@ def extract(im, roi = [(0,10),(0,10)], axes = None, extend ='DEFAULT'):
             padding = tuple([tuple(i) for i in padding]);
             return(__cast__(np.lib.pad(im,padding,'constant'), old_arr))
 
-def supersample(im, factor = 2, axis = (0,1), full_fft = False):
-    '''
-        supersample (resample, rescale, zoom) an imgage by a given factor (default = 2) along the given axis(default is 0 and 1)
-
-        im: image to supersample         
-        factor: a scalar value (for all axes) or a list of values for individual scales for each axes (...,Z,Y,X)
-                                
-    '''
-    orig = im;
-    new_shape = im.shape;
-    for i in axis:
-        new_shape[i] *= factor;
-    if type(axis) == int:
-        axis = tuple([axis]);
-    
-    from .transformations import ft , ift, rft, irft;
-    if im.dtype == np.complexfloating or full_fft:
-        FT = ft(im, shift_after= True, shift_before=False, axes = axis, ret ='complex');
-        real_ax = -1;
-        r = [[float(im.real.max()), float(im.real.min())],[float(im.imag.max()), float(im.imag.min())]]
-    else:
-        FT = rft(im, shift_after = True,shift_before=False, axes = axis, ret = 'complex');
-        from .transformations import __REAL_AXIS__;
-        real_ax = __REAL_AXIS__;
-        r = [float(im.max()),float(im.min())];
-    
-    padding =[];
-    
-    if factor > 1:
-        padding =[];
-        for i in range(np.ndim(im)):
-            if i in axis:
-                if i == real_ax:
-                    
-                    padding.append((0,int((FT.shape[i]-1)*(factor-1))));
-                else:
-                    padding.append((np.floor(FT.shape[i]/2*(factor-1)).astype(int),np.ceil(FT.shape[i]/2*(factor-1)).astype(int)));
-            else:
-                padding.append((0,0));
-        FT = np.lib.pad(FT,tuple(padding),'constant');
-    elif factor < 1:
-        roi = [];
-        center = [];
-        for i in range(np.ndim(im)):
-            if i in axis:
-                if i == real_ax:
-                    roi += [int(2*np.ceil(FT.shape[i]*factor))];
-                    center += [0];
-                else:
-                    roi += [int(np.ceil(FT.shape[i]*factor))];
-                    center += [int(np.ceil(FT.shape[i]//2))];
-        FT = extract_c(FT, center = center, roi = roi, axes_roi = axis, extend = False);
-    
-    if im.dtype == np.complexfloating:
-        im = ift(FT, shift_after= False, shift_before=True, axes = axis, s= None, norm = None, ret ='complex');
-    elif full_fft:
-        im = ift(FT, shift_after= False, shift_before=True, axes = axis, s= None, norm = None, ret ='real');
-        r = r[0];
-    else:
-        im = irft(FT,s = new_shape, shift_after = False,shift_before=True, axes = axis, norm = None, ret = 'complex');
-    if type(orig) == image:
-        im = image(im)
-        im.__array_finalize__(orig);
-        im.pixelsize = [i*factor for i in orig.pixelsize];
-        from .util import normalize;        
-        im = normalize(im, 3, r);
-        return(__cast__(im.astype(im.dtype),orig));
-    else:
-        from .util import normalize;        
-        return(__cast__(normalize(im.astype(im.dtype),3,r), orig));
-            
+# Todo: DEPRICATED: DELETE AND REPLACE WITH nip.transformation.resample or resample rft
+# def supersample(im, factor = 2, axis = (0,1), full_fft = False):
+#     '''
+#         supersample (resample, rescale, zoom) an imgage by a given factor (default = 2) along the given axis(default is 0 and 1)
+#
+#         im: image to supersample
+#         factor: a scalar value (for all axes) or a list of values for individual scales for each axes (...,Z,Y,X)
+#
+#     '''
+#     orig = im;
+#     new_shape = im.shape;
+#     for i in axis:
+#         new_shape[i] *= factor;
+#     if type(axis) == int:
+#         axis = tuple([axis]);
+#
+#     from .transformations import ft , ift, rft, irft;
+#     if im.dtype == np.complexfloating or full_fft:
+#         FT = ft(im, shift_after= True, shift_before=False, axes = axis, ret ='complex');
+#         real_ax = -1;
+#         r = [[float(im.real.max()), float(im.real.min())],[float(im.imag.max()), float(im.imag.min())]]
+#     else:
+#         FT = rft(im, shift_after = True,shift_before=False, axes = axis, ret = 'complex');
+#         from .transformations import __REAL_AXIS__;
+#         real_ax = __REAL_AXIS__;
+#         r = [float(im.max()),float(im.min())];
+#
+#     padding =[];
+#
+#     if factor > 1:
+#         padding =[];
+#         for i in range(np.ndim(im)):
+#             if i in axis:
+#                 if i == real_ax:
+#
+#                     padding.append((0,int((FT.shape[i]-1)*(factor-1))));
+#                 else:
+#                     padding.append((np.floor(FT.shape[i]/2*(factor-1)).astype(int),np.ceil(FT.shape[i]/2*(factor-1)).astype(int)));
+#             else:
+#                 padding.append((0,0));
+#         FT = np.lib.pad(FT,tuple(padding),'constant');
+#     elif factor < 1:
+#         roi = [];
+#         center = [];
+#         for i in range(np.ndim(im)):
+#             if i in axis:
+#                 if i == real_ax:
+#                     roi += [int(2*np.ceil(FT.shape[i]*factor))];
+#                     center += [0];
+#                 else:
+#                     roi += [int(np.ceil(FT.shape[i]*factor))];
+#                     center += [int(np.ceil(FT.shape[i]//2))];
+#         FT = extract_c(FT, center = center, roi = roi, axes_roi = axis, extend = False);
+#
+#     if im.dtype == np.complexfloating:
+#         im = ift(FT, shift_after= False, shift_before=True, axes = axis, s= None, norm = None, ret ='complex');
+#     elif full_fft:
+#         im = ift(FT, shift_after= False, shift_before=True, axes = axis, s= None, norm = None, ret ='real');
+#         r = r[0];
+#     else:
+#         im = irft(FT,s = new_shape, shift_after = False,shift_before=True, axes = axis, norm = None, ret = 'complex');
+#     if type(orig) == image:
+#         im = image(im)
+#         im.__array_finalize__(orig);
+#         im.pixelsize = [i*factor for i in orig.pixelsize];
+#         from .util import normalize;
+#         im = normalize(im, 3, r);
+#         return(__cast__(im.astype(im.dtype),orig));
+#     else:
+#         from .util import normalize;
+#         return(__cast__(normalize(im.astype(im.dtype),3,r), orig));
+#
