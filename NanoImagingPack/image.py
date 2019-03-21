@@ -1361,14 +1361,17 @@ def shift(im,delta,axes =0, pixelwise = False):
         delta = [delta];
 
     t = [(0, 0) for i in range(M.ndim)];
+    for d, ax in zip(delta, axes):
+        if d > 0:
+            t[ax] = (int(np.ceil(np.abs(d))), 0);
+        else:
+            t[ax] = (0, int(np.ceil(np.abs(d))));
     if pixelwise:
         offset = [];
         for d,ax in zip(delta, axes):
             if d >0:
-                t[ax] = (int(np.ceil(np.abs(d))),0);
                 offset += [0];
             else:
-                t[ax] = (0,int(np.ceil(np.abs(d))));
                 offset += [-d];
         M = np.lib.pad(M,tuple(t),'constant');
         M = match_size(M, old_arr, axes = axes, padmode='clip', clip_offset=offset)[0];
@@ -1376,8 +1379,8 @@ def shift(im,delta,axes =0, pixelwise = False):
         # padding image with zeros
 
         old_shape = M.shape;
-        for d,ax in zip(delta, axes):
-            t[ax] = (int(np.ceil(np.abs(d)/2)),int(np.ceil(np.abs(d)/2)));
+        # for d,ax in zip(delta, axes):
+        #     t[ax] = (int(np.ceil(np.abs(d)/2)),int(np.ceil(np.abs(d)/2)));
         M = np.lib.pad(M,tuple(t),'constant');                                    # Change Boundaries to avoid ringing
 
         #FT image
