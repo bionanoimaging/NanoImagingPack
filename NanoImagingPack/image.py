@@ -25,9 +25,10 @@ from pkg_resources import resource_filename
 from .config import DBG_MSG, __DEFAULTS__;
 from IPython.lib.pretty import pretty;
 from .functions import cossqr, gaussian, coshalf, linear;
-from .util import make_damp_ramp,get_type,subslice,subsliceAsg,subsliceCenteredAdd, expanddim, __cast__, castdim;
+from .util import make_damp_ramp,get_type,subslice,subsliceAsg,subsliceCenteredAdd, expanddim, __cast__, castdim, adjust_lists;
 from .view5d import v5 # for debugging
 from .FileUtils import list_files;
+import numbers;
 
 #class roi:
 #    def __init__(im):
@@ -331,10 +332,10 @@ class image(np.ndarray):
         return(__check_complex__(self));
     def make_odd(self,ax):
         return(make_odd(self, ax));
-    def match_size(self,M2,ax = 0, padmode ='constant', odd = True):
-        ret_im1, ret_im2 = match_size(self,M2,ax = ax, padmode =padmode, odd = odd);
-        if type(M2) == image:
-            ret_im2.__array_finalize__(M2);
+    def match_size(self,im2,axes = 0, padmode ='constant', odd = False):
+        ret_im1, ret_im2 = match_size(self,im2,axes = axes, padmode =padmode, odd = odd);
+        if type(im2) == image:
+            ret_im2.__array_finalize__(im2);
         return(ret_im1, ret_im2);
     def FRC(self,im2, num_rings = 10, correct_shift = True):
         self.__compare_pixel_sizes__(im2);
@@ -370,8 +371,8 @@ class image(np.ndarray):
         im = im.view(image);
         im.__array_finalize__(self);
         return(im);
-    def shift(self,delta,direction =0):
-        im =shift(self, delta,direction,).view(image);
+    def shift(self,delta,direction =0, pixelwise = False):
+        im =shift(self, delta,direction,pixelwise).view(image);
         im.__array_finalize__(self);
         return(im);
     def shiftx(self,delta):
@@ -383,21 +384,21 @@ class image(np.ndarray):
     def line_cut(self, coord1 = 0, coord2 = None,thickness = 10):
         return(line_cut(self,coord1 = 0, coord2 = None,thickness = 10));
     
-    def __correllator__(self,M2, axes = None, mode = 'convolution', phase_only = True):
-        self.__compare_pixel_sizes__(M2);
-        im = __correllator__(self,M2, axes = axes, mode = mode, phase_only = phase_only).view(image)
+    def __correllator__(self,im2, axes = None, mode = 'convolution', phase_only = True):
+        self.__compare_pixel_sizes__(im2);
+        im = __correllator__(self,im2, axes = axes, mode = mode, phase_only = phase_only).view(image)
         im.__array_finalize__(self);
         return(im);
         
-    def correl_phase(self, M2,  axes = None):
+    def correl_phase(self, im2,  axes = None):
         '''
             Phase correlation with image 2
         '''
-        return(self.__correllator__(M2, axes = axes, mode = 'correlation', phase_only = True));
-    def correl(self, M2, axes = None,phase_only = False):
-        return(self.__correllator__(M2, axes = axes, mode = 'correlation', phase_only = phase_only));
-    def convolve(self, M2,  axes = None,phase_only = False):
-        return(self.__correllator__(M2, axes = axes, mode = 'convolution', phase_only = phase_only));
+        return(self.__correllator__(im2, axes = axes, mode = 'correlation', phase_only = True));
+    def correl(self, im2, axes = None,phase_only = False):
+        return(self.__correllator__(im2, axes = axes, mode = 'correlation', phase_only = phase_only));
+    def convolve(self, im2,  axes = None,phase_only = False):
+        return(self.__correllator__(im2, axes = axes, mode = 'convolution', phase_only = phase_only));
     # Todo: DEPRICATED: DELET
     # def supersample(self, factor = 2, axis = (0,1)):
     #
@@ -937,61 +938,88 @@ def make_odd(M,ax):
         M = np.delete(M,0,ax);
     return(__cast__(M,M));
 
-def match_size(M1,M2,ax, padmode ='constant', odd = True):
-    '''
-        Adjusts the size of the two images 
-        The image size will be made odd before adjusting if not given differently 
+def match_size(im1,im2,axes =None, padmode ='constant',clip_offset = None, odd = False):
+    """
+    Adjust the sizes of 2 images
+    Both images must have the same dimensions.
 
-        
-        pad mode 
-            clip: clips the larger image to the size of the smaller one, whereas the first part is used!
-            constant: fill up with zeros symmetrical (e.g. same size above and below)
-            const_below: fill up below
-        further allowed pad modes: c.f. numpy.pad -> edge takes the edge values, constant: fills up with zeros
-        
-        if odd = True (standard) the images will be respective size will be clipped to be odd
-    '''
-    if np.ndim(M1)==np.ndim(M2):
-        if odd:
-            M1 = make_odd(M1,ax);
-            M2 = make_odd(M2,ax);
-        diff = np.size(M1,axis =ax)-np.size(M2,axis =ax);   # Get difference in size
-        if padmode == 'clip':   
-            M1 = np.swapaxes(M1,0,ax);
-            M2 = np.swapaxes(M2,0,ax);
-            if np.size(M1, axis =0) > np.size(M2,axis =0):
-                M1 = M1[:np.size(M2, axis =0)];
-            elif np.size(M1, axis =0) < np.size(M2,axis =0):
-                M2 = M2[:np.size(M1, axis =0)];
-            M1 = np.swapaxes(M1,0,ax);
-            M2 = np.swapaxes(M2,0,ax);
-        elif padmode == 'constant':
-            padding = [];
-            for i in range(np.ndim(M1)):
-                if i == ax:
-                    padding.append((np.abs(diff//2),np.abs(diff//2+np.mod(diff,2))   ));
+    :param im1:          Image1
+    :param im2:          Image2
+    :param ax:          axes along which the images should be adjusted
+    :param padmode:     clip: clips the larger image to the size of the smaller one, whereas the first part is used!
+                        constant: fill up with zeros symmetrical (e.g. same size above and below)
+                        const_below: fill up below
+    :param clip_offset: for clipping: what is the offset of the at which axis for the clipping?
+    :param odd:         Make the images odd (Potentially to be depricated in newer versions)
+    :return:            A tuple of the adjusted images
+
+    ----------------------------------------------------------------------------------------
+    Example:
+
+    import NanoImagingPack as nip;
+    im1 = nip.readim();         # 800X800 image
+    im2 = nip.readim('erika');  # 256X256 image
+
+    new_im1, new_im2 = nip.match_size(im1, im2, 0, 'constant')
+    """
+    if np.ndim(im1)==np.ndim(im2):
+        if isinstance(axes, numbers.Integral):
+            axes = [axes];
+        elif isinstance(axes, list) or isinstance(axes, tuple):
+            pass;
+        else:
+            raise ValueError("Wrong data type for axes: integer, list or tuple")
+        if clip_offset is None:
+            clip_offset = [0 for i in axes];
+        elif isinstance(clip_offset, numbers.Integral):
+            clip_offset = [clip_offset for i in axes];
+        elif isinstance(clip_offset, list) or isinstance(clip_offset, tuple):
+            clip_offset = list(clip_offset);
+            if len(clip_offset) < len(axes):
+                adjust_lists(clip_offset, axes, 0);
+        else:
+            raise ValueError("Wrong data type for clip_offset: None,integer, list or tuple")
+        for ax, offset in zip(axes, clip_offset):
+            if odd:
+                im1 = make_odd(im1,ax);
+                im2 = make_odd(im2,ax);
+            diff = np.size(im1,axis =ax)-np.size(im2,axis =ax);   # Get difference in size
+            if padmode == 'clip':
+                im1 = np.swapaxes(im1,0,ax);
+                im2 = np.swapaxes(im2,0,ax);
+                if np.size(im1, axis =0) > np.size(im2,axis =0):
+                    im1 = im1[offset:np.size(im2, axis =0)+offset];
+                elif np.size(im1, axis =0) < np.size(im2,axis =0):
+                    im2 = im2[offset:np.size(im1, axis =0)+offset];
+                im1 = np.swapaxes(im1,0,ax);
+                im2 = np.swapaxes(im2,0,ax);
+            elif padmode == 'constant':
+                padding = [];
+                for i in range(np.ndim(im1)):
+                    if i == ax:
+                        padding.append((np.abs(diff//2),np.abs(diff//2+np.mod(diff,2))   ));
+                    else:
+                        padding.append((0,0));
+                if diff <0:
+                    im1 = np.lib.pad(im1,tuple(padding),padmode);
                 else:
-                    padding.append((0,0));
-            if diff <0:
-                M1 = np.lib.pad(M1,tuple(padding),padmode);
-            else:
-                M2 = np.lib.pad(M2,tuple(padding),padmode);
-        elif padmode == 'const_below':
-            padding = [];
-            for i in range(np.ndim(M1)):
-                if i == ax:
-                    padding.append((0,np.abs(diff)   ));
+                    im2 = np.lib.pad(im2,tuple(padding),padmode);
+            elif padmode == 'const_below':
+                padding = [];
+                for i in range(np.ndim(im1)):
+                    if i == ax:
+                        padding.append((0,np.abs(diff)   ));
+                    else:
+                        padding.append((0,0));
+                if diff <0:
+                    im1 = np.lib.pad(im1,tuple(padding),'constant');
                 else:
-                    padding.append((0,0));
-            if diff <0:
-                M1 = np.lib.pad(M1,tuple(padding),'constant');
-            else:
-                M2 = np.lib.pad(M2,tuple(padding),'constant');
+                    im2 = np.lib.pad(im2,tuple(padding),'constant');
 
     else:
-        print('Cannot match sizes as arrays have different dimensions!');
+        raise ValueError('Cannot match sizes as arrays have different dimensions!');
 
-    return(__cast__(M1,M1), __cast__(M2,M2))
+    return(__cast__(im1,im1), __cast__(im2,im2))
 
 
 #TODO:
@@ -1042,8 +1070,8 @@ def FRC(im1,im2, pixel_size = 62, num_rings = 10, correct_shift = True):
             print('Adjusting shape of image 1 in x -direction')
             im1 = np.lib.pad(im1, ((0,im1.shape[0]-im1.shape[1]),(0,0)),'constant')
        
-        im1,im2 = match_size(im1,im2, padmode= 'const_below', ax =0, odd = False);
-        im1,im2 = match_size(im1,im2, padmode= 'const_below', ax =1, odd = False);
+        im1,im2 = match_size(im1,im2, padmode= 'const_below', axes =0, odd = False);
+        im1,im2 = match_size(im1,im2, padmode= 'const_below', axes =1, odd = False);
         '''
         if im1.shape[0] > im2.shape[0]:
             print('Matching sizes of image 1 and image 2 in x direction')
@@ -1290,34 +1318,39 @@ def histogram(im,name ='', bins=65535, range=None, normed=False, weights=None, d
     graph(y=h[0],x=h[1][:len(h[0])], title = 'Histogram of image '+name, x_label = 'Bins', y_label = 'Counts', legend = [])
     return(h);
 
+
 def shiftby(img,avec):
     return np.real(nip.ift(nip.applyPhaseRamp(nip.ft(img),avec)))
 
 def shift2Dby(img,avec):
     return np.real(nip.ift2d(nip.applyPhaseRamp(nip.ft2d(img),avec)))
-        
-def shift(M,delta,direction =0):
+
+def shift(im,delta,axes =0, pixelwise = False):
     '''
-        Shifts an image M for a distance of delta pixels in the given direction using the FT shift theorem
-        
-        Delta can be given as float or int: than M is shifted for delta in the respective direction
-        
-        Delta can also be given as list (of ints and floats)
-                -> In this case M is shifted according for multiple directions. The direction doesn't need to be given than
-                
-                Examples:
-                    shift(M, 30, 2):   shifts the matrix M for 30 pixels in direction 2 (mostly z)
-                    shift(M, [20,30,0,8]):  shift the matrix M for 20 pixels in direction 0, 30 pixels in direction 1 and 8 pixels in direction 3
-                    
-        full_fft: if True -> the full FFT is used for computation, else: the rfft
-                                Full FFT might be more accurate but also requires more computation time
+        Shifts an image im for a distance of delta pixels in the given direction using the FT shift theorem
+        shift is done wia phaseramp (rft for real input), except of if pixelwise = True, than its shifted in real space for the given amount of pixels
+
+        :param im:              Image to be shifted
+        :param delta:           Shift  (float, int -> same shift for all direction or list of float and ints -> shift vectors)
+        :param axes:            axes for the shift
+        :param pixelwise:
+        :return:
+
+        ---------------------------------------------------------------------------------------------------
+        Examples:
+
+            import NanoImagingPack as nip;
+            im = nip.readim('MITO_SIM');
+            im1 = nip.shift(im, [3.5,32.4,-56.2]);                  # shift the matrix im for 3.5 pixels in direction 0 (z), 32.4 pixels in direction 1(y) and -56.2 pixels in direction 2 (x)
+            im2 = nip.shift(im, 30, 2, pixelwise = True);      # shifts the matrix imfor 30 pixels in direction 2 (mostly z) for full pixel width (not using fts)
+
     '''
     from .transformations import ft, ift, rft, irft;
     from .coordinates import ramp;
     import numbers;
-    
+    M = im;
     old_arr = M;
-
+    direction = axes;
     # unifiying input
     if type(delta) == tuple:
         delta = list(delta);
@@ -1327,38 +1360,51 @@ def shift(M,delta,direction =0):
         axes = [direction];
         delta = [delta];
 
-    # padding image with zeros
-    t = [(0,0) for i in range(M.ndim)]
-    old_shape = M.shape;
-    for d,ax in zip(delta, axes):
-        t[ax] = (int(np.ceil(np.abs(d))),int(np.ceil(np.abs(d))));
-    M = np.lib.pad(M,tuple(t),'constant');                                    # Change Boundaries to avoid ringing
-
-    #FT image
-    if M.dtype == np.complexfloating:
-        FT = ft(M, shift_after= True, shift_before=False, axes = axes, s= None, norm = None, ret ='complex');
-        real_ax = -1;
+    t = [(0, 0) for i in range(M.ndim)];
+    if pixelwise:
+        offset = [];
+        for d,ax in zip(delta, axes):
+            if d >0:
+                t[ax] = (int(np.ceil(np.abs(d))),0);
+                offset += [0];
+            else:
+                t[ax] = (0,int(np.ceil(np.abs(d))));
+                offset += [-d];
+        M = np.lib.pad(M,tuple(t),'constant');
+        M = match_size(M, old_arr, axes = axes, padmode='clip', clip_offset=offset)[0];
     else:
-        FT = rft(M, shift_after = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex');
-        real_ax = max(axes);
-    # Make and apply phase ramp
-    phaseramp = np.zeros(FT.shape);
-    for d, ax in zip(delta, axes):        
-        if ax == real_ax:            
-            phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'positive')*2*np.pi*d/(M.shape[ax]);
+        # padding image with zeros
+
+        old_shape = M.shape;
+        for d,ax in zip(delta, axes):
+            t[ax] = (int(np.ceil(np.abs(d)/2)),int(np.ceil(np.abs(d)/2)));
+        M = np.lib.pad(M,tuple(t),'constant');                                    # Change Boundaries to avoid ringing
+
+        #FT image
+        if M.dtype == np.complexfloating:
+            FT = ft(M, shift_after= True, shift_before=False, axes = axes, s= None, norm = None, ret ='complex');
+            real_ax = -1;
         else:
-            phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'center')*2*np.pi*d/(M.shape[ax]);
-    phaseramp = np.exp(-1j*phaseramp)
-    if M.dtype == np.complexfloating:
-        M = ift(FT * phaseramp, shift_after= False, shift_before=True, axes = axes, s= None, norm = None, ret ='complex');
-    else:
-        M = irft(FT*phaseramp,s = M.shape, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'complex');
+            FT = rft(M, shift_after = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex');
+            real_ax = max(axes);
+        # Make and apply phase ramp
+        phaseramp = np.zeros(FT.shape);
+        for d, ax in zip(delta, axes):
+            if ax == real_ax:
+                phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'positive')*2*np.pi*d/(M.shape[ax]);
+            else:
+                phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'center')*2*np.pi*d/(M.shape[ax]);
+        phaseramp = np.exp(-1j*phaseramp)
+        if M.dtype == np.complexfloating:
+            M = ift(FT * phaseramp, shift_after= False, shift_before=True, axes = axes, s= None, norm = None, ret ='complex');
+        else:
+            M = irft(FT*phaseramp,s = M.shape, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'real');
 
-    # clipping rims
-    for d, ax in zip(delta, axes):
-        M = M.swapaxes(0,ax);
-        M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
-        M = M.swapaxes(0,ax);
+        # clipping rims
+        for d, ax in zip(delta, axes):
+            M = M.swapaxes(0,ax);
+            M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
+            M = M.swapaxes(0,ax);
     return(__cast__(M, old_arr))
 
 def shiftx(M,delta):
@@ -1394,12 +1440,12 @@ def shift_center(M,x,y):
     New[mom(x):non(x), mom(y):non(y)] = M[mom(-x):non(-x), mom(-y):non(-y)]
     return(__cast__(New,M))
     
-def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False, norm2nd=False):
+def __correllator__(im1,im2, axes = None, mode = 'convolution', phase_only = False, norm2nd=False):
     '''
         Correlator for images
         
          If the images have different sizes, zeros will be padded at the rims
-         M1,M2: Images
+         im1,im2: Images
          axes:   along which axes
          mode= 'convolution' or 'correlation'
          phase only: Phase correlation
@@ -1407,17 +1453,17 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
          If inputs are real than it tries to take the rfft
         
     '''
-    old_arr = M1;
-    if np.ndim(M1) == np.ndim(M2):
-        old_arr = M1;
-        for axis in range(np.ndim(M1)):
-            if M1.shape[axis] != M2.shape[axis]:
-                M1,M2 = match_size(M1,M2,axis, padmode ='constant', odd = False);
+    old_arr = im1;
+    if np.ndim(im1) == np.ndim(im2):
+        old_arr = im1;
+        for axis in range(np.ndim(im1)):
+            if im1.shape[axis] != im2.shape[axis]:
+                im1,im2 = match_size(im1,im2,axis, padmode ='constant', odd = False);
                 print('Matching sizes at axis '+str(axis));
         
         #create axes list
         if axes is None:
-                axes = list(range(len(M1.shape)));
+                axes = list(range(len(im1.shape)));
         if type(axes) == int:
             axes = [axes];
         try: 
@@ -1428,13 +1474,13 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
 
         from .transformations import ft, ift, rft, irft;
         
-        if M1.dtype == np.complexfloating or M2.dtype == np.complexfloating:
-            FT1 = ft(M1, shift_after= False, shift_before = True, norm = None, ret ='complex', axes = axes);
-            FT2 = ft(M2, shift_after= False, shift_before = True, norm = None, ret ='complex', axes = axes);
+        if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
+            FT1 = ft(im1, shift_after= False, shift_before = True, norm = None, ret ='complex', axes = axes);
+            FT2 = ft(im2, shift_after= False, shift_before = True, norm = None, ret ='complex', axes = axes);
         else:
 
-            FT1 = rft(M1, shift_after = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
-            FT2 = rft(M2, shift_after = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
+            FT1 = rft(im1, shift_after = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
+            FT2 = rft(im2, shift_after = False, shift_before = True, norm = None, ret = 'complex', axes = axes);
 
         if norm2nd == True:
             FT2 = FT2 / np.abs(FT2.flat[0])
@@ -1451,8 +1497,8 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
                 cor = FT1*FT2.conjugate();
         else:
             raise ValueError('Wrong mode');
-            return(M1);
-        if M1.dtype == np.complexfloating or M2.dtype == np.complexfloating:
+            return(im1);
+        if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
             return(__cast__(ift(cor, shift_after= True, shift_before = False, norm = None, ret ='complex', axes = axes), old_arr))
         else:
             if __DEFAULTS__['CC_ABS_RETURN']:
@@ -1461,33 +1507,33 @@ def __correllator__(M1,M2, axes = None, mode = 'convolution', phase_only = False
                 return(__cast__(irft(cor,s = old_arr.shape, shift_after = True, shift_before = False, norm = None, axes =axes), old_arr))
     else:
         raise ValueError('Images have different dimensions')
-        return(M1)
+        return(im1)
 
 
-def correl(M1,M2,  axes = None,phase_only = False):
+def correl(im1,im2,  axes = None,phase_only = False):
     '''
         Correlator for images
         
          If the images have different sizes, zeros will be padded at the rims
-         M1,M2: Images
+         im1,im2: Images
          full_fft: apply full fft? or is real enough
          axes:   along which axes
          phase only: Phase correlation
     '''
-    return(__correllator__(M1,M2, axes = axes, mode = 'correlation', phase_only = phase_only))
+    return(__correllator__(im1,im2, axes = axes, mode = 'correlation', phase_only = phase_only))
 
-def convolve(M1,M2, full_fft = False, axes = None,phase_only = False, norm2nd=False):  
+def convolve(im1,im2, full_fft = False, axes = None,phase_only = False, norm2nd=False):
     '''
         Convolve two images for images
         
          If the images have different sizes, zeros will be padded at the rims
-         M1,M2: Images
+         im1,im2: Images
          full_fft: apply full fft? or is real enough
          axes:   along which axes
          phase only: Phase correlation (default: False)
          norm2nd : normalizes the second argument to one (keeps the mean of the first argument after convolution), (default: False)
     '''
-    return(__correllator__(M1,M2, axes = axes, mode = 'convolution', phase_only = phase_only, norm2nd=norm2nd))
+    return(__correllator__(im1,im2, axes = axes, mode = 'convolution', phase_only = phase_only, norm2nd=norm2nd))
 
     
 def rot_2D_im(M, angle):
