@@ -1317,6 +1317,7 @@ def shift(M,delta,direction =0):
     
     old_arr = M;
 
+    # unifiying input
     if type(delta) == tuple:
         delta = list(delta);
     if type(delta) == list:
@@ -1324,21 +1325,22 @@ def shift(M,delta,direction =0):
     elif isinstance(delta, numbers.Real):
         axes = [direction];
         delta = [delta];
-    
+
+    # padding image with zeros
     t = [(0,0) for i in range(M.ndim)]
     old_shape = M.shape;
     for d,ax in zip(delta, axes):
         t[ax] = (int(np.ceil(np.abs(d))),int(np.ceil(np.abs(d))));
     M = np.lib.pad(M,tuple(t),'constant');                                    # Change Boundaries to avoid ringing
-    
+
+    #FT image
     if M.dtype == np.complexfloating:
         FT = ft(M, shift_after= True, shift_before=False, axes = axes, s= None, norm = None, ret ='complex');
         real_ax = -1;
     else:
-        FT = rft(M, shift_after = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex',real_return = None);
-        from .transformations import __REAL_AXIS__;
-        real_ax = __REAL_AXIS__;
-        
+        FT = rft(M, shift_after = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex');
+        real_ax = max(axes);
+    # Make and apply phase ramp
     phaseramp = np.zeros(FT.shape);
     for d, ax in zip(delta, axes):        
         if ax == real_ax:            
@@ -1350,6 +1352,8 @@ def shift(M,delta,direction =0):
         M = ift(FT * phaseramp, shift_after= False, shift_before=True, axes = axes, s= None, norm = None, ret ='complex');
     else:
         M = irft(FT*phaseramp,s = M.shape, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'complex');
+
+    # clipping rims
     for d, ax in zip(delta, axes):
         M = M.swapaxes(0,ax);
         M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
