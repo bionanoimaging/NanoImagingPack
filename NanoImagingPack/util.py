@@ -376,16 +376,19 @@ def expanddimvec(shape,ndims,othersizes=None,trailing=False):
     else:
         shape=tuple(shape)
     missingdims=ndims-len(shape)
-    if othersizes is None:
-        if trailing:
-            return shape+(missingdims)*(1,)
+    if missingdims > 0:
+        if othersizes is None:
+            if trailing:
+                return shape+(missingdims)*(1,)
+            else:
+                return (missingdims)*(1,)+shape
         else:
-            return (missingdims)*(1,)+shape
+            if trailing:
+                return shape+tuple(othersizes[-missingdims::])
+            else:
+                return tuple(othersizes[0:missingdims])+shape
     else:
-        if trailing:
-            return shape+tuple(othersizes[-missingdims::])
-        else:
-            return tuple(othersizes[0:missingdims])+shape
+        return shape[-ndims:]
 
 def expanddim(img,ndims,trailing=False):
     """
@@ -409,14 +412,15 @@ def dimVec(d,mysize,ndims):
     res[d]=mysize
     return tuple(res)
 
-def slicecoords(mydim,ndim,start):
+def slicecoords(mydim,ndim,start,end=None):
     """
         constructs a coordinate vector reducing dimension mydim, such that numpy can extract the slice via an array access
     """
-    if start!=-1:
-        end=start+1 # just use a single slice
-    else:
-        end=None # this is the appropriate end for a single slice
+    if end is None:
+        if start!=-1:
+            end=start+1 # just use a single slice
+        else:
+            end=None # this is the appropriate end for a single slice
     return tuple((mydim)*[slice(None)]+[slice(start,end)]+(ndim-mydim-1)*[slice(None)])
 
 def subslice(img,mydim,start):

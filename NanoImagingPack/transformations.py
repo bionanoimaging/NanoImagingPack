@@ -8,22 +8,23 @@ Created on Thu Jul 27 16:35:07 2017
 import numpy as np;
 import numbers
 import NanoImagingPack as nip;
-from .config import DBG_MSG,__DEFAULTS__;
+from .config import DBG_MSG,__DEFAULTS__
 # from .util import get_type;
-from .image import image, extractFt;
+from .image import image, extractFt
 from .view5d import v5 # for debugging
 import warnings;
 __REAL_AXIS__ = 0;
 
-def resampledSize(oldsize,factors):
+def resampledSize(oldsize,factors,RFT=False):
     oldsize=np.array(oldsize)
-    RFTMirrorAx=-1
     if isinstance(factors,numbers.Number):
         factors=oldsize*0.0+factors
     else:
         factors=nip.expanddimvec(factors,len(oldsize))
     newsize=np.ceil(oldsize*factors).astype("int")
-    newsize[RFTMirrorAx]=np.ceil((oldsize[RFTMirrorAx]-1)*factors[RFTMirrorAx]+1).astype("int")
+    if RFT:
+        RFTMirrorAx=-1
+        newsize[RFTMirrorAx]=np.ceil((oldsize[RFTMirrorAx]-1)*factors[RFTMirrorAx]+1).astype("int")
     return newsize
 
 def RFTShift(img,maxdim=3,ShiftAfter=True):
@@ -64,16 +65,17 @@ def resample(img,factors=[2.0,2.0]):
         newsize=resampledSize(img.shape,factors)
         res=nip.ift(nip.extractFt(myft,newsize,ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
     else:
-        rf=rft(img,shift_before=True,full_shift=True) # why is the shift necessary??
+        rf=rft(img,shift_before=True) # why is the shift necessary??
         oldsize=rf.shape
 #       print(oldsize)
-        newrftsize=resampledSize(oldsize,factors)
+        newrftsize=resampledSize(oldsize,factors,RFT=True)
         newsize=resampledSize(img.shape,factors)
 #       print(newsize)
         rfre=resampleRFT(rf,newrftsize,newsize,ModifyInput=True)
 #       print(rfre)
-        res=irft(rfre,newsize,shift_after=True,full_shift=True)  # why is the shift necessary??
-# no modification is needed to warrand that the integral does not change!
+        res=irft(rfre,newsize,shift_after=True)  # why is the shift necessary??
+    res.pixelsize = img.pixelsize * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+# no modification is needed to warrant that the integral does not change!
     return res
 
 def resampleRFT(img, newrftsize, newfullsize, maxdim=3, ModifyInput=False):
@@ -109,6 +111,45 @@ def resampleRFT(img, newrftsize, newfullsize, maxdim=3, ModifyInput=False):
         res=nip.subsliceAsg(res,-1,-1,aslice*2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
 
     return RFTShift(res,maxdim,ShiftAfter=False) # this can probably be done more efficiently directly in the rft
+
+
+def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
+    """
+    performs a downsampling (determined by the rotf size) and a convolution based on a real space input and a half-complex Fourier transformed PSF, called the otf.
+
+    This convolution is faster than full-complex FFT based convolution.
+    Important: This function has an overwritten gradient implementation, to make it faster and workable also for 3D, since tensorflow has problems with the 3D rft.
+    For this reason, the seoncond argument (rotf) has NOT been implemented, and just a dummy value is returned. This means:
+    DO NOT USE THIS FUNCTION, if the OTF is unknown (to be reconstructed), use ConvolveReal instead!
+
+    Parameters
+    ----------
+    img: img to be convolved with the PSF
+    rotf: half-complex optical transfer function of psf (rotf=TFROTF(preFFTShift(PSF)))
+    newfullsize: size in real space of the result (i.e. size of the psf)
+    maxdim : maximum numer of dimensions to transform (counting from the right)
+    Returns
+    -------
+    tensorflow array
+        The convolved array
+
+    See also
+    -------
+    Convolve, rft, irft, PSF2ROTF, preFFTShift
+
+    Example
+    -------
+
+    """
+    #    def grad(dy, variables=['tfin','otf']):
+
+    myrft = rft3d(img, maxdim,doWarn=False)
+    res = resampleRFT(myrft, rotf.shape, newfullsize, maxdim)
+    newfullsz=res.shape[:-len(newfullsize)]+tuple(newfullsize)
+    newfullsz=np.array(newfullsz)
+    res = irft3d(res * rotf, newfullsz, maxdim,doWarn=False)
+    res.pixelsize = img.pixelsize * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+    return res
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
 def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
@@ -151,8 +192,67 @@ def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None,
         print('Too few dimensions');
         return(im);
     else:
-        return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
-        
+        return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm));
+
+# now the rft abbreviations:
+
+def rft2d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm=None, doWarn=True):
+    """
+        Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
+    """
+    axes=(-2, -1)
+    ndims=np.ndim(im)
+    if ndims < 2:
+        if doWarn:
+            print('rft2d Warning: Less than 2 dimensions in input image');
+        axes=axes[-ndims:]
+    return (rft(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, s=s, norm=norm));
+
+
+def irft2d(im, newsize, shift_after=False, shift_before=False, ret='complex', norm=None, doWarn=True):
+    """
+        Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
+    """
+    newsize=nip.expanddimvec(newsize,3)
+    axes=(-2, -1)
+    ndims=np.ndim(im)
+    if ndims < 2:
+        if doWarn:
+            print('irft2d Warning: Less than 2 dimensions in input image');
+        axes=axes[-ndims:]
+        newsize = newsize[-ndims:]
+
+    return (irft(im, newsize, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, norm=norm));
+
+
+def rft3d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm=None, doWarn=True):
+    """
+        Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
+    """
+    axes=(-3, -2, -1)
+    ndims=np.ndim(im)
+    if ndims < 3:
+        if doWarn:
+            print('rft3d Warning: Less than 3 dimensions in input image');
+        axes=axes[-ndims:]
+    return (rft(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, s=s, norm=norm));
+
+
+def irft3d(im, newsize, shift_after=False, shift_before=False, ret='complex', norm=None, doWarn=True):
+    """
+        Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
+    """
+    newsize=nip.expanddimvec(newsize,3)
+    axes = (-3, -2, -1)
+    ndims=np.ndim(im)
+    if ndims < 3:
+        if doWarn:
+            print('irft3d Warning: Less than 3 dimensions in input image');
+        axes = axes[-ndims:]
+        newsize = newsize[-ndims:]
+    return (irft(im, newsize, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, norm=norm));
+
+
 def __ret_val__(im, mode):
     if mode == 'abs':
         return(np.abs(im));
