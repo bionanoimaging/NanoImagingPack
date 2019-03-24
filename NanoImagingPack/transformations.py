@@ -152,7 +152,7 @@ def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
     return res
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
-def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
+def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
     """
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
     """
@@ -162,7 +162,7 @@ def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, 
     else:
         return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
 
-def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
+def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
     """
         Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     """
@@ -173,7 +173,7 @@ def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None,
     else:
         return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm));
 
-def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
+def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
     """
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
     """
@@ -183,7 +183,7 @@ def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, 
     else:
         return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm));
 
-def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = None):
+def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
     """
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     """
@@ -366,7 +366,7 @@ def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None,
             Along any axis if the given shape is smaller than tht of the input the input is cropped, if larger its padded with zeros
             If not given, the shape of the input axes specified by axes is used
 
-        norm: Normalization mode, None or 'ortho' or 'DEFAULT' . Refere to np.fft help for further information
+        norm: Normalization mode, None or 'ortho' or 'DEFAULT' . Refer to np.fft help for further information
 
                 None:
                     IFT and FT scale differently
