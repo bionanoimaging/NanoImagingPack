@@ -252,16 +252,23 @@ def toList(val):
 def equalsizevec(vec1,vec2):
     return np.linalg.norm(vec1-vec2)==0.0
 
-def repToList(val,ndim):
+def repToList(val,ndim,defaultVal=0):
     """
         converts a value to a list (if not already a list) and replicates a single input value to a chosen number of dimensions if needed
 
         Useful for more generic use of parameters (skalar or vector of one value for each dimension)
         val: value or list to process
         ndim: number of dimensions
+
+        Example:
+            nip.repToList(10.2,3)  # yields: [10.2,10.2,10.2]
+            nip.repToList([10.2],3) # yields: [0,0,10.2]
+            see usage in gaussf()
     """
     if isinstance(val, numbers.Number):
         return ndim*[val]
+    if ndim != len(val):
+        val=(ndim-len(val))*[0]+val
     return val
    
 def splice(list1,list2):
@@ -364,7 +371,7 @@ def castdim(img,ndims,wanteddim=0):
 
 def expanddimvec(shape,ndims,othersizes=None,trailing=False):
     """
-        expands an nd image shape tuple to the necessary number of dimension by inserting leading dimensions
+        expands an nd tuple (e.g image shape) to the necessary number of dimension by inserting leading dimensions
         ----------
         img: input image to expand
         ndims: number of dimensions to expand to
@@ -402,7 +409,7 @@ def expanddim(img,ndims,trailing=False):
 
 def dimVec(d,mysize,ndims):
     """
-        creates a vector of ndims dimensions with all entries equalt to one except the one at d which is mysize
+        creates a vector of ndims dimensions with all entries equal to one except the one at d which is mysize
         ----------
         d: dimension to specify entry for
         mysize : entry for res[d]

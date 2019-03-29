@@ -850,8 +850,30 @@ def readtimeseries(path, filename = '', roi = [-1,-1,-1,-1], channel = 0, ret_ol
         return image(final_im), max_im_dim
     else:
         return image(final_im)
-    
-    
+
+def gaussf(img, kernelSigma):
+    """
+    performs an N-dimensional Gaussian convolution, based on Fourier-transforms.
+
+    :param img: input image to convolve
+    :param kernelSigma: sizes of the kernel stated as StdDev. If smaller thant the dimensions of the image, the other kernelsizes are assumed to be zero
+    :return: the convolved image
+    """
+    kernelSigma=nip.repToList(kernelSigma,img.ndim)
+    kernel = gaussian(img.shape, kernelSigma)
+    return convolve(img, kernel, norm2nd=True)
+
+def findBg(img,kernelSigma=3.0):
+    """
+    estimates the background value by convolving first with a Gaussian and then looking for the minimum.
+
+    :param img: input image to find the background for
+    :param kernelSigma: size of the kernel
+    :return:
+    """
+    return np.min(gaussf(img,kernelSigma))
+
+
 def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="damp", sigma=4.0):
     """
         DampEdge function
@@ -879,10 +901,10 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
 
         return image with damped edges
 
-        TODO in FUTURE: padding of the image before damping
         Example:
             import NanoImagingPack as nip
-            nip.DampEdge(nip.readim()[400:])
+            nip.DampEdge(nip.readim()[400:,200:])
+        TODO in FUTURE: padding of the image before damping
     """
     img=img.astype(np.float32)
     res = np.ones(img.shape)
@@ -922,8 +944,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
                 top=nip.subslice(img,i,0)
                 bottom=nip.subslice(img,i,-1)
                 goal = (top+bottom)/2.0
-                kernel=gaussian(goal.shape,sigma)
-                goal = convolve(goal,kernel,norm2nd=True)
+                goal = gaussf(goal,sigma)
             else:
                 raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
             #res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5

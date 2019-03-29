@@ -10,6 +10,7 @@ make sure, x is always the first argument
 
 """
 import numpy as np
+from .util import repToList
 import numbers
 
 
@@ -30,8 +31,8 @@ def gaussian(myshape, sigma):
     """
     from .coordinates import rr2  # Why does this need to be local?
     assert isinstance(sigma, object)
-    if isinstance(sigma, numbers.Number):
-        sigma = len(myshape) * [sigma]
+    sigma= np.array(repToList(sigma,len(myshape)))
+    sigma[sigma<=0.0] = 1e-10
     return np.exp(-rr2(myshape, scale=tuple(1 / (np.sqrt(2) * np.array(sigma)))))
 
 
