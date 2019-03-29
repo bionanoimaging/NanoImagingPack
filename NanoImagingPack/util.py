@@ -16,6 +16,7 @@ import functools
 import NanoImagingPack as nip
 
 def printItem(item,itemDir):
+#    from .image import image
     if not item.startswith("__"):
         myItem=itemDir[item]
         if isinstance(myItem,nip.image):
@@ -179,7 +180,8 @@ def atan2(avec):
     return np.math.atan2(avec[-2],avec[-1]) 
 
 def rotate2DVec(myvec,myangle):
-    res=np.array(myvec,dtype="float32")
+    from .image import defaultDataType
+    res=np.array(myvec,dtype=defaultDataType)
     if res.ndim == 1:
         res[-1] = np.cos(myangle)*myvec[-1] - np.sin(myangle)*myvec[-2]
         res[-2] = np.sin(myangle)*myvec[-1] + np.cos(myangle)*myvec[-2]

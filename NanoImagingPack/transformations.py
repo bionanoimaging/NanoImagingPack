@@ -10,7 +10,7 @@ import numbers
 import NanoImagingPack as nip;
 from .config import DBG_MSG,__DEFAULTS__
 # from .util import get_type;
-from .image import image, extractFt
+from .image import image, extractFt, defaultDataType, defaultCpxDataType
 from .view5d import v5 # for debugging
 import warnings;
 __REAL_AXIS__ = 0;
@@ -427,7 +427,7 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
     else:
         if shift_before == True:
             im=np.fft.ifftshift(im, axes=axes) # mid to corner
-        im=np.fft.rfftn(im, axes=axes, s=s, norm=norm)
+        im=np.fft.rfftn(im, axes=axes, s=s, norm=norm).astype(defaultCpxDataType)
         if shift_after == True:
             shift_ax = [i for i in axes if i != real_axis];
             im=np.fft.fftshift(im, axes=shift_ax)  # corner freq to mid freq
@@ -499,7 +499,7 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
     if shift_before == True:
         shift_ax = [i for i in axes if i != real_axis];
         im=np.fft.ifftshift(im, axes=shift_ax) # mid freq to corner
-    im=np.fft.irfftn(im, axes=axes, s=s, norm=norm)
+    im=np.fft.irfftn(im, axes=axes, s=s, norm=norm).astype(defaultDataType)
     if shift_after == True:
         im=np.fft.fftshift(im, axes=axes)  # corner to mid
     return image(__ret_val__(im, ret))

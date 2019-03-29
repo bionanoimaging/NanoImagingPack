@@ -3,7 +3,6 @@ import numpy as np
 from .util import expanddim, ones, zeros, castdim
 from .image import image
 
-
 # from .view5d import v5 # for debugging
 
 def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):

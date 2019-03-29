@@ -30,6 +30,8 @@ from .view5d import v5 # for debugging
 from .FileUtils import list_files
 import numbers
 
+defaultDataType=np.float32
+defaultCpxDataType=np.complex64
 
 #class roi:
 #    def __init__(im):
@@ -906,7 +908,7 @@ def DampEdge(img, width = None, rwidth=0.1, axes =None, func = coshalf, method="
             nip.DampEdge(nip.readim()[400:,200:])
         TODO in FUTURE: padding of the image before damping
     """
-    img=img.astype(np.float32)
+    img=img.astype(defaultDataType)
     res = np.ones(img.shape)
     if width==None:
         width=tuple(np.round(np.array(img.shape)*np.array(rwidth)).astype("int"))

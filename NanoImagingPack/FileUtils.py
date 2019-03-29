@@ -6,7 +6,7 @@ Created on Mon Aug 28 10:27:24 2017
 
 In this module some file utilitis are implemented
 """
-from .util import get_type;
+# from .util import get_type;
 
 def getFolder():
     '''
