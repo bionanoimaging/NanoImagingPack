@@ -16,9 +16,6 @@ import setuptools
 # cos_module = Extension('cos_module', sources=['External_code/cos_module.c'])
 
 
-
-
-
 with open("README.md", "r") as fh:
     long_description = fh.read()
 

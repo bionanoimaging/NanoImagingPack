@@ -10,26 +10,12 @@ all kind of utils;
 """
 
 import numpy as np
+from scipy.special import factorial
 import numbers
 import time
 import functools
-import NanoImagingPack as nip
+from . import coordinates
 
-def printItem(item,itemDir):
-#    from .image import image
-    if not item.startswith("__"):
-        myItem=itemDir[item]
-        if isinstance(myItem,nip.image):
-            return ('{0} = nip.image of shape {1}'.format(item, myItem.shape))+"\n"
-        elif isinstance(myItem,np.ndarray) and ((myItem.ndim>2) or any(np.array(myItem.shape)>3)) :
-            return ('{0} = np.ndarray of shape {1}'.format(item, myItem.shape))+"\n"
-        elif isinstance(myItem,np.ndarray) :
-            return ('{0} = np.array({1})'.format(item, myItem))+"\n"
-        elif isinstance(myItem,str):
-            return ('{0} = \'{1}\''.format(item, myItem))+"\n"
-        else:
-            return ('{0} = {1}'.format(item, myItem))+"\n" # for all the rest, use the default formatting (e.g. tensorflow tensors)
-    return ""
 
 class struct(object): # this class can be used as a base class or simply be instantiated to mimic a struct (like matlab) with pretty print
             
@@ -73,8 +59,7 @@ class timer():
     def __init__(self, units = 's'):
         self.times = np.zeros(1)
         self.comments = []
-        from time import time
-        self.t_offset = time()
+        self.t_offset = time.time()
         self.mut_times = np.ndarray((0))
         self.units = units
         if self.units == 's':
@@ -85,8 +70,7 @@ class timer():
             self.factor = 1000000
 
     def add(self, comm = None):
-        from time import time
-        self.times = np.append(self.times,time()-self.t_offset)
+        self.times = np.append(self.times,time.time()-self.t_offset)
         self.comments += [comm]
         if self.times.size >1:
             self.mut_times = pairwise_arith(self.times, 'diff')
@@ -151,11 +135,10 @@ def zernike(r,m,n, radial = False):
     if n<0 or np.abs(m)>n:
         raise ValueError('n must not be negative and |m| <= n')
     if radial == False:
-        from .coordinates import phiphi
         if m>=0:
-            fact = np.cos(np.abs(m)*phiphi(r, angle_range = 2))
+            fact = np.cos(np.abs(m) * coordinates.phiphi(r, angle_range = 2))
         else:
-            fact = np.sin(np.abs(m)*phiphi(r, angle_range = 2))
+            fact = np.sin(np.abs(m) * coordinates.phiphi(r, angle_range = 2))
     else:
         fact = 1
 
@@ -164,13 +147,26 @@ def zernike(r,m,n, radial = False):
     if np.mod((n-m),2) ==1:
         return(np.zeros(r.shape))
     else:
-        from scipy.special import factorial
         k = np.arange(0, (n-m)//2+1,1)
         zer_coeff = (-1)**k*factorial(n-k)/(factorial(k)*factorial((n+m)/2-k)*factorial((n-m)/2-k))
         zer = np.zeros(r.shape)
         for c, k_el in zip(zer_coeff, k):       # on purpose used a for loop here, as it is indeed faster
             zer += c*r**(n-2*k_el)
     return(zer*fact)
+
+def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0):
+    img = zeros(np.prod(sz))
+    if not seed is None:
+        np.random.seed(seed)
+    dp=np.floor(np.random.rand(NDots)*np.prod(sz)).astype("int")
+    img[dp]=1.0
+    img=np.reshape(img,sz)
+    if not ObjRadius is None:
+        ObjMask = coordinates.rr(sz) < ObjRadius
+        img = image.convolve(img,ObjMask)
+        if not doAdd:
+            img[img > 1] = 1
+    return img
 
 def atan2(avec):
     """
@@ -180,8 +176,7 @@ def atan2(avec):
     return np.math.atan2(avec[-2],avec[-1]) 
 
 def rotate2DVec(myvec,myangle):
-    from .image import defaultDataType
-    res=np.array(myvec,dtype=defaultDataType)
+    res=np.array(myvec,dtype=image.defaultDataType)
     if res.ndim == 1:
         res[-1] = np.cos(myangle)*myvec[-1] - np.sin(myangle)*myvec[-2]
         res[-2] = np.sin(myangle)*myvec[-1] + np.cos(myangle)*myvec[-2]
@@ -220,22 +215,6 @@ def parse_string_for_int(s, key):
     return(val)
 
 
-#
-#def __adjust_imtype__(im, ft_axes, orig):
-#    '''
-#        Check the data dtype and potentially change pixelsizes
-#    '''
-#    from .image import image;
-#    if type(orig) == image:
-#        im = im.view(image);            # note: view casting -> this is not the viewer!
-#        if type(orig.name) is str:
-#            im.name = 'FT of '+orig.name;
-#            im.
-#        return(im);
-#    else:
-#        return(im);
-#      
-
 def scale_log(M, c =1):
     """
         Scale an image logarithmic as:
@@ -263,6 +242,7 @@ def repToList(val,ndim,defaultVal=0):
         ndim: number of dimensions
 
         Example:
+            import NanoImagingPack as nip
             nip.repToList(10.2,3)  # yields: [10.2,10.2,10.2]
             nip.repToList([10.2],3) # yields: [0,0,10.2]
             see usage in gaussf()
@@ -272,7 +252,9 @@ def repToList(val,ndim,defaultVal=0):
     if ndim != len(val):
         val=(ndim-len(val))*[0]+val
     return val
-   
+
+from . import image
+
 def splice(list1,list2):
     list1=list(list1)
     list2=list(list2)
@@ -509,6 +491,7 @@ def subsliceCenteredAdd(img,mydim,start,val):
     img[tuple(destCoord)]+=val[tuple(srcCoord)]
     return img
 
+
 def midValAsg(img, val):
     """
         assigns val to the middle position of an image (where ft has its zero frequency)
@@ -664,7 +647,7 @@ def roi_from_poslist(poslist):
     else:
         raise TypeError('poslist has to be list or tuple of position tuples ')
 
-def get_max(M,region = [-1,-1,-1,-1]):
+def get_max(M,region = (-1,-1,-1,-1)):
     """
     Get coordinates maximum value in a certain region
 
@@ -754,7 +737,7 @@ def get_type(var):
         else:
             return(['unknown']+classes)
         
-def get_min(M,region = [-1,-1,-1,-1]):
+def get_min(M,region = (-1,-1,-1,-1)):
     """
     Get coordinate of mininum value in a certain region
 
@@ -767,24 +750,26 @@ def get_min(M,region = [-1,-1,-1,-1]):
     MIN = min_coord(M)
     return(region[0]-region[2]//2+MIN[1],region[1]-region[3]//2+MIN[0])
     
-    
+
 def isnp(animg):
     return isinstance(animg,np.ndarray)
 
 def iseven(anumber):
     return np.mod(anumber,2)==0
 
+
+from . import config
+
+
 def ones(s,dtype=None,order='C'):
-    from .image import image
     if isnp(s):
         s=s.shape
-    return image(np.ones(s,dtype,order))
+    return image.image(np.ones(s,dtype,order))
 
 def zeros(s,dtype=None,order='C'):
-    from .image import image
     if isnp(s):
         s=s.shape
-    return image(np.zeros(s,dtype,order))
+    return image.image(np.zeros(s,dtype,order))
 
 
 def __cast__(arr, orig_arr=None):
@@ -804,41 +789,54 @@ def __cast__(arr, orig_arr=None):
             'asInput' same type as input image
 
     """
-    from .image import image
-    from .config import __DEFAULTS__
-    # from .util import get_type
 
     if not isinstance(orig_arr, np.ndarray):
         orig_arr = np.zeros(0)
-    if __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'IMAGE':
-        if type(arr) is not image:
+    if config.__DEFAULTS__['ARRAY_RETURN_TYPE'] == 'IMAGE':
+        if type(arr) is not image.image:
             return (arr.view(type=image))
         else:
             return (arr)
 
-    elif __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'image':
-        if isinstance(arr, image):
+    elif config.__DEFAULTS__['ARRAY_RETURN_TYPE'] == 'image':
+        if isinstance(arr, image.image):
             return (arr)
         else:
-            arr = image(arr)  # Cast as image
-            if isinstance(orig_arr, image):
+            arr = image.image(arr)  # Cast as image
+            if isinstance(orig_arr, image.image):
                 arr.__array_finalize__(orig_arr)  # if original array was image -> copy members!
-            return (arr.view(type=image))
-    elif __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'ndarray':
+            return (arr.view(type=image.image))
+    elif config.__DEFAULTS__['ARRAY_RETURN_TYPE'] == 'ndarray':
         if type(arr) is not np.ndarray:
             return (np.asarray(arr))
         else:
             return (arr)
-    elif __DEFAULTS__['ARRAY_RETURN_TYPE'] == 'asInput':
+    elif config.__DEFAULTS__['ARRAY_RETURN_TYPE'] == 'asInput':
         if type(arr) == type(orig_arr):
             return (arr)
         else:
             arr = arr.view(type=type(
                 orig_arr))  # here it important that we checked if orig_arr was at least array type before -> if not -> make it array
-            if isinstance(orig_arr, image):
+            if isinstance(orig_arr, image.image):
                 arr.__array_finalize__(orig_arr)  # if original array was image -> copy members!
             return (arr)
     else:
         raise ValueError(
             'ARRAY_RETURN_TYPE msut be "asInput", "image", "IMAGE", or "ndarray". Set it correctly in __DEFAULTS__')
 #
+
+
+def printItem(item,itemDir):
+    if not item.startswith("__"):
+        myItem=itemDir[item]
+        if isinstance(myItem,image.image):
+            return ('{0} = image of shape {1}'.format(item, myItem.shape))+"\n"
+        elif isinstance(myItem,np.ndarray) and ((myItem.ndim>2) or any(np.array(myItem.shape)>3)) :
+            return ('{0} = np.ndarray of shape {1}'.format(item, myItem.shape))+"\n"
+        elif isinstance(myItem,np.ndarray) :
+            return ('{0} = np.array({1})'.format(item, myItem))+"\n"
+        elif isinstance(myItem,str):
+            return ('{0} = \'{1}\''.format(item, myItem))+"\n"
+        else:
+            return ('{0} = {1}'.format(item, myItem))+"\n" # for all the rest, use the default formatting (e.g. tensorflow tensors)
+    return ""

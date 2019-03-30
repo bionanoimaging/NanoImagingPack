@@ -1,75 +1,7 @@
 import numpy as np
-# from .util import get_type;
-from .util import expanddim, ones, zeros, castdim
+from scipy.interpolate import interp1d
+from . import util
 from .image import image
-
-# from .view5d import v5 # for debugging
-
-def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
-    """
-    creates a 1D-ramp along only one dimension. The trailing dimension sizes are all one.
-
-    This guarantees a fast performance for functions such as rr, since the broadcasting features of Phython are going to deal with the other dimensions.
-
-    standart size is 256
-    placement:
-        center: 0 is at center
-                if x is even, it has one more value in the positve:
-                    e.g. size_x = 100 -> goes from -50 to 49
-                         size_x = 101 -> goes from -50 to 50
-        negative : goes from negative size_x to 0
-        positive : goes from 0 size_x to positive
-        freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
-        int number: is the index where the center is!
-    """
-    #    from .image import image;
-    if isinstance(mysize, np.ndarray):
-        mysize = mysize.shape
-    if freq != None and not placement == 'center':
-        raise ValueError(
-            "ramp1D: Illegal placement: (" + placement + "). (freq=" + freq + ") argument can only be used with (center) placement.")
-    if placement == 'negative':
-        miniramp = np.arange(-mysize + 1, 1, 1)
-    elif placement == 'positive' or placement == 'corner':
-        miniramp = np.arange(0, mysize, 1)
-    elif placement == 'center':
-        miniramp = np.arange(-mysize // 2 + np.mod(mysize, 2), mysize // 2 + np.mod(mysize, 2), 1)
-    elif (type(placement) == int or type(placement) == float):
-        miniramp = np.arange(0, mysize, 1) - placement
-    else:
-        try:
-            if np.issubdtype(placement.dtype, np.number):
-                miniramp = np.arange(0, mysize, 1) - placement
-            else:
-                raise ValueError(
-                    'ramp: unknown placement value. allowed are negative, positive, corner, and center or an offset value as an np.number')
-        except AttributeError:
-            raise ValueError(
-                'ramp: unknown placement value. allowed are negative, positive, placement, and center or an offset value as an np.number')
-    if freq == "ftfreq":
-        miniramp = miniramp / mysize
-    elif freq == "ftradfreq":
-        miniramp = miniramp * 2.0 * np.pi / mysize
-    elif freq == "fftfreq":
-        miniramp = np.fft.fftfreq(mysize, pxs)
-    elif freq == "rfftfreq":
-        miniramp = np.fft.rfftfreq(mysize, pxs)
-    elif freq == "fftradfreq":
-        miniramp = np.fft.fftfreq(mysize, pxs / 2.0 / np.pi)
-    elif freq == "rfftradfreq":
-        miniramp = np.fft.rfftfreq(mysize, pxs / 2.0 / np.pi)
-    elif not freq == None:
-        raise ValueError(
-            "unknown option for freq. Valid options are ftfreq, ftradfreq, fftfreq, rfftfreq, fftradfreq and rfftradfreq.")
-    #        miniramp=miniramp*(np.pi/(mysize//2))
-
-    if ramp_dim > 0:
-        miniramp = expanddim(miniramp, ramp_dim + 1,
-                             trailing=False)  # expands to this dimension numbe by inserting trailing axes. Also converts to
-    elif ramp_dim < -1:
-        miniramp = expanddim(miniramp, -ramp_dim,
-                             trailing=True)  # expands to this dimension numbe by inserting prevailing axes. Also converts to
-    return image(miniramp)
 
 
 def unifysize(mysize):
@@ -121,10 +53,10 @@ def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=Fa
     if freq == "freq" and not shift:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
         myramp = np.fft.fftshift(myramp)
 
-    res = ones(mysize)
+    res = util.ones(mysize)
     res *= myramp
 
-    return (res)  # RH casted to image
+    return res
 
 
 def xx(mysize=(256, 256), placement='center', freq=None):
@@ -365,7 +297,7 @@ def VolumeList(MyShape=(256, 256), MyCenter='center', MyStretch=1, polar_axes=No
 
         # Creates set of ramps (as many as needed for the polar coordinates)
         # Later the cartesians have to be included here! -> note now: all the polar axes are the first ones!
-        polar_ramps = [1 / MyStretch[i] * ramp(MyShape, ramp_dim=i, corner=MyCenter[i]) for i in polar_axes]
+        polar_ramps = [1 / MyStretch[i] * ramp(MyShape, ramp_dim=i, placement=MyCenter[i]) for i in polar_axes]
         r = np.sqrt(np.sum(np.asarray(np.square(polar_ramps)), axis=0))
         if set(return_axes).intersection(set(polar_axes[1:])) != set([]):
             np.seterr(divide='ignore')
@@ -387,7 +319,7 @@ def VolumeList(MyShape=(256, 256), MyCenter='center', MyStretch=1, polar_axes=No
     ret_list = []
     for i in return_axes:
         if i in cartesian_axes:
-            ret_list.append(1 / MyStretch[i] * ramp(MyShape, ramp_dim=i, corner=MyCenter[i]))
+            ret_list.append(1 / MyStretch[i] * ramp(MyShape, ramp_dim=i, placement=MyCenter[i]))
         if len(polar_axes) > 0:
             if i == polar_axes[0]:
                 ret_list.append(r)
@@ -446,11 +378,77 @@ def applyPhaseRamp(img, shiftvec):
     ShiftDims = shiftvec.shape[-1]
     for d in range(1, ShiftDims + 1):
         if type(shiftvec[0]) is list or (shiftvec.ndim > 1):
-            myshifts = castdim(shiftvec[:, -d], img.ndim)  # apply different shifts to outermost dimension
+            myshifts = util.castdim(shiftvec[:, -d], img.ndim)  # apply different shifts to outermost dimension
         else:
             myshifts = shiftvec[-d]
         res *= np.exp((1j * 2 * np.pi * myshifts) * ramp1D(img.shape[-d], ramp_dim=-d, freq='ftfreq'))
     return res
+
+
+def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
+    """
+    creates a 1D-ramp along only one dimension. The trailing dimension sizes are all one.
+
+    This guarantees a fast performance for functions such as rr, since the broadcasting features of Phython are going to deal with the other dimensions.
+
+    standart size is 256
+    placement:
+        center: 0 is at center
+                if x is even, it has one more value in the positve:
+                    e.g. size_x = 100 -> goes from -50 to 49
+                         size_x = 101 -> goes from -50 to 50
+        negative : goes from negative size_x to 0
+        positive : goes from 0 size_x to positive
+        freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
+        int number: is the index where the center is!
+    """
+    if isinstance(mysize, np.ndarray):
+        mysize = mysize.shape
+    if freq != None and not placement == 'center':
+        raise ValueError(
+            "ramp1D: Illegal placement: (" + placement + "). (freq=" + freq + ") argument can only be used with (center) placement.")
+    if placement == 'negative':
+        miniramp = np.arange(-mysize + 1, 1, 1)
+    elif placement == 'positive' or placement == 'corner':
+        miniramp = np.arange(0, mysize, 1)
+    elif placement == 'center':
+        miniramp = np.arange(-mysize // 2 + np.mod(mysize, 2), mysize // 2 + np.mod(mysize, 2), 1)
+    elif (type(placement) == int or type(placement) == float):
+        miniramp = np.arange(0, mysize, 1) - placement
+    else:
+        try:
+            if np.issubdtype(placement.dtype, np.number):
+                miniramp = np.arange(0, mysize, 1) - placement
+            else:
+                raise ValueError(
+                    'ramp: unknown placement value. allowed are negative, positive, corner, and center or an offset value as an np.number')
+        except AttributeError:
+            raise ValueError(
+                'ramp: unknown placement value. allowed are negative, positive, placement, and center or an offset value as an np.number')
+    if freq == "ftfreq":
+        miniramp = miniramp / mysize
+    elif freq == "ftradfreq":
+        miniramp = miniramp * 2.0 * np.pi / mysize
+    elif freq == "fftfreq":
+        miniramp = np.fft.fftfreq(mysize, pxs)
+    elif freq == "rfftfreq":
+        miniramp = np.fft.rfftfreq(mysize, pxs)
+    elif freq == "fftradfreq":
+        miniramp = np.fft.fftfreq(mysize, pxs / 2.0 / np.pi)
+    elif freq == "rfftradfreq":
+        miniramp = np.fft.rfftfreq(mysize, pxs / 2.0 / np.pi)
+    elif not freq == None:
+        raise ValueError(
+            "unknown option for freq. Valid options are ftfreq, ftradfreq, fftfreq, rfftfreq, fftradfreq and rfftradfreq.")
+    #        miniramp=miniramp*(np.pi/(mysize//2))
+
+    if ramp_dim > 0:
+        miniramp = util.expanddim(miniramp, ramp_dim + 1,
+                                  trailing=False)  # expands to this dimension numbe by inserting trailing axes. Also converts to
+    elif ramp_dim < -1:
+        miniramp = util.expanddim(miniramp, -ramp_dim,
+                                  trailing=True)  # expands to this dimension numbe by inserting prevailing axes. Also converts to
+    return image(miniramp)
 
 
 def px_freq_step(im=(256, 256), pxs=62.5):
@@ -501,7 +499,6 @@ def get_freq_of_pixel(im=(256, 256), coord=(0., 0.), pxs=62.5, shift=True, real=
              -> c.f. help of freq_ramp
 
     """
-    from scipy.interpolate import interp1d
     if type(im) == list:
         im = tuple(im)
     if isinstance(im, np.ndarray):
@@ -580,7 +577,7 @@ def bfp_coords(M, pxs, wavelength, focal_length, shift=True, real=False, axis=0)
 
         i.e.: If the object is placed in the front focal plane, the image in the back focal plane is the fourier transform of the image
               The each object coorinate (unit [lenght]) maps to an angle/frequency in the back focal plane (unit [1/length])
-              This function transfroms the angles into length distances in the fourier plane
+              This function transforms the angles into length distances in the fourier plane
 
          M is the image (or the function)
          pxs is the pixelsize in the given direction
@@ -623,7 +620,7 @@ def MakeScan(sz, myStep):
     NSteps = (sz - 1) // myStep + 1
     N = np.prod(NSteps)
 
-    scan = zeros(list(np.append(N, sz)))
+    scan = util.zeros(list(np.append(N, sz)))
     xind = np.arange(0, sz[1], myStep[1])  # fast way based on one-D indexing
     yind = np.arange(0, sz[0], myStep[0])
     scan[np.arange(0, N), yind.repeat(NSteps[1]), NSteps[0] * list(xind)] = 1

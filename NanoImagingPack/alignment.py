@@ -6,8 +6,17 @@ Created on Wed Aug 23 19:56:06 2017
 """
 
 import numpy as np
-from .util import get_type
-from .image import extract
+from skimage.feature import corner_harris, corner_peaks
+from skimage.measure import ransac
+from skimage.transform import warp, AffineTransform
+from .fitting import fit_gauss2D
+
+from .util import get_type, max_coord
+
+from .mask import create_circle_mask
+from .image import imsave, readim, match_size, correl, extract, centroid
+from .view import view
+
 
 class alignment():
     """
@@ -44,7 +53,6 @@ class alignment():
     """
 
     def __init__(self, im1, im2,  para_file= None, new_alignment = 'no', roi = (50,50), method = 'centroid', store_correl = False, align_save_path=None, Name_list = None, super_sampling = 1, roi_list = None, remove_bckgrd = False, max_err = 0.5):
-        from .image import readim, match_size
 
         def __chk_load__(M):
             if get_type(M)[0] == 'array':
@@ -80,11 +88,6 @@ class alignment():
             self.correls=[]
             img_align = self.img2.astype(float)
             self.img1 = self.img1.astype(float)
-    
-            from skimage.feature import corner_harris, corner_peaks
-            from skimage.measure import ransac
-            from skimage.transform import warp, AffineTransform
-            
             
             print('Finding coordinate supports via corner detection in image 1...')
             # Find appropriates support points for alignment using corner detection algorithm
@@ -150,7 +153,6 @@ class alignment():
                 f.close()
 
         else:                        # Here: load parameter set and align it 
-            from skimage.transform import warp, AffineTransform
             pre_mat = np.eye(3)
             if roi_list != None:
                 # In case of different rois between the alignment image and the real image: shift the images using a affine transformation first
@@ -178,8 +180,7 @@ class alignment():
         self.img2_align = img_align.astype(int)
 
         if align_save_path != None:
-            from .image import imsave
-            if align_save_path[-1] != '/': 
+            if align_save_path[-1] != '/':
                 align_save_path += '/'
             if Name_list == None:
                 imsave(self.img1, align_save_path+'img1_align.tif')
@@ -267,9 +268,6 @@ class alignment():
         """
            #get the coordinate shift of two images (2D) within a certain region
         """
-        from .image import correl, extract, centroid
-        from .util import max_coord
-        from .mask import create_circle_mask
         if (np.mod(edge_length[0],2) == 1): edge_length[0] = edge_length[0] + 1;
         if (np.mod(edge_length[1],2) == 1): edge_length[1] = edge_length[1] + 1;
         if self.method == 'maximum':
@@ -310,7 +308,6 @@ class alignment():
             return((edge_length[0]//2-centr_coord[0],edge_length[1]//2-centr_coord[1]))
     
         elif self.method == 'fit_gauss':
-            from .fitting import fit_gauss2D
             cc = correl(extract(im1, ROIsize=tuple(edge_length), centerpos=tuple(center)),
                         extract(im2, ROIsize=tuple(edge_length), centerpos=tuple(center)))
 #            cc = correl(extract_c(im1, center = tuple(center), roi = tuple(edge_length)),extract_c(im2, center = tuple(center), roi = tuple(edge_length)))
@@ -328,136 +325,11 @@ class alignment():
             depict given correlation and mark center point (maximum or centroid)
         """
         if len(self.correls)>0 and len(self.correl_max)>0:
-            from .view import view
-            try:
-                del(v)
-            except:
-                pass;
+            # try:
+            #     del(v)
+            # except:
+            #     pass;
             v = view(self.correls[number], title = 'Correlation number '+str(number)+' Coordiates around '+str(round(self.coords[number][0]))+' ; '+str(round(self.coords[number][1])))
             v.set_mark(self.correl_max[number])
         else:
             print('No correlations availible')
-    
-    
-#    def save_para(self,filename):
-#        f = open(filename, 'w');
-#        s = 'x_coord/ty_coord/tx_length/ty_length/tx_centroid/ty_centroid/n'
-#        for
-#
-#    def __del__(self):
-#        print('closed alignment');
-
-#def calibrate_alignment(im1,im2,calib_path = None, roi = [-1], opt_rotation = False, show_correl = True):
-#    '''
-#    Align image one with respect to image two
-#    Images must be 2D images rigth now
-#    
-#    roi = [x,y, width_x, width_y], where x and y are the center coordinates and width_x and width_y are a rectanugalr frame around it
-#    The roi is extracted from the cross correlation and in this region the maximum is searched.
-#    
-#    if no roi is desired: roi = [-1]
-#    
-#    if calibbration_path is not None, the parameters will be saved there in a .txt file
-#    
-#    opt_rotation:   Optimized rotation after correlative shift
-#    show_correl:    If true (which ist standard) the correlation between im1 and im2 is shown
-#    
-#    uses cross correlation to find offset
-#    shifts image 2 with respect to image 1 and crops both images to the same size
-#    
-#    TODO: FIND PEAK OF CC BY FITTING AND USE FT SHIFT FOR OVERLAYING IMAGES
-#    
-#    '''
-#    from .image import correl, optimize_rotation, shift_center, match_size;
-#    import numpy as np
-#    from .fitting import fit_gauss2D;
-#    from .util import get_max;
-#    
-#    im1, im2 = match_size(im1, im2, 0, 'clip', False);
-#    im1, im2 = match_size(im1, im2, 1, 'clip', False);
-#    if roi == [-1]:
-#        cor = correl(im1,im2)[0];
-#    elif (len(roi) == 4) and (np.prod((np.asarray(roi)>=0)) == 1):
-#        R = roi;
-#        roi[0] = R[0]-R[2]//2;
-#        roi[1] = R[1]-R[3]//2;
-#        print(roi);
-#        cor = correl(im1[roi[1]:roi[3]+roi[1],roi[0]:roi[2]+roi[0]],im2[roi[1]:roi[3]+roi[1],roi[0]:roi[2]+roi[0]])[0];
-#    else:
-#        print('Wrong ROI settings');
-#        return(im1,im2);
-#    
-#    #p,g=fit_gauss2D(cor)
-#    if show_correl:
-#        from .view import view;
-#        view(cor, 'Correlation of image 1 and 2')
-#    m = get_max(cor);
-#    dx = m[0]-im1.shape[1]//2+1;
-#    dy = m[1]-im1.shape[0]//2+1;
-#    print('Offset of image 2 with respect to image 1:');
-#    print('==========================================');
-#    print();
-#    print('Delta x = '+str(dx));
-#    print('Delta y = '+str(dy));
-#    im2 = shift_center(im2,dx,dy);
-#
-#    if dx <0:
-#        im1 = im1[:,0:dx];
-#        im2 = im2[:,0:dx];
-#    else:
-#        im1 = im1[:,dx:];
-#        im2 = im2[:,dx:];
-#    if dy <0:
-#        im1 = im1[0:dy,:];
-#        im2 = im2[0:dy,:];
-#    else:
-#        im1 = im1[dy:,:];
-#        im2 = im2[dy:,:];    
-#    if opt_rotation:
-#        angle, dtheta = optimize_rotation(im1,im2,ang_0=0.0,region=roi);
-#    else:
-#        dtheta = 0;
-#    if type(calib_path) == str:
-#        if calib_path[-4:] == '.txt':
-#            file = open(calib_path,'w');
-#            file.write('Calibration data for image alignment : \n\nDelta x = '+str(dx)+'\nDelta y = '+str(dy)+'\nDelta theta = '+str(dtheta));
-#            file.close();
-#        else:
-#            print('Wrong file format')
-#    return((dx,dy, dtheta))
-#
-#def align(im1, im2, params):
-#    '''
-#        Alignes image 1 with respect to image 2 and adjusts the image sizes
-#        
-#        The parameters (dx,dy,dtheta) must be obtained by calibrate alignment function first
-#    '''
-#    dx = params[0];
-#    dy = params[1];
-#    dtheta = params[2];
-#    from .image import match_size;
-#    im1, im2 = match_size(im1, im2, 0, 'clip', False);
-#    im1, im2 = match_size(im1, im2, 1, 'clip', False);
-#    from .image import shift;
-#    im1 = shift(im1,[dx,dy]);
-#
-#
-#    '''
-#    if dx <0:
-#        im1 = im1[:,0:dx];
-#        im2 = im2[:,0:dx];
-#    else:
-#        im1 = im1[:,dx:];
-#        im2 = im2[:,dx:];
-#    if dy <0:
-#        im1 = im1[0:dy,:];
-#        im2 = im2[0:dy,:];
-#    else:
-#        im1 = im1[dy:,:];
-#        im2 = im2[dy:,:];  
-#    '''
-#    if dtheta != 0:
-#        import scipy.ndimage as scim;
-#        scim.interpolation.rotate(im2, dtheta, reshape = False);
-#    
-#    return(im1, im2)

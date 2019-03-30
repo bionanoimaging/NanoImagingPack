@@ -10,8 +10,8 @@ make sure, x is always the first argument
 
 """
 import numpy as np
-from .util import repToList
-import numbers
+from . import util
+from . import coordinates
 
 
 def gauss(x, tau=1, a=1, x0=0, y0=0):
@@ -23,17 +23,6 @@ def gauss(x, tau=1, a=1, x0=0, y0=0):
         y0        y-shift
     """
     return a * np.exp(-4 * np.log(2) * (x - x0) ** 2 / tau ** 2) + y0
-
-
-def gaussian(myshape, sigma):
-    """
-        n-dimensional gaussian function
-    """
-    from .coordinates import rr2  # Why does this need to be local?
-    assert isinstance(sigma, object)
-    sigma= np.array(repToList(sigma,len(myshape)))
-    sigma[sigma<=0.0] = 1e-10
-    return np.exp(-rr2(myshape, scale=tuple(1 / (np.sqrt(2) * np.array(sigma)))))
 
 
 def cossqr(x, length=10, x0=0):
@@ -90,3 +79,15 @@ def gauss2D(amplitude=1, center_x=0, center_y=0, sigma_x=1, sigma_y=1, rotation=
     c = (np.sin(rotation) ** 2) / (2 * sigma_x ** 2) + (np.cos(rotation) ** 2) / (2 * sigma_y ** 2)
     return lambda x, y: offset + amplitude * np.exp(
         - (a * ((x - center_x) ** 2) + 2 * b * (x - center_x) * (y - center_y) + c * ((y - center_y) ** 2)))
+
+
+def gaussian(myshape, sigma):
+    """
+        n-dimensional gaussian function
+    """
+    assert isinstance(sigma, object)
+    sigma= np.array(util.repToList(sigma, len(myshape)))
+    sigma[sigma<=0.0] = 1e-10
+    return np.exp(-coordinates.rr2(myshape, scale=tuple(1 / (np.sqrt(2) * np.array(sigma)))))
+
+
