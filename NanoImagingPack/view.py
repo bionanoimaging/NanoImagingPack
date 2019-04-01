@@ -631,17 +631,7 @@ def close():
     import NanoImagingPack.view5d as view5d
     view5d.v5close()
   
-<<<<<<< HEAD
 def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers =[], linestyles = [], linewidths =[], save_path = None, text= None):
-    '''
-=======
-def graph(y,x=None, title = '', x_label = '', y_label = '', legend = (), markers =(), linestyles = (), linewidths =()):
-    """
->>>>>>> 7c08b762f3285b4cba20336e829ad2290d9e81bd
-        make a graph plot
-        x and y (and legend) can be lists -> x: either is None or same as y
-
-    """
     import matplotlib.pyplot as plt
     import numpy as np
 
@@ -699,7 +689,7 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = (), markers
                 line_width_list += [linewidths[i]]
             except IndexError:
                  line_width_list += [1]
-        if x == None:
+        if x is None:
             fig = plt.figure()
             if title != '':                
                 fig.canvas.set_window_title(title)
@@ -711,17 +701,12 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = (), markers
             plt.ylabel(y_label)
             plt.title(title)
             if len(legend) != 0:
-<<<<<<< HEAD
-                plt.legend(handles = plot_list);
-            if text is not None:
-                text_pos = ((plt.xlim()[0]+plt.xlim()[1])/2,(plt.ylim()[0]+plt.ylim()[1])/2)
-                plt.text(text_pos[0],text_pos[0],text)    
-            plt.show();
-=======
                 plt.legend(handles = plot_list)
+            if text is not None:
+                text_pos = ((plt.xlim()[0] + plt.xlim()[1]) / 2, (plt.ylim()[0] + plt.ylim()[1]) / 2)
+                plt.text(text_pos[0], text_pos[0], text)
             plt.show()
->>>>>>> 7c08b762f3285b4cba20336e829ad2290d9e81bd
-        else:            
+        else:
             if len(x) != len(y):
                 print('X must be a list of same length than X or empty, if Y is a list')
                 return
@@ -735,7 +720,6 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = (), markers
                 if title != '':                
                     fig.canvas.set_window_title(title)
                 for elx,ely, label, mark, lstyle, lwidth in zip(x,y,label_list, markers_list, line_style_list, line_width_list):
-<<<<<<< HEAD
                     plot, =plt.plot(elx,ely, marker = mark, label = label, linestyle = lstyle, linewidth = lwidth);
                     plot_list.append(plot);
                     
@@ -752,15 +736,3 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = (), markers
         if save_path is not None:
             fig.savefig(save_path);
     return(fig);
-=======
-                    plot, =plt.plot(elx,ely, marker = mark, label = label, linestyle = lstyle, linewidth = lwidth)
-                    plot_list.append(plot)
-                plt.xlabel(x_label)
-                plt.ylabel(y_label)
-                plt.title(title)
-                if len(legend) != 0:
-                    plt.legend(handles = plot_list)
-                plt.show()
-
-    return
->>>>>>> 7c08b762f3285b4cba20336e829ad2290d9e81bd
