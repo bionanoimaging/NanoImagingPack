@@ -632,7 +632,7 @@ def close():
     import NanoImagingPack.view5d as view5d;
     view5d.v5close()
   
-def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers =[], linestyles = [], linewidths =[]):
+def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers =[], linestyles = [], linewidths =[], save_path = None, text= None):
     '''
         make a graph plot
         x and y (and legend) can be lists -> x: either is None or same as y
@@ -708,6 +708,9 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers
             plt.title(title);
             if len(legend) != 0:
                 plt.legend(handles = plot_list);
+            if text is not None:
+                text_pos = ((plt.xlim()[0]+plt.xlim()[1])/2,(plt.ylim()[0]+plt.ylim()[1])/2)
+                plt.text(text_pos[0],text_pos[0],text)    
             plt.show();
         else:            
             if len(x) != len(y):
@@ -724,12 +727,18 @@ def graph(y,x=None, title = '', x_label = '', y_label = '', legend = [], markers
                     fig.canvas.set_window_title(title);
                 for elx,ely, label, mark, lstyle, lwidth in zip(x,y,label_list, markers_list, line_style_list, line_width_list):
                     plot, =plt.plot(elx,ely, marker = mark, label = label, linestyle = lstyle, linewidth = lwidth);
-                    plot_list.append(plot)
+                    plot_list.append(plot);
+                    
                 plt.xlabel(x_label);
                 plt.ylabel(y_label);
                 plt.title(title);
                 if len(legend) != 0:
                     plt.legend(handles = plot_list);
+                if text is not None:
+                    text_pos = ((plt.xlim()[0]+plt.xlim()[1])/2,(plt.ylim()[0]+plt.ylim()[1])/2)
+                    plt.text(text_pos[0],text_pos[0],text)    
+                    #plt.table(cellText = text)
                 plt.show();
-                
-    return;
+        if save_path is not None:
+            fig.savefig(save_path);
+    return(fig);

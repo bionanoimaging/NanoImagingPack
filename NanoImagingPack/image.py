@@ -1366,15 +1366,21 @@ def shift(im,delta,axes =0, pixelwise = False):
             t[ax] = (int(np.ceil(np.abs(d))), 0);
         else:
             t[ax] = (0, int(np.ceil(np.abs(d))));
+    offset = [];
+    for d, ax in zip(delta, axes):
+        if d < 0:
+            offset += [0];
+        else:
+            offset += [np.abs(np.ceil(d)).astype(np.int32)];
     if pixelwise:
         offset = [];
-        for d,ax in zip(delta, axes):
-            if d >0:
+        for d, ax in zip(delta, axes):      # I admit this is not nice to repeat, but ok for now
+            if d > 0:
                 offset += [0];
             else:
-                offset += [-d];
+                offset += [np.abs(np.ceil(d)).astype(np.int32)];
         M = np.lib.pad(M,tuple(t),'constant');
-        M = match_size(M, old_arr, axes = axes, padmode='clip', clip_offset=offset)[0];
+    #    M = match_size(M, old_arr, axes = axes, padmode='clip', clip_offset=offset)[0];
     else:
         # padding image with zeros
 
@@ -1401,13 +1407,14 @@ def shift(im,delta,axes =0, pixelwise = False):
         if M.dtype == np.complexfloating:
             M = ift(FT * phaseramp, shift_after= False, shift_before=True, axes = axes, s= None, norm = None, ret ='complex');
         else:
-            M = irft(FT*phaseramp,s = M.shape, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'real');
-
-        # clipping rims
-        for d, ax in zip(delta, axes):
-            M = M.swapaxes(0,ax);
-            M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
-            M = M.swapaxes(0,ax);
+            shape_back = [M.shape[i] for i in axes]
+            M = irft(FT*phaseramp,s = shape_back, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'real');
+    M = match_size(M, old_arr, axes=axes, padmode='clip', clip_offset=offset)[0];
+        # # clipping rims
+        # for d, ax in zip(delta, axes):
+        #     M = M.swapaxes(0,ax);
+        #     M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
+        #     M = M.swapaxes(0,ax);
     return(__cast__(M, old_arr))
 
 def shiftx(M,delta):
