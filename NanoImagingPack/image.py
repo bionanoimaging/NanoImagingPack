@@ -36,6 +36,7 @@ from . import coordinates
 from .view import graph, view
 from .view5d import v5 # for debugging
 from . import util
+import warnings
 
 from pkg_resources import resource_filename
 from IPython.lib.pretty import pretty
@@ -842,11 +843,16 @@ def shift(im, delta, axes=0, pixelwise=False):
         delta = [delta]
 
     t = [(0, 0) for i in range(M.ndim)]
+    i = 0;
     for d, ax in zip(delta, axes):
+        if abs(d) > im.shape[ax]:
+            warnings.warn('Shifting out of dimension for axis '+str(ax));
+            delta[i] = im.shape[ax];
         if d > 0:
             t[ax] = (int(np.ceil(np.abs(d))), 0)
         else:
             t[ax] = (0, int(np.ceil(np.abs(d))))
+        i+=1;
     if pixelwise:
         offset = []
         for d, ax in zip(delta, axes):
@@ -859,10 +865,11 @@ def shift(im, delta, axes=0, pixelwise=False):
     else:
         # padding image with zeros
 
-        old_shape = M.shape
+        #old_shape = M.shape
         # for d,ax in zip(delta, axes):
         #     t[ax] = (int(np.ceil(np.abs(d)/2)),int(np.ceil(np.abs(d)/2)));
-        M = np.lib.pad(M, tuple(t), 'constant')  # Change Boundaries to avoid ringing
+
+        #M = np.lib.pad(M, tuple(t), 'constant')  # Change Boundaries to avoid ringing
 
         # FT image
         if M.dtype == np.complexfloating:
@@ -887,7 +894,11 @@ def shift(im, delta, axes=0, pixelwise=False):
         # clipping rims
         for d, ax in zip(delta, axes):
             M = M.swapaxes(0, ax)
-            M = M[int(np.ceil(np.abs(d))):old_shape[ax] + int(np.ceil(np.abs(d)))]
+            if d<0:
+                M[int(np.floor(d)):] = 0;
+            else:
+                M[:int(np.floor(d))] =0;
+        #     M = M[int(np.ceil(np.abs(d))):old_shape[ax] + int(np.ceil(np.abs(d)))]
             M = M.swapaxes(0, ax)
     return util.__cast__(M, old_arr)
 
