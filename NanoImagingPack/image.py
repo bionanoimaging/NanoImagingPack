@@ -1659,68 +1659,12 @@ class image(np.ndarray):
         im = DampEdge(self, width = width, rwidth=rwidth, axes =axes, func = func, method=method, sigma=sigma)
         im.info += 'Damp Edged, width: '+str(width)+', method = '+func.__name__+'\n'
         return im
-
-<<<<<<< HEAD
-    t = [(0, 0) for i in range(M.ndim)];
-    for d, ax in zip(delta, axes):
-        if d > 0:
-            t[ax] = (int(np.ceil(np.abs(d))), 0);
-        else:
-            t[ax] = (0, int(np.ceil(np.abs(d))));
-    offset = [];
-    for d, ax in zip(delta, axes):
-        if d < 0:
-            offset += [0];
-        else:
-            offset += [np.abs(np.ceil(d)).astype(np.int32)];
-    if pixelwise:
-        offset = [];
-        for d, ax in zip(delta, axes):      # I admit this is not nice to repeat, but ok for now
-            if d > 0:
-                offset += [0];
-            else:
-                offset += [np.abs(np.ceil(d)).astype(np.int32)];
-        M = np.lib.pad(M,tuple(t),'constant');
-    #    M = match_size(M, old_arr, axes = axes, padmode='clip', clip_offset=offset)[0];
-    else:
-        # padding image with zeros
-=======
     def check_complex(self):
         return __check_complex__(self)
->>>>>>> 7c08b762f3285b4cba20336e829ad2290d9e81bd
 
     def make_odd(self,ax):
         return make_odd(self, ax)
 
-<<<<<<< HEAD
-        #FT image
-        if M.dtype == np.complexfloating:
-            FT = ft(M, shift_after= True, shift_before=False, axes = axes, s= None, norm = None, ret ='complex');
-            real_ax = -1;
-        else:
-            FT = rft(M, shift_after = True,shift_before=False, axes = axes,s= None, norm = None, ret = 'complex');
-            real_ax = max(axes);
-        # Make and apply phase ramp
-        phaseramp = np.zeros(FT.shape);
-        for d, ax in zip(delta, axes):
-            if ax == real_ax:
-                phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'positive')*2*np.pi*d/(M.shape[ax]);
-            else:
-                phaseramp += ramp(FT.shape,ramp_dim = ax, placement = 'center')*2*np.pi*d/(M.shape[ax]);
-        phaseramp = np.exp(-1j*phaseramp)
-        if M.dtype == np.complexfloating:
-            M = ift(FT * phaseramp, shift_after= False, shift_before=True, axes = axes, s= None, norm = None, ret ='complex');
-        else:
-            shape_back = [M.shape[i] for i in axes]
-            M = irft(FT*phaseramp,s = shape_back, shift_after = False,shift_before=True, axes = axes,norm = None, ret = 'real');
-    M = match_size(M, old_arr, axes=axes, padmode='clip', clip_offset=offset)[0];
-        # # clipping rims
-        # for d, ax in zip(delta, axes):
-        #     M = M.swapaxes(0,ax);
-        #     M = M[int(np.ceil(np.abs(d))):old_shape[ax]+int(np.ceil(np.abs(d)))];
-        #     M = M.swapaxes(0,ax);
-    return(__cast__(M, old_arr))
-=======
     def match_size(self,im2,axes = 0, padmode ='constant', odd = False):
         ret_im1, ret_im2 = match_size(self,im2,axes = axes, padmode =padmode, odd = odd)
         if type(im2) == image:
@@ -1732,7 +1676,6 @@ class image(np.ndarray):
         if (self.shape[0] != self.shape[1]) or self.pixelsize[0] != self.pixelsize[1]:
             print('Warning: Image is not quadratic! Be aware of numerical errors!')
         return FRC(self, im2, pixel_size = self.pixelsize, num_rings = num_rings, correct_shift = True)
->>>>>>> 7c08b762f3285b4cba20336e829ad2290d9e81bd
 
     #    def __array_wrap__(self, arr, context = None):
 #        return('bam')
