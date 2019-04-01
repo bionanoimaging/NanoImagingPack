@@ -5,55 +5,58 @@ Created on Wed Mar 21 15:27:02 2018
 @author: ckarras
 """
 
-'''
+"""
 Basic settings:
-'''
-from .FileUtils import str_to_path;
-import os;
-from .util import struct;
-from enum import Enum;
+"""
+import os
+from . import util
+from .FileUtils import str_to_path
+
 
 class __pols__():
-    lin = "lin";
-    lin_x = "lin_x";
-    lin_y = "lin_y";
-    azimuthal = "azimuthal";
-    radial = "radial";
-    circular = "circular";
-    elliptic = "elliptic";
+    lin = "lin"
+    lin_x = "lin_x"
+    lin_y = "lin_y"
+    azimuthal = "azimuthal"
+    radial = "radial"
+    circular = "circular"
+    elliptic = "elliptic"
+
 
 class __aplanars__():
-    excitation = "excitation";
-    emission = "emission";
-    excitation2 = "excitation2";
-    emission2 = "emission2";
-    no = None;
+    excitation = "excitation"
+    emission = "emission"
+    excitation2 = "excitation2"
+    emission2 = "emission2"
+    no = None
+
 
 class __zernikes__():
-    piston = "piston";
-    tiltY='tiltY';
-    tiltX='tiltX';
-    astigm='astigm';
-    defoc='defoc';
-    vastig='vastig';
-    vtrefoil='vtrefoil';
-    vcoma= 'vcoma';
-    hcoma = 'hcoma';
-    obtrefoil ='obtrefoil';
-    obquadfoil= 'obquadfoil';
-    asti2nd = 'asti2nd';
-    spheric = 'spheric';
-    vasti2nd ='vasti2nd';
-    vquadfoil='vquadfoil';
+    piston = "piston"
+    tiltY='tiltY'
+    tiltX='tiltX'
+    astigm='astigm'
+    defoc='defoc'
+    vastig='vastig'
+    vtrefoil='vtrefoil'
+    vcoma= 'vcoma'
+    hcoma = 'hcoma'
+    obtrefoil ='obtrefoil'
+    obquadfoil= 'obquadfoil'
+    asti2nd = 'asti2nd'
+    spheric = 'spheric'
+    vasti2nd ='vasti2nd'
+    vquadfoil='vquadfoil'
+
 
 # DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
-PSF_PARAMS = struct();
+PSF_PARAMS = util.struct()
 PSF_PARAMS.explanation= '\n NA                    Numerical aperture \n'
 PSF_PARAMS.explanation+=' n                     refractive index \n'
 #PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
 PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
 PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
-PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n';
+PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n'
 PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
 PSF_PARAMS.explanation+=' pol_lin_angle         Only for linear polarization: whats the angle \n'
 PSF_PARAMS.explanation+=' vectorized            True or False -> Vectorial computation \n'
@@ -69,25 +72,25 @@ PSF_PARAMS.explanation+=' aperture_transmission For defining an aperture -> refe
 PSF_PARAMS.explanation+=' foc_field_method      How to compute the base focal field "theoretical" from ft(jinc), "circle" from circle in fourier space \n'
 
 # Set the defaults to a standard widefield emission PSF at NA 1.4
-PSF_PARAMS.NA = 1.4;
-PSF_PARAMS.n = 1.518;
+PSF_PARAMS.NA = 1.4
+PSF_PARAMS.n = 1.518
 #PSF_PARAMS.dimension = 2;
-PSF_PARAMS.wavelength = 520;
-PSF_PARAMS.pols = __pols__;
-PSF_PARAMS.pol = PSF_PARAMS.pols.circular;
-PSF_PARAMS.pol_xy_phase_shift =0;
-PSF_PARAMS.pol_lin_angle =0;
-PSF_PARAMS.vectorized = True;
-PSF_PARAMS.apl = __aplanars__;
-PSF_PARAMS.aplanar = PSF_PARAMS.apl.emission;
-PSF_PARAMS.off_focal_distance = 0;
+PSF_PARAMS.wavelength = 520
+PSF_PARAMS.pols = __pols__
+PSF_PARAMS.pol = PSF_PARAMS.pols.circular
+PSF_PARAMS.pol_xy_phase_shift =0
+PSF_PARAMS.pol_lin_angle =0
+PSF_PARAMS.vectorized = True
+PSF_PARAMS.apl = __aplanars__
+PSF_PARAMS.aplanar = PSF_PARAMS.apl.emission
+PSF_PARAMS.off_focal_distance = 0
 #PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
 #PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
-PSF_PARAMS.aberration_strength = None;
-PSF_PARAMS.aberration_types = None;
-PSF_PARAMS.aberration_zernikes = __zernikes__;
-PSF_PARAMS.aperture_transmission = None;
-PSF_PARAMS.foc_field_method = 'theoretical';
+PSF_PARAMS.aberration_strength = None
+PSF_PARAMS.aberration_types = None
+PSF_PARAMS.aberration_zernikes = __zernikes__
+PSF_PARAMS.aperture_transmission = None
+PSF_PARAMS.foc_field_method = 'theoretical'
 
 __DEFAULTS__ ={
         # General default settings
@@ -182,24 +185,26 @@ __DEFAULTS__ ={
 
 def DBG_MSG(text, level):
     if level < __DEFAULTS__['DEBUG']:
-        print(text);
+        print(text)
+
 
 '''
     DO YOU WANNA USE THE FFTW??? -> ONLY IF INSTALLED!
 '''
 try:
-    import pyFFTW;
-    __FFTW__ = True;
-except ImportError:
-    __FFTW__ = False;
+    import pyFFTW
 
-    
+    __FFTW__ = True
+except ImportError:
+    __FFTW__ = False
+
+
 def set_cfg():
     try:
-        import pyFFTW;
-        __FFTW__ = True;
+        import pyFFTW
+        __FFTW__ = True
     except ImportError:
-        __FFTW__ = False;
+        __FFTW__ = False
     if (__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D'):
         try:
             import jnius_config
@@ -209,7 +214,7 @@ def set_cfg():
             __DEFAULTS__['IMG_VIEWER'] ='NIP_VIEW'
             
     if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:
-        print('WARNING: Default pixelsize is not 3 dimensional add default values of 100');
-        __DEFAULTS__['IMG_PIXELSIZES'] +=[100 for i in range(3-len(__DEFAULTS__['IMG_PIXELSIZES']))];
+        print('WARNING: Default pixelsize is not 3 dimensional add default values of 100')
+        __DEFAULTS__['IMG_PIXELSIZES'] +=[100 for i in range(3-len(__DEFAULTS__['IMG_PIXELSIZES']))]
 #        print('Importing pyFFTW failed!');
 #        print('-> TAKING FFT from numpy!');

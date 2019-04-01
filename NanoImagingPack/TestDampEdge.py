@@ -5,8 +5,9 @@ Created on Mon Jan 14 14:07:46 2019
 @author: pi96doc
 """
 
+from importlib import reload
 import NanoImagingPack as nip
-import numpy as np
+reload(nip)
 from NanoImagingPack import v5
 
 obj=nip.readim() # .astype("float32")
