@@ -176,8 +176,8 @@ __DEFAULTS__ ={
         # 'IRFT_RETURN': 'complex',    # Return of the FTs (string values: complex , abs , phase, real, imag, default)
         # 'IRFT_REAL_AXIS': 'GLOBAL',   # Which real axis to take for the ift? ('GLOBAL' as stored in global variable. That is useful if the rft was performed before, since there the real axis is defined), None -> the last axis is taken, value -> as stated in value
         # correlator
-        'CC_ABS_RETURN': True ,     # if true, the absolute value will be returned when correlating real images
-        
+        'CC_ABS_RETURN': False ,     # if true, the absolute value will be returned when correlating real images. RH: Changed to False!! An anticorrelation is not a correlation!!
+
         
         # SIM STUFF
         'SHOW_GRAT_SEARCH_INFO': True

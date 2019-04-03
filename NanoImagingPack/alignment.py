@@ -273,7 +273,7 @@ class alignment():
         if self.method == 'maximum':
 #            cc = correl(extract_c(im1, center = tuple(center), roi = tuple(edge_length)),extract_c(im2, center = tuple(center), roi = tuple(edge_length)))
             cc = correl(extract(im1, ROIsize=tuple(edge_length), centerpos=tuple(center)),
-                        extract(im2, ROIsize=tuple(edge_length), centerpos=tuple(center)))
+                        extract(im2, ROIsize=tuple(edge_length), centerpos=tuple(center)),matchsizes=True)
             if store_correl:
                 self.correls.append(cc)
             self.correl_max.append((max_coord(cc)[0],max_coord(cc)[1]))
@@ -285,11 +285,11 @@ class alignment():
             
             mr_old = self.max_rad
 
-            def __get_cc__(edge_length, center):
+            def __get_cc__(edge_length, center, matchSizes=False):
                 if (np.mod(edge_length[0],2) == 1): edge_length[0] = edge_length[0] + 1;
                 if (np.mod(edge_length[1],2) == 1): edge_length[1] = edge_length[1] + 1;
 #                cc = correl(extract_c(im1, center = tuple(center), roi = tuple(edge_length)),extract_c(im2, center = tuple(center), roi = tuple(edge_length)));
-                cc = correl(extract(im1, ROIsize = tuple(edge_length), centerpos = tuple(center)), extract(im2, ROIsize = tuple(edge_length), centerpos = tuple(center)))
+                cc = correl(extract(im1, ROIsize = tuple(edge_length), centerpos = tuple(center)), extract(im2, ROIsize = tuple(edge_length), centerpos = tuple(center),matchSizes=matchSizes))
                 #mc = max_coord(cc[0]);
                 mc = max_coord(cc)
                 self.max_rad = min([self.max_rad, abs(edge_length[0]-mc[0]), mc[0], mc[1], abs(edge_length[1]-mc[1]) ])
@@ -301,7 +301,7 @@ class alignment():
                 self.max_rad = mr_old
                 edge_length[0] += 10
                 edge_length[1] += 10
-                mc, cc, self.max_rad, edge_length = __get_cc__(edge_length, self.max_rad, center)
+                mc, cc, self.max_rad, edge_length = __get_cc__(edge_length, self.max_rad, center, matchSizes=True) # Rh for compatibility
             if store_correl:
                 self.correls.append(cc)
             centr_coord = centroid((cc-np.min(cc))*create_circle_mask(mysize =edge_length,maskpos = mc ,radius=self.max_rad, zero = 'image'))
@@ -309,7 +309,7 @@ class alignment():
     
         elif self.method == 'fit_gauss':
             cc = correl(extract(im1, ROIsize=tuple(edge_length), centerpos=tuple(center)),
-                        extract(im2, ROIsize=tuple(edge_length), centerpos=tuple(center)))
+                        extract(im2, ROIsize=tuple(edge_length), centerpos=tuple(center)), matchsizes=True)
 #            cc = correl(extract_c(im1, center = tuple(center), roi = tuple(edge_length)),extract_c(im2, center = tuple(center), roi = tuple(edge_length)))
             if store_correl:
                 self.correls.append(cc)

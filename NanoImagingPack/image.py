@@ -584,11 +584,11 @@ def FRC(im1, im2, pixel_size=62, num_rings=10, correct_shift=True):
         '''
 
         if correct_shift == True:
-            corr = np.abs(correl(im1, im2))
+            corr = correl(im1, im2, matchsizes=True) # RH: deleted np.abs. Why??? Anticorrel is not correl
             argmax_corr = util.max_coord(corr)
             print(argmax_corr)
             im2 = shift_center(im2, -im2.shape[0] // 2 + argmax_corr[0], -im2.shape[1] // 2 + argmax_corr[1])
-            print(util.max_coord(np.abs(correl(im1, im2))))
+            print(util.max_coord(correl(im1, im2, matchsizes=True))) # Rh see above
 
         im1 = ft(im1, shift_after=True, shift_before=False, ret='complex', axes=(0, 1))
         im2 = ft(im2, shift_after=True, shift_before=False, ret='complex', axes=(0, 1))
@@ -929,7 +929,7 @@ def shift_center(M, x, y):
     return util.__cast__(New, M)
 
 
-def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, norm2nd=False):
+def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, norm2nd=False, matchSizes=False):
     """
         Correlator for images
 
@@ -942,13 +942,13 @@ def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, n
          If inputs are real than it tries to take the rfft
 
     """
-    old_arr = im1
     if np.ndim(im1) == np.ndim(im2):
         old_arr = im1
-        for axis in range(np.ndim(im1)):
-            if im1.shape[axis] != im2.shape[axis]:
-                im1, im2 = match_size(im1, im2, axis, padmode='constant', odd=False)
-                print('Matching sizes at axis ' + str(axis))
+        if matchSizes:
+            for axis in range(np.ndim(im1)):
+                if (im1.shape[axis] != im2.shape[axis]):  # RH. I changed this. Broadcasting is a useful feature and error checking too!
+                    im1, im2 = match_size(im1, im2, axis, padmode='constant', odd=False)
+                    print('Matching sizes at axis ' + str(axis))
 
         # create axes list
         if axes is None:
@@ -962,11 +962,11 @@ def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, n
             pass;
 
         if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
-            FT1 = ft(im1, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
+            FT1 = ft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
             FT2 = ft(im2, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
         else:
 
-            FT1 = rft(im1, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
+            FT1 = rft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
             FT2 = rft(im2, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
 
         if norm2nd == True:
@@ -986,18 +986,18 @@ def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, n
             raise ValueError('Wrong mode')
             return im1
         if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
-            return util.__cast__(ift(cor, shift_after=True, shift_before=False, norm=None, ret='complex', axes=axes), old_arr)
+            return util.__cast__(ift(cor, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes), old_arr)
         else:
             if __DEFAULTS__['CC_ABS_RETURN']:
-                return util.__cast__(irft(cor, s=old_arr.shape, shift_after=True, shift_before=False, norm=None, ret='abs', axes=axes), old_arr)
+                return util.__cast__(irft(cor, s=old_arr.shape, shift_after=False, shift_before=False, norm=None, ret='abs', axes=axes), old_arr)
             else:
-                return util.__cast__(irft(cor, s=old_arr.shape, shift_after=True, shift_before=False, norm=None, axes=axes), old_arr)
+                return util.__cast__(irft(cor, s=old_arr.shape, shift_after=False, shift_before=False, norm=None, axes=axes), old_arr)
     else:
         raise ValueError('Images have different dimensions')
         return im1
 
 
-def correl(im1, im2, axes=None, phase_only=False):
+def correl(im1, im2, axes=None, phase_only=False, matchSizes=False):
     """
         Correlator for images
 
@@ -1006,11 +1006,12 @@ def correl(im1, im2, axes=None, phase_only=False):
          full_fft: apply full fft? or is real enough
          axes:   along which axes
          phase only: Phase correlation
+         matchSizes: if True, the sizes will be atomatically expanded to match the larger one
     """
-    return __correllator__(im1, im2, axes=axes, mode='correlation', phase_only=phase_only)
+    return __correllator__(im1, im2, axes=axes, mode='correlation', phase_only=phase_only, matchSizes=matchSizes)
 
 
-def convolve(im1, im2, full_fft=False, axes=None, phase_only=False, norm2nd=False):
+def convolve(im1, im2, full_fft=False, axes=None, phase_only=False, norm2nd=False, matchSizes=False):
     """
         Convolve two images for images
 
@@ -1020,8 +1021,9 @@ def convolve(im1, im2, full_fft=False, axes=None, phase_only=False, norm2nd=Fals
          axes:   along which axes
          phase only: Phase correlation (default: False)
          norm2nd : normalizes the second argument to one (keeps the mean of the first argument after convolution), (default: False)
+         matchSizes: if True, the sizes will be atomatically expanded to match the larger one
     """
-    return __correllator__(im1, im2, axes=axes, mode='convolution', phase_only=phase_only, norm2nd=norm2nd)
+    return __correllator__(im1, im2, axes=axes, mode='convolution', phase_only=phase_only, norm2nd=norm2nd, matchSizes=matchSizes)
 
 
 def rot_2D_im(M, angle):

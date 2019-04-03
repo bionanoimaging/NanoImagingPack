@@ -81,13 +81,18 @@ def gauss2D(amplitude=1, center_x=0, center_y=0, sigma_x=1, sigma_y=1, rotation=
         - (a * ((x - center_x) ** 2) + 2 * b * (x - center_x) * (y - center_y) + c * ((y - center_y) ** 2)))
 
 
-def gaussian(myshape, sigma):
+def gaussian(myshape, sigma, placement='center'):
     """
         n-dimensional gaussian function
     """
     assert isinstance(sigma, object)
-    sigma= np.array(util.repToList(sigma, len(myshape)))
-    sigma[sigma<=0.0] = 1e-10
-    return np.exp(-coordinates.rr2(myshape, scale=tuple(1 / (np.sqrt(2) * np.array(sigma)))))
+    sigma = np.array(util.repToList(sigma, len(myshape)))
+    myNorm = 1.0
+    for d in range(len(sigma)):
+        if myshape[d]>1 and sigma[d] > 0.0:
+            myNorm *= 1.0/np.sqrt(2*np.pi*sigma[d]**2)
+
+    sigma[sigma <= 0.0] = 1e-10
+    return myNorm * np.exp(- coordinates.rr2(myshape, scale=tuple(1 / (np.sqrt(2) * np.array(sigma))), placement=placement))
 
 

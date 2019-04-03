@@ -822,7 +822,7 @@ def __cast__(arr, orig_arr=None):
             return (arr)
     else:
         raise ValueError(
-            'ARRAY_RETURN_TYPE msut be "asInput", "image", "IMAGE", or "ndarray". Set it correctly in __DEFAULTS__')
+            'ARRAY_RETURN_TYPE must be "asInput", "image", "IMAGE", or "ndarray". Set it correctly in __DEFAULTS__')
 #
 
 

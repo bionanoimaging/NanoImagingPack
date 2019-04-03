@@ -70,7 +70,10 @@ def xx(mysize=(256, 256), placement='center', freq=None):
         negative : goes from negative size_x to 0
         positvie : goes from 0 size_x to positive
     """
-    return (ramp(mysize, -1, placement, freq))
+    myplacement=placement
+    if (type(placement) is list) or (type(placement) is np.array):
+        myplacement = placement[-1]
+    return (ramp(mysize, -1, myplacement, freq))
 
 
 def yy(mysize=(256, 256), placement='center', freq=None):
@@ -84,7 +87,10 @@ def yy(mysize=(256, 256), placement='center', freq=None):
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     """
-    return (ramp(mysize, -2, placement, freq))
+    myplacement=placement
+    if (type(placement) is list) or (type(placement) is np.array):
+        myplacement = placement[-2]
+    return (ramp(mysize, -2, myplacement, freq))
 
 
 def zz(mysize=(256, 256), placement='center', freq=None):
@@ -98,7 +104,10 @@ def zz(mysize=(256, 256), placement='center', freq=None):
         negative : goes from negative size_y to 0
         positvie : goes from 0 size_y to positive
     """
-    return (ramp(mysize, -3, placement))
+    myplacement=placement
+    if (type(placement) is list) or (type(placement) is np.array):
+        myplacement = placement[-3]
+    return (ramp(mysize, -3, myplacement))
 
 
 def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None):
@@ -128,9 +137,14 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
         scale = list(scale)  # RH 3.2.19
     else:
         raise TypeError('rr2: Wrong data type for scale -> must be Numbers, list, tuple or none')
-    res = ((ramp(mysize, 0, placement, freq) - offset[0]) * scale[0]) ** 2
+    myplacement=placement
+    if (type(placement) is list) or (type(placement) is np.array):
+        myplacement=placement[0]
+    res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
     for d in range(1, len(mysize)):
-        res += ((ramp(mysize, d, placement, freq) - offset[d]) * scale[d]) ** 2
+        if (type(placement) is list) or (type(placement) is np.array):
+            myplacement = placement[d]
+        res += ((ramp(mysize, d, myplacement, freq) - offset[d]) * scale[d]) ** 2
     return res
 
 
@@ -145,7 +159,7 @@ def rr(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None
     return np.sqrt(rr2(mysize, placement, offset, scale, freq))
 
 
-def phiphi(mysize=(256, 256), angle_range=1):
+def phiphi(mysize=(256, 256), angle_range=1,placement='center'):
     """
     creates a ramp in phi direction
     standart size is 256 X 256
@@ -153,7 +167,12 @@ def phiphi(mysize=(256, 256), angle_range=1):
     """
     if isinstance(mysize, np.ndarray):
         mysize = mysize.shape
-    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2), ramp1D(mysize[-1], ramp_dim=-1))
+    myplacementX=placement
+    myplacementY=placement
+    if (type(placement) is list) or (type(placement) is np.array):
+        myplacementX = placement[-1]
+        myplacementY = placement[-2]
+    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2,placement=myplacementY), ramp1D(mysize[-1], ramp_dim=-1,placement=myplacementX))
     if angle_range == 2:
         phi = np.flipud(np.fliplr(np.mod(phi + 3 * np.pi, 2 * np.pi)))
     return (phi)
@@ -423,6 +442,7 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
                 raise ValueError(
                     'ramp: unknown placement value. allowed are negative, positive, corner, and center or an offset value as an np.number')
         except AttributeError:
+            print(placement)
             raise ValueError(
                 'ramp: unknown placement value. allowed are negative, positive, placement, and center or an offset value as an np.number')
     if freq == "ftfreq":
