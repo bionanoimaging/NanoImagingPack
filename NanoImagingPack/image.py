@@ -34,7 +34,7 @@ from .config import DBG_MSG, __DEFAULTS__
 from .noise import poisson
 from . import coordinates
 from .view import graph, view
-from .view5d import v5 # for debugging
+from .view5d import v5, JNIUS_RUNNING # for debugging
 from . import util
 import warnings
 

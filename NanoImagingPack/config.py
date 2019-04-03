@@ -92,6 +92,14 @@ PSF_PARAMS.aberration_zernikes = __zernikes__
 PSF_PARAMS.aperture_transmission = None
 PSF_PARAMS.foc_field_method = 'theoretical'
 
+def setDefault(name, value):
+    __DEFAULTS__[name]=value
+
+
+def getDefault(name):
+    return __DEFAULTS__[name]
+
+
 __DEFAULTS__ ={
         # General default settings
         'CUDA' : False,                    # use cuda for computations -> Has to be implemented

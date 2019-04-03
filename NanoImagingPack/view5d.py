@@ -6,6 +6,7 @@ Created on Fri Aug 10 15:45:37 2018
 """
 from pkg_resources import resource_filename
 from . import util
+from . import config
 
 global JNIUS_RUNNING
 if ~('JNIUS_RUNNING' in globals()):
@@ -16,10 +17,11 @@ if (JNIUS_RUNNING==0):
     try:
         import jnius_config
         jnius_config.add_classpath(fn)
+        JNIUS_RUNNING = 1
 #        jnius_config.add_classpath('C:/Users/pi96doc/Documents/Programming/PythonScripts/view5d.jar')
     except:
-        print("Problem setting classpath. Continuing...")    
-    JNIUS_RUNNING=1
+        print("Problem setting classpath. Switching to conventional viewer by setting __DEFAULTS__['IMG_VIEWER'] = 'NIP_VIEW' ")
+        config.setDefault('IMG_VIEWER', 'NIP_VIEW')
 
 # jnius_config.add_options('-Xrs', '-Xmx4096')
 # jnius_config.set_classpath()
