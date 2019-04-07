@@ -13,7 +13,7 @@ Also SIM stuff
 import numpy as np
 from .util import zernike, expanddim, midValAsg
 from .transformations import rft,irft,ft2d
-from .coordinates import rr, phiphi, px_freq_step, zz
+from .coordinates import rr, phiphi, px_freq_step, ramp1D
 from .config import PSF_PARAMS, __DEFAULTS__
 import numbers
 import warnings
@@ -65,16 +65,14 @@ def __setPol__(im, psf_params= PSF_PARAMS):
     return(tuple(pol))
 
 
-def setAberrationMap(im, psf_params= PSF_PARAMS):
+def aberrationMap(im, psf_params= PSF_PARAMS):
     """
-    create a aberration phase map (based on Zernike polynomials) or a transmission matrix (aperture) for PSF generation
+    create an aberration phase map (based on Zernike polynomials) or a transmission matrix (aperture) for PSF generation
 
     uses:
         PSF_PARAMS.aberration_strength = None;
         PSF_PARAMS.aberration_types = None;
         PSF_PARAMS.aperture_transmission = None;
-
-
 
     strength:           strength of the aberration as multiples of 2pi in the phase (polynomial reach from -1 to 1)
     aberration_types:   can be
@@ -101,23 +99,8 @@ def setAberrationMap(im, psf_params= PSF_PARAMS):
                     can be also lists or tuples -> Then everything will summed up
     transmission:   The transmission map
     """
-    zernike_para = {'piston': (0,0),
-                    'tiltY': (-1,1),
-                    'tiltX': (1,1),
-                    'astigm': (-2,2),
-                    'defoc': (0,2),
-                    'vastig': (2,2),
-                    'vtrefoil': (-3,3),
-                    'vcoma': (-1,3),
-                    'hcoma': (1,3),
-                    'obtrefoil': (3,3),
-                    'obquadfoil': (-4,4),
-                    'asti2nd': (-2,4),
-                    'spheric': (0,4),
-                    'vasti2nd': (2,4),
-                    'vquadfoil': (4,4),
-
-            }
+    zernike_para = {'piston': (0,0),'tiltY': (-1,1),'tiltX': (1,1),'astigm': (-2,2),'defoc': (0,2),'vastig': (2,2),'vtrefoil': (-3,3),'vcoma': (-1,3),
+                    'hcoma': (1,3),'obtrefoil': (3,3),'obquadfoil': (-4,4),'asti2nd': (-2,4),'spheric': (0,4),'vasti2nd': (2,4),'vquadfoil': (4,4)}
     aberration_map = image(np.ones(im.shape[-2:], dtype=np.complex128))
     strength = psf_params.aberration_strength
     aberration = psf_params.aberration_types
@@ -163,7 +146,7 @@ def setAberrationMap(im, psf_params= PSF_PARAMS):
                 m = ab[0]
                 n = ab[1]
                 aberration_map *= np.exp(1j*s*zernike(r,m,n)*np.pi)
-    return(aberration_map)
+    return aberration_map
 
 
 def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier'):
@@ -178,31 +161,129 @@ def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier'):
     :return:                Returns the phase propagation matrix (exp^i*delta_phi)
     """
 
-    if isinstance(im, image):
-        pxs = im.pixelsize
-        ft_pxs = im.px_freq_step()
-    else:
-        pxs = __DEFAULTS__['IMG_PIXELSIZES']
-        ft_pxs = px_freq_step(im, pxs)
-
+    pxs = im.pixelsize
     if (len(pxs)<3) and (len(im.shape)>2):
         axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
         warnings.warn('Only 2 Dimensional image given -> using default ('+str(axial_pxs)+')')
     else:
-        axial_pxs = pxs[0]
-    if len(im.shape)>2:
-        r = rr(im.shape[-2:], scale=ft_pxs[-2:]) * psf_params.wavelength / psf_params.NA
-        r = (r <= 1) * r
-        s = psf_params.NA/psf_params.n
+        axial_pxs = pxs[-3]
 
-        propagator = psf_params.n * np.pi * 2 / psf_params.wavelength * np.sqrt(1 - r ** 2 *s ** 2) * axial_pxs * zz(im)
+    if len(im.shape)>2:
+        cos_alpha, sin_alpha = cosSinAlpha(im,psf_params)
+        defocus = axial_pxs * ramp1D(im.shape[-3], -3) # a series of defocus factors
+        return defocuPhase(cos_alpha,defocus)
     else:
-        propagator = np.zeros(im.shape)
-    return(np.exp(-1j*propagator))
+        return 1.0
+
+def pupilRadius(im, psf_params = PSF_PARAMS):
+    """
+        returns a map of the radius to the center of the pupil with respect to the pupil aperture edgre as defined by lambda, N, NA and the image size.
+
+    :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
+    :param psf_params: a structure of point spread function parameters. See SimLens for details
+    :return: map of raltive distance from center to the edge of the pupil
+    """
+    NA = psf_params.NA
+    wl = psf_params.wavelength
+    if isinstance(im, image):
+        ft_pxs = im.px_freq_step()[-2:]
+    else: # RH: I think this should really throw an error. Default pixelsizes are NOT a good idea.
+        pxs = __DEFAULTS__['IMG_PIXELSIZES']
+        ft_pxs = px_freq_step(im, pxs)[-2:]
+    shape = im.shape[-2:]
+
+    return rr(shape, scale=ft_pxs) * wl / NA  # [:2]
+
+def pupilAperture(im, psf_params = PSF_PARAMS):
+    """
+    calulaltes a hard-edge pupil aperture by using pupilRadius<1.0
+    :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
+    :param psf_params: a structure of point spread function parameters. See SimLens for details
+    :return: boolean aperture
+    """
+    return pupilRadius(im,psf_params) < 1.0
+
+
+def jincAperture(im, psf_params = PSF_PARAMS):
+    """
+    calulaltes a soft-edge pupil aperture by Fourier-transforming the real-space jinc solution of the problem
+    :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
+    :param psf_params: a structure of point spread function parameters. See SimLens for details
+    :return: boolean aperture
+    """
+    shape=im.shape[-2:]
+    NA = psf_params.NA
+    wl = psf_params.wavelength
+    np.seterr(divide='ignore', invalid='ignore')
+    arg = rr(shape, scale=np.array(im.pixelsize) * 2 * np.pi * NA / wl)  # RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
+    ret = 2 * j1(arg) / arg  # that again creates the dip!
+    ret[shape[-2] // 2, shape[-1] // 2] = 1
+    ret = ret / np.sum(np.abs(ret))
+    plane = ft2d(ret)
+    np.seterr(divide='warn', invalid='warn')
+    return plane
+
+
+def cosSinAlpha(im, psf_params = PSF_PARAMS):
+    """
+    calculates the cos and sin of the angles of beams (in real space) in the pupil plane
+    :param im: image in Fourier space, defing the coordinates. This can be obtained by Fourier-transforming a real space image with a set pixelsize
+    :param psf_params: a structure of point spread function parameters. See SimLens for details
+    :return: a tuple of cos(alpha) and sin(alpha) images in the pupil plane
+    """
+    NA = psf_params.NA
+    n = psf_params.n
+    s = NA / n
+    r = pupilRadius(im, psf_params)
+    r[r*s>1.0] = 1.0
+    sin_alpha = s*r  # angle map sin
+    cos_alpha = np.sqrt(1-(sin_alpha)**2)  # angle map cos
+    return cos_alpha, sin_alpha
+
+def defocuPhase(cos_alpha, defocus=None, psf_params = PSF_PARAMS):
+    """
+    caculates the complex-valued defocus phase pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
+
+    :param defocus: real-space defocus value. if None is suzpplied, psf_params.off_focal_distance is used instead
+    :param cos_alpha: a map of cos(alpha) values in the pupil plane. Use "cosSinAlpha(im,psf_param)" to optain such a map
+    :param psf_params: a structure of point spread function parameters. See SimLens for details
+    :return: a complex-valued map of phases for the stated defocus
+    """
+    if defocus is None:
+        defocus = psf_params.off_focal_distance
+    return np.exp(-2j * np.pi * psf_params.n / psf_params.wavelength * cos_alpha * defocus)
+
+
+def aplanaticFactor(cos_alpha, aplanar = 'emission'):
+    """
+    calculated the aplanatic factor according to the argument aplanar
+
+    :param cos_alpha: A 2D image of cos(alpha). This is obtained by cosSinAlpha(image)
+    :param aplanar:
+        "emission": widefield emission in terms of irradiance (fluorpophore emission with random orientation)
+        "excitation": laser scanning excitation in terms of irradiance (fluorophore excitation with random orientation)
+        "emission2": widefield emission in terms of intensity (as emitted by a lambertian emitter oriented in XY)
+        "excitation2": laser scanning excitation in terms of intensity (flux through a unit XY areaa at the object)
+    :return:
+    """
+    # Apply aplanatic factor:
+    if aplanar is None:
+        return 1.0
+    elif aplanar == 'excitation':
+        return np.sqrt(cos_alpha)
+    elif aplanar == 'emission':
+        return 1.0/np.sqrt(cos_alpha)
+    elif aplanar == 'excitation2':
+        return cos_alpha
+    elif aplanar == 'emission2':
+        return 1.0 / cos_alpha
+    else:
+        raise ValueError('Wrong aplanatic factor in PSF_PARAM structure:  "excitation", "emission","excitation2","emission2" or None, 2 means squared aplanatic factor for flux measurement')
+
 
 def simLens(im, psf_params = PSF_PARAMS):
     """
-    Compute the focal plane field (fourier transform of the electrical field in the plane (at position PSF_PARAMS.off_focal_dist)
+    Compute the 2D pupil-plane field (fourier transform of the electrical field in the plane (at position PSF_PARAMS.off_focal_dist))
 
     The following influences will be included:
         1.)     Mode of plane field generation (from sinc or circle)
@@ -210,81 +291,51 @@ def simLens(im, psf_params = PSF_PARAMS):
         3.)     Potential aberrations (set by set_aberration_map)
         4.)     Vectorial effects
 
-    returns image of shape (3,y_im,x_im) where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
+    returns image of shape [3,y_im,x_im] where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
     """
 
-    # setting up parameters:
-    NA = psf_params.NA
-    wl = psf_params.wavelength
-    n = psf_params.n
-    if isinstance(im, image):
-        pxs = im.pixelsize[-2:]
-        ft_pxs = im.px_freq_step()[-2:]
-    else:
-        pxs = __DEFAULTS__['IMG_PIXELSIZES']
-        ft_pxs = px_freq_step(im, pxs)[-2:]
+    cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
     shape = im.shape[-2:]
 
-    r = rr(shape, scale=ft_pxs) * wl / NA  # [:2]
-    aperture = (r<=1)*1.0           # aperture transmission
-    r = (r<=1)*r  # normalized aperture coordinate
-    s = NA / n
-    cos_alpha = np.sqrt(1-(s*r)**2)  # angle map cos
-    sin_alpha = s*r  # angle map sin
-
     # Make base field
-    if psf_params.foc_field_method == 'theoretical':
-        np.seterr(divide='ignore', invalid='ignore')
-        arg = rr(shape,scale=np.array(pxs)*2*np.pi*NA/wl)#  RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
-        ret = 2*j1(arg)/arg  # that again creates the dip!
-        ret[shape[-2]//2, shape[-1]//2] = 1
-        ret = ret / np.sum(np.abs(ret))
-        plane = ft2d(ret)
-        np.seterr(divide='warn', invalid='warn')
-    elif psf_params.foc_field_method == 'circle':
-        plane = aperture*1j
+    if psf_params.aperture_method == 'jinc':
+        plane = jincAperture(im,psf_params)
+    elif psf_params.aperture_method == 'hard':
+        aperture = pupilAperture(im, psf_params)
+        plane = aperture+0.0j
     else:
-        raise ValueError('Wrong focal_field_method in PSF_PARAM structure')
+        raise ValueError('Wrong aperture_method: ' + psf_params.aperture_method + ' in PSF_PARAM structure: Choices are: jinc and hard')
 
     # Apply aplanatic factor:
-    if psf_params.aplanar is None:
-        pass;
-    elif psf_params.aplanar == 'excitation':
-        plane *= np.sqrt(cos_alpha)
-    elif psf_params.aplanar == 'emission':
-        plane /= np.sqrt(cos_alpha)
-    elif psf_params.aplanar == 'excitation2':
-        plane *= cos_alpha
-    elif psf_params.aplanar == 'emission2':
-        plane /= cos_alpha
-    else:
-        raise ValueError('Wrong aplanatic factor in PSF_PARAM structure:  "excitation", "emission","excitation2","emission2" or None, 2 means squared aplanatic factor for flux measurement')
+    if not (psf_params.aplanar is None):
+        plane *= aplanaticFactor(cos_alpha, psf_params.aplanar)
 
     # Apply aberrations and apertures
-    plane *= setAberrationMap(im, psf_params)
+    if not (psf_params.aberration_types is None):
+        plane *= aberrationMap(im, psf_params)
 
     # Apply z-offset:
-    plane *= np.exp(-2j*n*np.pi/wl * cos_alpha * psf_params.off_focal_distance)
+    plane *= defocuPhase(cos_alpha)  # psf_params.off_focal_distance is used as default
 
     # expand to 4 Dims, the 4th will contain the electric fields
     plane = plane.cat([plane,plane],-4)
     plane.dim_description = {'d3': ['Ex','Ey','Ez']}
 
-    #Apply vectorized distortions
+    # Apply vectorized distortions
     polx, poly = __setPol__(im, psf_params= psf_params)
     if psf_params.vectorized:
         theta = phiphi(shape)
-        E_radial     = np.cos(theta)*polx-np.sin(theta)*poly
-        E_tangential = np.sin(theta)*polx+np.cos(theta)*poly
-        E_z = E_radial*sin_alpha
-        E_radial *=cos_alpha
-        plane[0]*= np.cos(theta)*E_radial+np.sin(theta)*E_tangential
-        plane[1]*=-np.sin(theta)*E_radial+np.cos(theta)*E_tangential
-        plane[2]*= E_z
+        E_radial     = np.cos(theta) * polx-np.sin(theta) * poly
+        E_tangential = np.sin(theta) * polx+np.cos(theta) * poly
+        E_z = E_radial * sin_alpha
+        E_radial *= cos_alpha
+        plane[0] *=  np.cos(theta)*E_radial+np.sin(theta)*E_tangential
+        plane[1] *= -np.sin(theta)*E_radial+np.cos(theta)*E_tangential
+        plane[2] *= E_z
     else:
-        plane[0]*=polx
-        plane[1]*=poly
-        plane[2]*=0
+        plane[0] *= polx
+        plane[1] *= poly
+        plane[2] *= 0
     return plane # *aperture  # hard edge aperture at ?
 
 def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
@@ -301,7 +352,7 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
 
     ret = simLens(im, psf_params)
     if dimension is None:
-        ret= ret*__make_propagator__(im, psf_params = PSF_PARAMS)  # field (kx,ky) propagated along the z - component
+        ret= ret * __make_propagator__(im, psf_params = PSF_PARAMS)  # field (kx,ky) propagated along the z - component
     if mode == 'ctf':  # Field transfer function is ft along z axis
         if ret.shape[-3] >1:
             ret = ret.ft(axes = -3)
@@ -507,6 +558,8 @@ def ctf(im, psf_params = PSF_PARAMS):
             para.pol = [polx, poly]
     """
     return(__make_transfer__(im, psf_params = psf_params, mode = 'ctf', dimension = None))
+
+
 def apsf(im, psf_params = PSF_PARAMS):
     """
         A set of functions to compute a transfer function of an objective
@@ -598,6 +651,8 @@ def apsf(im, psf_params = PSF_PARAMS):
             para.pol = [polx, poly]
     """
     return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = None))
+
+
 def psf(im, psf_params = PSF_PARAMS):
     """
         A set of functions to compute a transfer function of an objective
@@ -689,6 +744,8 @@ def psf(im, psf_params = PSF_PARAMS):
             para.pol = [polx, poly]
     """
     return(__make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = None))
+
+
 def otf2d(im, psf_params = PSF_PARAMS):
     """
         A set of functions to compute a transfer function of an objective
@@ -873,6 +930,8 @@ def ctf2d(im, psf_params = PSF_PARAMS):
             para.pol = [polx, poly]
     """
     return(__make_transfer__(im, psf_params = psf_params, mode = 'ctf', dimension = 2).squeeze())
+
+
 def apsf2d(im, psf_params = PSF_PARAMS):
     """
         A set of functions to compute a transfer function of an objective
@@ -964,6 +1023,8 @@ def apsf2d(im, psf_params = PSF_PARAMS):
             para.pol = [polx, poly]
     """
     return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = 2).squeeze())
+
+
 def psf2d(im, psf_params = PSF_PARAMS):
     """
         A set of functions to compute a transfer function of an objective

@@ -6,9 +6,6 @@ Created on Wed Aug 23 19:56:06 2017
 """
 
 import numpy as np
-from skimage.feature import corner_harris, corner_peaks
-from skimage.measure import ransac
-from skimage.transform import warp, AffineTransform
 from .fitting import fit_gauss2D
 
 from .util import get_type, max_coord
@@ -53,6 +50,9 @@ class alignment():
     """
 
     def __init__(self, im1, im2,  para_file= None, new_alignment = 'no', roi = (50,50), method = 'centroid', store_correl = False, align_save_path=None, Name_list = None, super_sampling = 1, roi_list = None, remove_bckgrd = False, max_err = 0.5):
+        from skimage.feature import corner_harris, corner_peaks
+        from skimage.measure import ransac
+        from skimage.transform import warp, AffineTransform
 
         def __chk_load__(M):
             if get_type(M)[0] == 'array':

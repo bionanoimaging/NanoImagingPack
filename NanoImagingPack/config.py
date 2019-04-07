@@ -69,7 +69,7 @@ PSF_PARAMS.explanation+=' aberration_strength   For aberration -> refere to nip.
 PSF_PARAMS.explanation+=' aberration_types      For aberration -> refere to nip.set_aberration_map help \n'
 PSF_PARAMS.explanation+=' aberration_zernikes   For aberration types -> choose Zernike polynomial from a list \n'
 PSF_PARAMS.explanation+=' aperture_transmission For defining an aperture -> refere to nip.set_aberration_map help \n'
-PSF_PARAMS.explanation+=' foc_field_method      How to compute the base focal field "theoretical" from ft(jinc), "circle" from circle in fourier space \n'
+PSF_PARAMS.explanation+=' aperture_method       How to compute the base focal field "jinc" from ft(jinc), "hard" from circle in Fourier space \n'
 
 # Set the defaults to a standard widefield emission PSF at NA 1.4
 PSF_PARAMS.NA = 1.4
@@ -90,7 +90,7 @@ PSF_PARAMS.aberration_strength = None
 PSF_PARAMS.aberration_types = None
 PSF_PARAMS.aberration_zernikes = __zernikes__
 PSF_PARAMS.aperture_transmission = None
-PSF_PARAMS.foc_field_method = 'theoretical'
+PSF_PARAMS.aperture_method = 'jinc'
 
 def setDefault(name, value):
     __DEFAULTS__[name]=value
