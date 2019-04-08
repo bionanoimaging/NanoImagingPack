@@ -135,13 +135,26 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
         v5ProcessKeys(out,'CGeGveGvEEv') # set first 3 colors to gray scale and remove from color overlay 
     if (multicol is None or multicol is False) and (sz[3] == 2):  # reset the view to single colors
         v5ProcessKeys(out,'CGeGvEv')
-    v5ProcessKeys(out,'12') # to trigger the display update
+    if not data.name is None:
+        if type(data.name) == str:
+            names = [data.name]
+        else:
+            names = data.name
+        e=0
+        for name in names:
+            if e < sz[3]: # has to be a legal element
+                out.NameElement(e, name)
+                e += 1
+    v5ProcessKeys(out, '12') # to trigger the display update
     out.UpdatePanels()
     out.repaint()
     jn.detach()
     global allviewers
     allviewers.append(out)
     return out
+
+def v5NameElement(out, enum, Name):
+    out.NameElement(enum.Name)
 
 def v5close(aviewer=None):
     global allviewers

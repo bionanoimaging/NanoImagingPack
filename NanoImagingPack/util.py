@@ -10,6 +10,7 @@ all kind of utils;
 """
 
 import numpy as np
+import inspect
 from scipy.special import factorial
 import numbers
 import time
@@ -840,3 +841,50 @@ def printItem(item,itemDir):
         else:
             return ('{0} = {1}'.format(item, myItem))+"\n" # for all the rest, use the default formatting (e.g. tensorflow tensors)
     return ""
+
+def caller_string():
+    """
+    get the string of this call. Can (should) be used inside a function.
+    :return:
+    """
+    frame = inspect.currentframe()
+#    if fktname==None:
+#        fktname="caller_argname"
+#    else:
+    frame=frame.f_back
+    try:
+        context = inspect.getframeinfo(frame.f_back).code_context
+        caller_lines = ''.join([line.strip() for line in context])
+#        caller_lines = caller_lines[caller_lines.find(fktname):]
+#        regexp="\s*\((.+?)\)$"
+#        m = re.search(r''+regexp, caller_lines)
+#        if m:
+#            caller_lines = m.group(1)
+        return caller_lines # , arg
+    finally:
+        del frame
+
+def caller_args():
+    frame = inspect.currentframe()
+    #    if fktname==None:
+    #        fktname="caller_argname"
+    #    else:
+    frame = frame.f_back
+    try:
+        context = inspect.getframeinfo(frame.f_back).code_context
+        caller_lines = ''.join([line.strip() for line in context])
+        #        caller_lines = caller_lines[caller_lines.find(fktname):]
+        #        regexp="\s*\((.+?)\)$"
+        #        m = re.search(r''+regexp, caller_lines)
+        #        if m:
+        #            caller_lines = m.group(1)
+        myargs = caller_lines[caller_lines.find('(') +1 :-1]
+        if myargs[0]=='(':
+            myargs=myargs[1:]
+        if myargs[-1] == ')':
+            myargs = myargs[:-1]
+        myargs = myargs.split(',')
+        myargs = [arg.strip() for arg in myargs]
+        return myargs
+    finally:
+        del frame

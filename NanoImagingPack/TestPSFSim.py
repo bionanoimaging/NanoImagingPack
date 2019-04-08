@@ -19,6 +19,10 @@ h = nip.psf(obj3d, psfparams)
 
 ObjTime=obj * np.exp(-nip.ramp1D(20, -4)/10)
 
-v=v5(ObjTime)
+# v=v5(ObjTime)
 
-# v.ElementName(1,'HALLLOO')
+# v.NameElement(1,'HALLLOO')
+q = nip.catE(obj3d, - obj3d)
+
+v5(q)
+v5(obj3d)

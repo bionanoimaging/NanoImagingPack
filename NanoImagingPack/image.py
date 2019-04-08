@@ -746,12 +746,16 @@ def toClipboard(im, separator='\t', decimal_delimiter='.', transpose=False):
     clipboard.CloseClipboard()
 
 
-def catE(imlist):
+def catE(*argv):
     """
         A shorthand for concatenating along the 4th (element dimension).
         Calls cat(imlist,-4)
     """
-    return cat(imlist, -4)
+    if len(argv)==1:
+        argv=argv[0]
+    res = cat(argv, -4)
+    res.name = util.caller_args()
+    return res
 
 
 def cat(imlist, axis=None, destdims=None):

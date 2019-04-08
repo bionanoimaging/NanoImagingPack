@@ -258,7 +258,7 @@ def __fill_real_return__(im, ax, real_return, origi_shape):
                 half = half[::-1]  # Reverse the other axis since the real fft is point symmetric
                 half = np.roll(half, 1,0)  # for some reason one has to roll the axis, otherwise there will be one point wrong :(
                 half = half.swapaxes(a,-1)
-        return(np.concatenate((im,half), axis))
+        return np.concatenate((im,half), axis)
     else:
         return(im)
 
