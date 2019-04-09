@@ -11,7 +11,7 @@ Also SIM stuff
 """
 
 import numpy as np
-from .util import zernike, expanddim, midValAsg
+from .util import zernike, expanddim, midValAsg, zeros
 from .transformations import rft,irft,ft2d
 from .coordinates import rr, phiphi, px_freq_step, ramp1D
 from .config import PSF_PARAMS, __DEFAULTS__
@@ -73,6 +73,7 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
         PSF_PARAMS.aberration_strength = None;
         PSF_PARAMS.aberration_types = None;
         PSF_PARAMS.aperture_transmission = None;
+        returns the phase map (not the complex exponential!)
 
     strength:           strength of the aberration as multiples of 2pi in the phase (polynomial reach from -1 to 1)
     aberration_types:   can be
@@ -101,23 +102,23 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
     """
     zernike_para = {'piston': (0,0),'tiltY': (-1,1),'tiltX': (1,1),'astigm': (-2,2),'defoc': (0,2),'vastig': (2,2),'vtrefoil': (-3,3),'vcoma': (-1,3),
                     'hcoma': (1,3),'obtrefoil': (3,3),'obquadfoil': (-4,4),'asti2nd': (-2,4),'spheric': (0,4),'vasti2nd': (2,4),'vquadfoil': (4,4)}
-    aberration_map = image(np.ones(im.shape[-2:], dtype=np.complex128))
+    aberration_map = zeros(im.shape[-2:])  # phase in radiants
     strength = psf_params.aberration_strength
     aberration = psf_params.aberration_types
-    transmission = psf_params.aperture_transmission
-
-    if transmission is not None:
-        if isinstance(transmission, np.ndarray):
-            if transmission.shape == im.shape[-2:]:
-                if np.min(transmission)<0:
-                    warnings.warn('Transmission mask is negative at some values')
-                if np.max(transmission)>1:
-                    warnings.warn('Transmission mask is larger than one at some values')
-                aberration_map*= transmission
-            else:
-                raise ValueError('Wrong dimension of transmission matrix')
-        else:
-            raise ValueError('Wrong transmission -> must be 2D image or array of the same xy-dimension as the image')
+    # transmission = psf_params.aperture_transmission
+    #
+    # if transmission is not None:
+    #     if isinstance(transmission, np.ndarray):
+    #         if transmission.shape == im.shape[-2:]:
+    #             if np.min(transmission)<0:
+    #                 warnings.warn('Transmission mask is negative at some values')
+    #             if np.max(transmission)>1:
+    #                 warnings.warn('Transmission mask is larger than one at some values')
+    #             aberration_map*= transmission
+    #         else:
+    #             raise ValueError('Wrong dimension of transmission matrix')
+    #     else:
+    #         raise ValueError('Wrong transmission -> must be 2D image or array of the same xy-dimension as the image')
     if strength is not None and aberration is not None:
         if isinstance(im, image):
             pxs=im.px_freq_step()[-2:]
@@ -139,17 +140,17 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
             if type(ab) == str:
                 m = zernike_para[ab][0]
                 n = zernike_para[ab][1]
-                aberration_map *= np.exp(1j*s*zernike(r,m,n)*np.pi)
+                aberration_map += s*zernike(r,m,n)*np.pi
             elif isinstance(ab,np.ndarray):
-                aberration_map *= np.exp(1j*ab)
+                aberration_map += ab
             else:
                 m = ab[0]
                 n = ab[1]
-                aberration_map *= np.exp(1j*s*zernike(r,m,n)*np.pi)
+                aberration_map += s*zernike(r,m,n)*np.pi
     return aberration_map
 
 
-def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier'):
+def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier', doDampPupil=False):
     """
     Compute the field propagation matrix
 
@@ -171,7 +172,11 @@ def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier'):
     if len(im.shape)>2:
         cos_alpha, sin_alpha = cosSinAlpha(im,psf_params)
         defocus = axial_pxs * ramp1D(im.shape[-3], -3) # a series of defocus factors
-        return defocuPhase(cos_alpha,defocus)
+        PhaseMap = defocusPhase(cos_alpha, defocus, psf_params)
+        if doDampPupil:
+            return dampPupilForRealSpaceCut(PhaseMap) * np.exp(1j * PhaseMap)
+        else:
+            return np.exp(1j * PhaseMap)
     else:
         return 1.0
 
@@ -239,23 +244,35 @@ def cosSinAlpha(im, psf_params = PSF_PARAMS):
     n = psf_params.n
     s = NA / n
     r = pupilRadius(im, psf_params)
-    r[r*s>1.0] = 1.0
     sin_alpha = s*r  # angle map sin
+    sin_alpha[sin_alpha>=1.0] = (1.0 - 1e-9)
     cos_alpha = np.sqrt(1-(sin_alpha)**2)  # angle map cos
     return cos_alpha, sin_alpha
 
-def defocuPhase(cos_alpha, defocus=None, psf_params = PSF_PARAMS):
+def dampPupilForRealSpaceCut(PhaseMap):
+    """
+    considers the limited field-of-view effect in real space by dimming the higher frequencies in the pupil plane.
+    :return: an amplitude strength modification factor for the pupil and given defocus value(s)
+    """
+    # figure out phi: the relative phase change between neighboring pixels, estimated from cos_alpha
+    dphiX = (np.roll(PhaseMap,1,axis=-1) - np.roll(PhaseMap,-1,axis=-1))/2.0
+    dphiY = (np.roll(PhaseMap,1,axis=-2) - np.roll(PhaseMap,-1,axis=-2))/2.0
+    damp = np.sinc(dphiX/2.0/np.pi)*np.sinc(dphiY/2.0/np.pi) # sin(pi x)/(pi x)
+    return damp
+
+def defocusPhase(cos_alpha, defocus=None, psf_params = PSF_PARAMS):
     """
     calculates the complex-valued defocus phase propagation pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
 
-    :param defocus: real-space defocus value. if None is suzpplied, psf_params.off_focal_distance is used instead
     :param cos_alpha: a map of cos(alpha) values in the pupil plane. Use "cosSinAlpha(im,psf_param)" to optain such a map
+    :param defocus: real-space defocus value. if None is supplied, psf_params.off_focal_distance is used instead
     :param psf_params: a structure of point spread function parameters. See SimLens for details
-    :return: a complex-valued map of phases for the stated defocus
+    :return: a phase map (in rad) of phases for the stated defocus
     """
     if defocus is None:
         defocus = psf_params.off_focal_distance
-    return np.exp(-2j * np.pi * psf_params.n / psf_params.wavelength * cos_alpha * defocus)
+    defocusPhase = psf_params.n / psf_params.wavelength * cos_alpha * defocus
+    return 2.0 * np.pi * defocusPhase
 
 
 def aplanaticFactor(cos_alpha, aplanar = 'emission'):
@@ -271,16 +288,21 @@ def aplanaticFactor(cos_alpha, aplanar = 'emission'):
     :return:
     """
     # Apply aplanatic factor:
+    CEps = 1e-4
     if aplanar is None:
         return 1.0
     elif aplanar == 'excitation':
         return np.sqrt(cos_alpha)
     elif aplanar == 'emission':
-        return 1.0/np.sqrt(cos_alpha)
+        apl = 1.0/np.sqrt(cos_alpha)
+        apl[cos_alpha< CEps] = 1.0
+        return apl
     elif aplanar == 'excitation2':
         return cos_alpha
     elif aplanar == 'emission2':
-        return 1.0 / cos_alpha
+        apl = 1.0 / cos_alpha
+        apl[cos_alpha < CEps] = 1.0
+        return apl
     else:
         raise ValueError('Wrong aplanatic factor in PSF_PARAM structure:  "excitation", "emission","excitation2","emission2" or None, 2 means squared aplanatic factor for flux measurement')
 
@@ -315,15 +337,17 @@ def simLens(im, psf_params = PSF_PARAMS):
         plane *= aplanaticFactor(cos_alpha, psf_params.aplanar)
 
     # Apply aberrations and apertures
+    PhaseMap = 0;
     if not (psf_params.aberration_types is None):
-        plane *= aberrationMap(im, psf_params)
+        PhaseMap = PhaseMap + aberrationMap(im, psf_params)
 
     # Apply z-offset:
-    plane *= defocuPhase(cos_alpha)  # psf_params.off_focal_distance is used as default
+    PhaseMap += defocusPhase(cos_alpha, psf_params=psf_params)
+    plane *= np.exp(1j*PhaseMap)  # psf_params.off_focal_distance is used as default
 
     # expand to 4 Dims, the 4th will contain the electric fields
     plane = plane.cat([plane, plane], -4)
-    plane.dim_description = {'d3': ['Ex','Ey','Ez']}
+    plane.dim_description = {'d3': ['Ex', 'Ey', 'Ez']}
 
     # Apply vectorized distortions
     polx, poly = __setPol__(im, psf_params= psf_params)
@@ -356,7 +380,7 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
 
     ret = simLens(im, psf_params)
     if dimension is None:
-        ret= ret * __make_propagator__(im, psf_params = PSF_PARAMS)  # field (kx,ky) propagated along the z - component
+        ret = ret * __make_propagator__(im, psf_params = psf_params, doDampPupil=True)  # field (kx,ky) propagated along the z - component
     if mode == 'ctf':  # Field transfer function is ft along z axis
         if ret.shape[-3] >1:
             ret = ret.ft(axes = -3)
@@ -365,13 +389,13 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
     elif mode == 'psf':                  # psf: like apsf and then abs square of field components
         ret = ret.ift2d()
         ret *= ret.conjugate()
-        ret = ret.sum(axis=0)
+        ret = ret.sum(axis=0)            # add all the electric field component intensities
         ret = np.real(ret)
         ret /= np.sum(ret)
     elif mode == 'otf':                  # otf: ft (over whole space) of psf
         ret = ret.ift2d()
         ret *= ret.conjugate()
-        ret = ret.sum(axis=0)
+        ret = ret.sum(axis=0)            # add all the electric field component intensities
         ret = np.real(ret)
         ret /= np.sum(ret)
         ret = ret.ft2d(norm=None)
