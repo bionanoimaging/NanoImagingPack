@@ -145,6 +145,22 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
             if e < sz[3]: # has to be a legal element
                 out.NameElement(e, name)
                 e += 1
+    else:   # no name was given. Try to recover the caller's name
+        name = util.caller_args()[0]
+        out.NameElement(0, name)
+
+    if not data.pixelsize is None:
+        pxs = util.expanddimvec(data.pixelsize,5,trailing=True)
+        Names = ['X','Y','Z','E','T']
+        if (not data.unit is None) and (type(data.unit) == list) and len(data.unit)>4:
+            Units = data.unit[0:5]
+        else:
+            Units = [data.unit,data.unit,data.unit,'ns','s']
+        SV = 1.0  # value scale
+        NameV = 'intensity'
+        UnitV = 'photons'
+        out.SetAxisScalesAndUnits(0, SV, pxs[0], pxs[1], pxs[2], pxs[3], pxs[4], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
+
     v5ProcessKeys(out, '12') # to trigger the display update
     out.UpdatePanels()
     out.repaint()

@@ -842,7 +842,7 @@ def printItem(item,itemDir):
             return ('{0} = {1}'.format(item, myItem))+"\n" # for all the rest, use the default formatting (e.g. tensorflow tensors)
     return ""
 
-def caller_string():
+def caller_string(backTrack=1):
     """
     get the string of this call. Can (should) be used inside a function.
     :return:
@@ -851,7 +851,8 @@ def caller_string():
 #    if fktname==None:
 #        fktname="caller_argname"
 #    else:
-    frame=frame.f_back
+    for n in range(backTrack):
+        frame=frame.f_back
     try:
         context = inspect.getframeinfo(frame.f_back).code_context
         caller_lines = ''.join([line.strip() for line in context])

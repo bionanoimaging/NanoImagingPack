@@ -122,9 +122,10 @@ def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, 
     """
     if np.ndim(im)<2:
         print('Too few dimensions')
-        return(im)
+        raise ValueError('Too few dimensions for ft2d')
+#        return im
     else:
-        return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm))
+        return ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm)
 
 
 def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
@@ -134,9 +135,10 @@ def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None,
     
     if np.ndim(im)<2:
         print('Too few dimensions')
-        return(im)
+        raise ValueError('Too few dimensions for ift2d')
+#        return(im)
     else:
-        return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm))
+        return ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm)
 
 
 def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
@@ -145,9 +147,10 @@ def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, 
     """
     if np.ndim(im)<3:
         print('Too few dimensions')
-        return(im)
+        raise ValueError('Too few dimensions for ft3d')
+#        return(im)
     else:
-        return(ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm))
+        return ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm)
 
 
 def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
@@ -157,9 +160,10 @@ def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None,
     
     if np.ndim(im)<3:
         print('Too few dimensions')
-        return(im)
+        raise ValueError('Too few dimensions for ift3d')
+#        return(im)
     else:
-        return(ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm))
+        return ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm)
 
 
 # now the rft abbreviations:
@@ -349,6 +353,7 @@ def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None,
 
     """
     #create axes list
+    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
 
     if shift_before == True:
@@ -358,7 +363,7 @@ def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None,
     im=np.fft.fftn(im, axes=axes, s=s, norm=norm)
     if shift_after == True:
         im=np.fft.fftshift(im, axes=axes)  # corner freq to mid freq
-    return image.image(__ret_val__(im, ret))
+    return image.image(__ret_val__(im, ret), pixelsize=pxs)
 
 def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm =  'ortho'):
     """
@@ -387,6 +392,7 @@ def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None
 
     """
 
+    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
 
     if shift_before == True:
@@ -396,7 +402,7 @@ def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None
     im=np.fft.ifftn(im, axes=axes, s=s, norm=norm)
     if shift_after == True:
         im=np.fft.fftshift(im, axes=axes)  # corner freq to mid freq
-    return image.image(__ret_val__(im, ret))
+    return image.image(__ret_val__(im, ret), pixelsize=pxs)
 
 
 def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
@@ -422,6 +428,7 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
 
     """
     # create axis, shift_ax and real_ax
+    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
@@ -433,7 +440,7 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
     im=np.fft.irfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultDataType)
     if shift_after == True:
         im=np.fft.fftshift(im, axes=axes)  # corner to mid
-    return image.image(__ret_val__(im, ret))
+    return image.image(__ret_val__(im, ret), pixelsize=pxs)
 
 
 def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
@@ -465,6 +472,7 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
 
     """
     #create axes list
+    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
@@ -481,9 +489,9 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
         if shift_after == True:
             shift_ax = [i for i in axes if i != real_axis]
             im=np.fft.fftshift(im, axes=shift_ax)  # corner freq to mid freq
-        return image.image(__ret_val__(im, ret))
+        return image.image(__ret_val__(im, ret), pixelsize=pxs)
 
-def resample(img,factors=[2.0, 2.0]):
+def resample(img, factors=[2.0, 2.0]):
     """
     resamples an image by an RFT (or FFT for complex data), extracting a ROI and performing an inverse RFT. The sum of values is kept constant.
 

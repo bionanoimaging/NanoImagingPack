@@ -23,7 +23,7 @@ import numbers
 import numpy as np
 from numpy.matlib import repmat
 from .FileUtils import list_files, get_sorted_file_list
-from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext, split
+from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext, split, basename
 from os import mkdir, listdir
 from scipy import misc
 from scipy.ndimage import rotate
@@ -207,6 +207,7 @@ def readim(path=None, which=None, pixelsize=None):
                 img.set_pixelsize(pixelsize)
             except OSError:
                 raise ValueError('No valid image file')
+        img.name = splitext(basename(path))[0]
         return img
     else:
         raise ValueError('No valid filename')
@@ -296,9 +297,9 @@ def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel=0, ret_old_i
     print(str(number) + ' images read!')
 
     if ret_old_img_dim:
-        return image(final_im), max_im_dim
+        return image(final_im, name=splitext(basename(path))[0]), max_im_dim
     else:
-        return image(final_im)
+        return image(final_im, name=splitext(basename(path))[0])
 
 
 def gaussf(img, kernelSigma):
@@ -1467,8 +1468,8 @@ class image(np.ndarray):
         else:
             obj.im_number = 0
 
-        if name is None:
-            name = 'Img Nr'+str(obj.im_number)
+        # if name is None:
+        #     name = 'Img Nr'+str(obj.im_number)
 
         obj.spectral_axes =[]
         obj.ax_shifted = []
@@ -1524,6 +1525,8 @@ class image(np.ndarray):
                     elif (len(mysize) == 2) and (mysize[0] < 5) and (mysize[1] < 5):
                         print("np.image"+str(self))
                     else:
+                        # if self.name is None:
+                        #     self.name = util.caller_string(3)  # use the name of the caller
                         self.v = v5(self)
                 elif __DEFAULTS__['IMG_VIEWER'] == 'INFO':
                     print('Image :'+self.name)
@@ -1910,8 +1913,7 @@ class image(np.ndarray):
             self.im_number = max_im_number
         else:
             self.im_number = 0
-        self.name = 'Img Nr'+str(max_im_number)
-
+        # self.name = None # 'Img Nr'+str(max_im_number)
 
 
 def shiftby(img, avec):

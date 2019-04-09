@@ -15,7 +15,7 @@ def unifysize(mysize):
 def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pxs=1.0):
     """
     creates a ramp in the given direction direction
-    standart size is 256 X 256
+    standard size is 256 X 256
     placement:
         center: 0 is at center
                 if x is even, it has one more value in the positve:
@@ -56,6 +56,7 @@ def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=Fa
     res = util.ones(mysize)
     res *= myramp
 
+    res.pixelsize = util.expanddimvec(pxs,res.ndim,trailing=True)
     return res
 
 
@@ -116,7 +117,7 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     standart size is 256 X 256
     placement is always "center"
     offset -> x/y offset in pixels (number, list or tuple). It signifies the offset in pixel coordinates
-    scale is tuple, list, none or number. It defines the pixelsize .
+    scale is tuple, list, none or number. It defines the pixelsize.
     """
     import numbers
     mysize = list(unifysize(mysize))
@@ -140,11 +141,12 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     myplacement=placement
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement=placement[0]
-    res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
+#     res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
+    res = ((ramp(mysize, 0, myplacement, freq, pxs=scale) - offset[0]) * scale[0]) ** 2
     for d in range(1, len(mysize)):
         if (type(placement) is list) or (type(placement) is np.array):
             myplacement = placement[d]
-        res += ((ramp(mysize, d, myplacement, freq) - offset[d]) * scale[d]) ** 2
+        res += ((ramp1D(mysize[d], d, myplacement, freq, pxs=scale[d]) - offset[d]) * scale[d]) ** 2
     return res
 
 
@@ -468,7 +470,8 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
     elif ramp_dim < -1:
         miniramp = util.expanddim(miniramp, -ramp_dim,
                                   trailing=True)  # expands to this dimension numbe by inserting prevailing axes. Also converts to
-    return image(miniramp)
+    pxs = util.expanddimvec(pxs, miniramp.ndim, trailing=True)
+    return image(miniramp, pixelsize=pxs)
 
 
 def px_freq_step(im=(256, 256), pxs=62.5):

@@ -192,7 +192,9 @@ def pupilRadius(im, psf_params = PSF_PARAMS):
         ft_pxs = px_freq_step(im, pxs)[-2:]
     shape = im.shape[-2:]
 
-    return rr(shape, scale=ft_pxs) * wl / NA  # [:2]
+    res = rr(shape, scale=ft_pxs) * wl / NA  # [:2]
+    res.pixelsize = im.pixelsize
+    return res
 
 def pupilAperture(im, psf_params = PSF_PARAMS):
     """
@@ -215,11 +217,13 @@ def jincAperture(im, psf_params = PSF_PARAMS):
     NA = psf_params.NA
     wl = psf_params.wavelength
     np.seterr(divide='ignore', invalid='ignore')
-    arg = rr(shape, scale=np.array(im.pixelsize) * 2 * np.pi * NA / wl)  # RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
+    arg = rr(shape, scale=np.array(im.pixelsize[-2:]) * 2 * np.pi * NA / wl)  # RH 3.2.19 was 2*mp.pi*np.sqrt((xx(shape)*self.pixelsize[0])**2+(yy(shape)*self.pixelsize[1])**2)*self.NA/self.wavelength;
+    arg.pixelsize = im.pixelsize[-2:]
     ret = 2 * j1(arg) / arg  # that again creates the dip!
     ret[shape[-2] // 2, shape[-1] // 2] = 1
     ret = ret / np.sum(np.abs(ret))
     plane = ft2d(ret)
+    plane.pixelsize = im.pixelsize
     np.seterr(divide='warn', invalid='warn')
     return plane
 
@@ -242,7 +246,7 @@ def cosSinAlpha(im, psf_params = PSF_PARAMS):
 
 def defocuPhase(cos_alpha, defocus=None, psf_params = PSF_PARAMS):
     """
-    caculates the complex-valued defocus phase pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
+    calculates the complex-valued defocus phase propagation pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
 
     :param defocus: real-space defocus value. if None is suzpplied, psf_params.off_focal_distance is used instead
     :param cos_alpha: a map of cos(alpha) values in the pupil plane. Use "cosSinAlpha(im,psf_param)" to optain such a map
@@ -299,7 +303,7 @@ def simLens(im, psf_params = PSF_PARAMS):
 
     # Make base field
     if psf_params.aperture_method == 'jinc':
-        plane = jincAperture(im,psf_params)
+        plane = jincAperture(im, psf_params)
     elif psf_params.aperture_method == 'hard':
         aperture = pupilAperture(im, psf_params)
         plane = aperture+0.0j
@@ -318,7 +322,7 @@ def simLens(im, psf_params = PSF_PARAMS):
     plane *= defocuPhase(cos_alpha)  # psf_params.off_focal_distance is used as default
 
     # expand to 4 Dims, the 4th will contain the electric fields
-    plane = plane.cat([plane,plane],-4)
+    plane = plane.cat([plane, plane], -4)
     plane.dim_description = {'d3': ['Ex','Ey','Ez']}
 
     # Apply vectorized distortions
@@ -372,7 +376,7 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
         ret /= np.sum(ret)
         ret = ret.ft2d(norm=None)
     ret.PSF_PARAMS = psf_params
-    return(ret)
+    return ret
 
 def otf(im, psf_params = PSF_PARAMS):
     """
@@ -1115,7 +1119,7 @@ def psf2d(im, psf_params = PSF_PARAMS):
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
-    return(__make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = 2).squeeze())
+    return __make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = 2).squeeze()
 
 def jinc(mysize=[256,256],myscale=None):
     """
