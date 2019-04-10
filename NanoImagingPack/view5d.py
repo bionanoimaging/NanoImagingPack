@@ -135,19 +135,12 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
         v5ProcessKeys(out,'CGeGveGvEEv') # set first 3 colors to gray scale and remove from color overlay 
     if (multicol is None or multicol is False) and (sz[3] == 2):  # reset the view to single colors
         v5ProcessKeys(out,'CGeGvEv')
+
     if not data.name is None:
-        if type(data.name) == str:
-            names = [data.name]
-        else:
-            names = data.name
-        e=0
-        for name in names:
-            if e < sz[3]: # has to be a legal element
-                out.NameElement(e, name)
-                e += 1
-    else:   # no name was given. Try to recover the caller's name
+        out.NameWindow(data.name)
+    else:
         name = util.caller_args()[0]
-        out.NameElement(0, name)
+        out.NameWindow(name)
 
     if not data.pixelsize is None:
         pxs = util.expanddimvec(data.pixelsize,5,trailing=True)
@@ -160,6 +153,19 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
         NameV = 'intensity'
         UnitV = 'photons'
         out.SetAxisScalesAndUnits(0, SV, pxs[0], pxs[1], pxs[2], pxs[3], pxs[4], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
+
+    if not data.dim_description is None:
+        names = None
+        if type(data.dim_description) == str:
+            names = [data.dim_description]
+        else:
+            names = data.dim_description
+        e=0
+        for name in names:
+            if e < sz[3]: # has to be a legal element
+                out.NameElement(e, name)
+                e += 1
+    # else:   # no name was given. Try to recover the caller's name
 
     v5ProcessKeys(out, '12') # to trigger the display update
     out.UpdatePanels()

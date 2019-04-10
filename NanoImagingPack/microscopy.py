@@ -147,6 +147,7 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
                 m = ab[0]
                 n = ab[1]
                 aberration_map += s*zernike(r,m,n)*np.pi
+    aberration_map.name = "aberrated pupil phase"
     return aberration_map
 
 
@@ -230,6 +231,7 @@ def jincAperture(im, psf_params = PSF_PARAMS):
     plane = ft2d(ret)
     plane.pixelsize = im.pixelsize
     np.seterr(divide='warn', invalid='warn')
+    plane.name = "jincAperture"
     return plane
 
 
@@ -364,6 +366,7 @@ def simLens(im, psf_params = PSF_PARAMS):
         plane[0] *= polx
         plane[1] *= poly
         plane[2] *= 0
+    plane.name = "simLens pupil"
     return plane # *aperture  # hard edge aperture at ?
 
 def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
@@ -400,6 +403,7 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
         ret /= np.sum(ret)
         ret = ret.ft2d(norm=None)
     ret.PSF_PARAMS = psf_params
+    ret.name = mode # label the name accordingly
     return ret
 
 def otf(im, psf_params = PSF_PARAMS):
@@ -1179,6 +1183,7 @@ def jinc(mysize=[256,256],myscale=None):
     midValAsg(myradius, 1.0)
     res=j1(2*myradius) /  myradius #  where(myradius == 0, 1.0e-20, myradius)
     midValAsg(res, 1.0)
+    res.name = "jinc"
     return res
 
 def PSF2ROTF(psf):
@@ -1188,6 +1193,7 @@ def PSF2ROTF(psf):
     # TODO: CHECK HERE IF FULL_SHIFT MIGTH BE NEEDED!!!
     o = image(rft(psf,shift_before=True))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
+    o.name = "rotf"
     return o.astype('complex64')
 
 # this should go into the NanoImagingPack
@@ -1195,4 +1201,6 @@ def convROTF(img,otf): # should go into nip
     """
         convolves with a half-complex OTF, which can be generated using PSF2ROTF
     """
-    return irft(rft(img,shift_before=False,shift_after=False) * expanddim(otf,img.ndim),shift_before=False,shift_after=False, s = img.shape)
+    res = irft(rft(img,shift_before=False,shift_after=False) * expanddim(otf,img.ndim),shift_before=False,shift_after=False, s = img.shape)
+    res.name = "convolved"
+    return res

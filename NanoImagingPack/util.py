@@ -10,6 +10,7 @@ all kind of utils;
 """
 
 import numpy as np
+import re  # regular expressions
 import inspect
 from scipy.special import factorial
 import numbers
@@ -880,12 +881,14 @@ def caller_args():
         #        if m:
         #            caller_lines = m.group(1)
         myargs = caller_lines[caller_lines.find('(') +1 :-1]
-        if myargs[0]=='(':
-            myargs=myargs[1:]
-        if myargs[-1] == ')':
-            myargs = myargs[:-1]
-        myargs = myargs.split(',')
+        # if myargs[0]=='(':
+        #     myargs=myargs[1:]
+        # if myargs[-1] == ')':
+        #     myargs = myargs[:-1]
+#        myargs = myargs.split(',')
+        myargs = re.split(r',\s*(?![^()]*\))', myargs)  # regular expression from: https://stackoverflow.com/questions/26633452/how-to-split-by-commas-that-are-not-within-parentheses
         myargs = [arg.strip() for arg in myargs]
         return myargs
     finally:
         del frame
+

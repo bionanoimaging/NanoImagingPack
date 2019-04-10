@@ -755,7 +755,7 @@ def catE(*argv):
     if len(argv)==1:
         argv=argv[0]
     res = cat(argv, -4)
-    res.name = util.caller_args()
+    res.dim_description = util.caller_args()
     return res
 
 

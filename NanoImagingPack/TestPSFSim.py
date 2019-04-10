@@ -17,7 +17,7 @@ h = nip.psf2d(obj,psfparams)
 
 obj3d = nip.readim("MITO_SIM")
 
-obj3d=nip.zeros([100, 100, 100])
+obj3d=nip.extract(obj3d,[100,100,100])
 obj3d.pixelsize=[50,50,50]
 h3 = nip.psf(obj3d, psfparams)
 
@@ -26,9 +26,9 @@ h3 = nip.psf(obj3d, psfparams)
 # v=v5(ObjTime)
 
 # v.NameElement(1,'HALLLOO')
-# q = nip.catE(obj3d, - obj3d)
+q = nip.catE(obj3d, - obj3d)
 
-# v5(q)
+v5(q)
 # v5(obj3d)
 
 # q = nip.rr()
