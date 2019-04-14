@@ -752,9 +752,12 @@ def catE(*argv):
         A shorthand for concatenating along the 4th (element dimension).
         Calls cat(imlist,-4)
     """
-    if len(argv)==1:
+    if len(argv)==1 and (type(argv[0]) is list or type(argv[0]) is tuple):
         argv=argv[0]
-    res = cat(argv, -4)
+    if len(argv) == 1:
+        res = argv[0]
+    else:
+        res = cat(argv, -4)
     res.dim_description = util.caller_args()
     return res
 
