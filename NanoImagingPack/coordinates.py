@@ -504,6 +504,11 @@ def px_freq_step(im=(256, 256), pxs=62.5):
             print('Wrong data type for pixelsize!!!')
             return
 
+        if len(im) < len(pxs):
+            pxs = pxs[-len(im):]
+        if len(im) > len(pxs):
+            im = im[-len(pxs):]
+
     return ([1 / (p * s) for p, s in zip(pxs, im)])
 
 

@@ -762,7 +762,7 @@ def catE(*argv):
     return res
 
 
-def cat(imlist, axis=None, destdims=None):
+def cat(imlist, axis=None, destdims=None, matchsizes = False):
     """
         This function takes a list or a tuple of images and stacks them at the given axis.
         If the images have different dimensions the dimensions will be adjusted (using adjust_dims)
@@ -784,7 +784,7 @@ def cat(imlist, axis=None, destdims=None):
     shapes = np.asarray([list(im.shape) for im in imlist])
 
     if axis is None:
-        axis = -shapes.shape[1] - 1
+        axis = -len(shapes[0])-1 # -shapes.shape[1] - 1
 
     if destdims == None:
         if axis < 0:
@@ -807,7 +807,10 @@ def cat(imlist, axis=None, destdims=None):
         ax = axis
     for i in range(shapes.shape[1]):
         if (np.max(shapes[:, i]) != np.min(shapes[:, i])) and (i != ax):
-            imlist = [match_size(im, imlist[np.argmax(shapes[:, i])], i, padmode='constant', odd=False)[0] for im in imlist]
+            if matchsizes:
+                imlist = [match_size(im, imlist[np.argmax(shapes[:, i])], i, padmode='constant', odd=False)[0] for im in imlist]
+            else:
+                raise ValueError("cat, dimension "+str(i)+": Sizes are not matching. Adjust sizes or use the flag matchsizes=True.")
             # return(np.concatenate((imlist),axis).squeeze());
     return image(np.concatenate(imlist, axis))  # RH  2.2.19
 

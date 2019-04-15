@@ -150,29 +150,34 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
     aberration_map.name = "aberrated pupil phase"
     return aberration_map
 
+def propagatePupil(pupil, sizeZ, psf_params = PSF_PARAMS, mode = 'Fourier', doDampPupil=False):
+    myshape = (sizeZ,) + pupil.shape[-2:]
+    return pupil * __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape)
 
-def __make_propagator__(im, psf_params = PSF_PARAMS, mode = 'Fourier', doDampPupil=False):
+def __make_propagator__(im, psf_params = PSF_PARAMS, doDampPupil=False, shape=None):
     """
     Compute the field propagation matrix
 
     :param im:              input image
     :param psf_params:      psf params structure
-    :param mode:            "Fourier" the normal fourier based propagation matrix
 
                             TODO: Include chirp Z transform method
     :return:                Returns the phase propagation matrix (exp^i*delta_phi)
     """
 
     pxs = im.pixelsize
-    if (len(pxs)<3) and (len(im.shape)>2):
+    if shape is None:
+        shape = im.shape
+
+    if (len(pxs)<3) and (len(shape)>2):
         axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
         warnings.warn('Only 2 Dimensional image given -> using default ('+str(axial_pxs)+')')
     else:
         axial_pxs = pxs[-3]
 
-    if len(im.shape)>2:
+    if len(shape)>2:
         cos_alpha, sin_alpha = cosSinAlpha(im,psf_params)
-        defocus = axial_pxs * ramp1D(im.shape[-3], -3) # a series of defocus factors
+        defocus = axial_pxs * ramp1D(shape[-3], -3) # a series of defocus factors
         PhaseMap = defocusPhase(cos_alpha, defocus, psf_params)
         if doDampPupil:
             return dampPupilForRealSpaceCut(PhaseMap) * np.exp(1j * PhaseMap)
