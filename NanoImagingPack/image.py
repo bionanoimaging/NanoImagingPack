@@ -423,6 +423,7 @@ def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelp
     """
     DampOutside function
 
+
     Extrapolates the data by filling in blurred information outside the edges. This is a bit like DampEdge
     but using a normalized convolution with a kernel.
 
