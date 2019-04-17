@@ -121,8 +121,8 @@ def create_circle_mask(mysize =(256,256),maskpos = (0,0) ,radius=100, zero = 'ce
         xr = xx(mysize)
         yr = yy(mysize)
     elif zero == 'image':
-        xr = xx(mysize, mode = 'positive')
-        yr = yy(mysize, mode = 'positive')
+        xr = xx(mysize, placement = 'positive')
+        yr = yy(mysize, placement = 'positive')
     mask = ((xr-maskpos[0])**2/radius[0]**2+(yr-maskpos[1])**2/radius[1]**2<1)*1
     return(mask)
 

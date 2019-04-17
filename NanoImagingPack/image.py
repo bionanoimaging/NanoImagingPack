@@ -419,6 +419,128 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     return res  # CK: (__cast__(img*res.view(image),img));  What is this?? It should return res and not img*res
 
 
+def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelpower=3):
+    """
+    DampOutside function
+
+    Extrapolates the data by filling in blurred information outside the edges. This is a bit like DampEdge
+    but using a normalized convolution with a kernel.
+
+    Parameters
+    ----------
+        img         image to pad damp edges
+
+        width       (None): rwidth is used, else width takes precedence
+                     -> characteristic absolute width for damping
+                     -> can be integer, than every (given) axis is damped by the same size
+                     -> can be list or tupel or list of tuples -> than individual damping for given axis
+
+        rwidth      relative width (default : 0.1 meaning 10%)
+                    width in relation to the image size along its dimenions. Can be a single number or a tuple or list of tuples
+
+        usepixels   pixels to be used for convolution, should be a single number
+
+        mykernel    (None): kernel to be used for convolution, default is r^-3
+                    must be an image of the same size as the padded image
+
+        kernelpower factor to be used in the default kernel, default is 3
+
+    Returns
+    -------
+        img : image with padded and damped edges
+
+    Examples
+    --------
+        import NanoImagingPack as nip
+        img = nip.readim()
+
+        DampOutside(img)
+        DampOutside(img, [4,20])
+        DampOutside(img, rwidth = [[0,0.3],[0.5,0.2]])
+    """
+    from .coordinates import rr
+    from .transformations import ft, ift
+
+    width = np.array(width)
+    rwidth = np.array(rwidth)
+    mykernel = np.array(mykernel)
+
+    if width.any() == None:
+        try:
+            if img.ndim == 1:
+                if rwidth.ndim == 0:
+                    rwidth = np.array([[rwidth, rwidth]])
+                elif len(rwidth) == 2:
+                    rwidth = np.array([rwidth])
+                elif rwidth.ndim != 2:
+                    rwidth = np.array([[rwidth[0], rwidth[0]]])
+            if rwidth.ndim <= 1:
+                width = np.ceil(img.shape * rwidth / 2).astype(int)
+                width = np.array([width, width]).T
+            elif rwidth.ndim == 2:
+                width = np.ceil([rwidth[i] * img.shape[i] for i in range(len(rwidth))]).astype(int)
+        except:
+            raise ValueError('rwidth did not match image dimension')
+    else:
+        if width.ndim == 0:
+            width = np.array([width for i in range(len(img.shape))])
+            width = np.array([width, width]).T
+        if width.ndim == 1:
+            if img.ndim > 1:
+                if len(width) != len(img.shape):
+                    raise ValueError('width did not match image dimension')
+                width = np.array([width, width]).T
+            else:
+                if len(width) == 2:
+                    width = np.array([width])
+                elif len(width) == 1:
+                    width = np.array([[width[0], width[0]]])
+                else:
+                    raise ValueError('width did not match image dimension')
+
+    size = np.array(img.shape)
+    newsize = size + np.sum(width, axis=1)
+
+    ### build the kernel
+    if mykernel.any() != None:
+        if not np.array_equal(mykernel.shape, newsize):
+            raise ValueError('mykernel did not match new image size')
+
+    if mykernel.any() == None:
+        r = rr(newsize)
+        r[r == 0] = np.inf
+        mykernel = (1 / r) - 1 / np.linalg.norm(np.sum(width, axis=1) * np.sqrt(2))
+        mykernel[mykernel < 0] = 0
+        mykernel = mykernel ** kernelpower
+
+    transfer = ft(mykernel)
+
+    wimg = np.zeros(size) + 1
+    mask = np.zeros(newsize) + 1
+    nimg = img.__copy__()
+
+    grid = np.meshgrid(*[np.arange(usepixels, s - usepixels) for s in size], indexing='ij')
+
+    wimg[tuple(grid)] = 0
+    nimg[tuple(grid)] = 0
+
+    grid = np.meshgrid(*[np.arange(width[i, 0], newsize[i] - width[i, 1]) for i in range(len(newsize))], indexing='ij')
+    mask[tuple(grid)] = 0
+
+    nimg = np.pad(nimg, width, 'constant')
+    wimg = np.pad(wimg, width, 'constant')
+
+    nimg2 = np.real(ift(transfer * ft(nimg)))
+    wimg2 = np.real(ift(transfer * ft(wimg)))
+
+    flag = mask != 0
+
+    nimg[flag] = nimg2[flag] / wimg2[flag]
+    nimg[tuple(grid)] = img
+
+    return util.__cast__(nimg, img)
+
+
 def __check_complex__(im):
     """
         checks the type an image:
