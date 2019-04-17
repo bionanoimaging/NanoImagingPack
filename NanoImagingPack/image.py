@@ -1171,6 +1171,80 @@ def convolve(im1, im2, full_fft=False, axes=None, phase_only=False, norm2nd=Fals
     return __correllator__(im1, im2, axes=axes, mode='convolution', phase_only=phase_only, norm2nd=norm2nd, matchSizes=matchSizes)
 
 
+
+def shear(img, shearamount=10, shearDir=0, shearOrtho=None, center='center', padding=True):
+    """
+    shear function
+
+    Shears an image im for a distance of shearamount pixels in the given direction using the FT shift theorem.
+
+    Parameters
+    ----------
+        img         image to be sheared
+
+        shearamount maximum shearamout, float or int
+
+        shearDir    axis to be shifted
+
+        shearOrtho  the axis to which the shear is carried out
+
+        center      relative center of the shearing, only important if padding == False
+                    possible values: 'center' (default), 'positive', 'negative'
+
+        padding     extra padding of the image, default is true
+
+    Returns
+    -------
+        img : sheared image
+
+    Examples
+    --------
+        import NanoImagingPack as nip
+        img = nip.readim()
+
+        shear(img, 40)
+        shear(img, 40, padding = False)
+        shear(img, 40, shearDir = 1, padding = False, center = 'positive')
+    """
+    from .coordinates import ramp
+
+    if shearOrtho == None:
+        shearOrtho = shearDir - 1
+    if shearOrtho == shearDir:
+        raise ValueError('shearDir and shearOrtho must be different values!')
+
+    if padding == True:
+        padVal = np.ceil(np.abs(shearamount)).astype(int)
+        padVec = np.zeros((img.ndim, 2)).astype(int)
+
+        if center == 'center':
+            padVec[shearDir] = [np.ceil(padVal / 2).astype(int), np.floor(padVal / 2).astype(int)]
+        elif center == 'positive':
+            if shearamount > 0:
+                padVec[shearDir] = [0, padVal]
+            else:
+                padVec[shearDir] = [padVal, 0]
+        else:
+            if shearamount < 0:
+                padVec[shearDir] = [0, padVal]
+            else:
+                padVec[shearDir] = [padVal, 0]
+
+        img_pad = DampOutside(img, width=padVec)
+
+    else:
+        img_pad = img
+
+    fft = np.fft.fft(img_pad, axis=shearDir)
+    fx = ramp(img_pad.shape, shearDir, freq='fftfreq', shift=True)
+    sx = shearamount * ramp(img_pad.shape, shearOrtho, center) / (img_pad.shape[shearOrtho] - 1)
+
+    myshear = np.exp(-1j * 2 * np.pi * (fx * sx))
+    result = np.real(np.fft.ifft(fft * myshear, axis=shearDir))
+
+    return util.__cast__(result, img)
+
+
 def rot_2D_im(M, angle):
     """
         Rotates 2D image
