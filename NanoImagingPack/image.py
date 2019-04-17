@@ -1808,6 +1808,13 @@ class image(np.ndarray):
         im = DampEdge(self, width = width, rwidth=rwidth, axes =axes, func = func, method=method, sigma=sigma)
         im.info += 'Damp Edged, width: '+str(width)+', method = '+func.__name__+'\n'
         return im
+
+    def DampOutside(self, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelpower=3):
+        im = DampOutside(self, width=width, rwidth=rwidth, usepixels=usepixels, mykernel=mykernel,
+                         kernelpower=kernelpower)
+        im.info += 'Padded damping, width: ' + str(width) + '\n'
+        return im
+
     def check_complex(self):
         return __check_complex__(self)
 
