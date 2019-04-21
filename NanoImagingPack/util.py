@@ -560,13 +560,22 @@ def normalize(M, mode, r = None):
         Normalize an image between 0 and 1
 
         mode
-            0:      between 0 and 1 (amplitude normalization)
-            1:      divided by maximum
-            2:      divided by sum (Normalized to Photon number)
-            3:      in range given by r (list or tuple) -> for complex values: give one list of 2 tuples, containing the range for real and imaginary part
+            0 or "minmax":   between 0 and 1 (amplitude normalization)
+            1 or "max":      divided by maximum
+            2 or "sum":      divided by sum (Normalized to Photon number)
+            3 or "range":    in range given by r (list or tuple) -> for complex values: give one list of 2 tuples, containing the range for real and imaginary part
 
     """
-    
+    if type(mode) == str:
+        if mode == "minmax":
+            mode = 0
+        elif mode == "max":
+            mode = 1
+        elif mode == "sum":
+            mode = 2
+        elif mode == "range":
+            mode = 3
+
     if M.dtype == np.complexfloating:
         if mode == 0:
             return((M.real-M.real.min())/(M.real.max()-M.real.min())+1j*((M.imag-M.imag.min())/(M.imag.max()-M.imag.min())))
