@@ -7,6 +7,7 @@ Created on Fri Aug 10 15:45:37 2018
 from pkg_resources import resource_filename
 from . import util
 from . import config
+from . import image
 
 global JNIUS_RUNNING
 if ~('JNIUS_RUNNING' in globals()):
@@ -16,6 +17,8 @@ if (JNIUS_RUNNING==0):
     fn=resource_filename("NanoImagingPack","resources/View5D_.jar")
     try:
         import jnius_config
+#        jnius_config.add_options('-Xrs', '-Xmx4096')
+        jnius_config.add_options('-Dswing.aatext=true', '-Dswing.plaf.metal.controlFont=Tahoma', '-Dswing.plaf.metal.userFont=Tahoma', '-Dawt.useSystemAAFontSettings=on')
         jnius_config.add_classpath(fn)
         JNIUS_RUNNING = 1
 #        jnius_config.add_classpath('C:/Users/pi96doc/Documents/Programming/PythonScripts/view5d.jar')
@@ -41,7 +44,7 @@ def v5ProcessKeys(out,KeyList):
         out.UpdatePanels()
         out.repaint()
 
-def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
+def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize=18):
     '''
         lauches a java-based viewer view5d
         Since the viewer is based on calling java via the pyjnius Java bridge, it runs in its own thread each time. This causes overhead and may be not advisable for large
@@ -73,7 +76,7 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
             import tensorflow as tf
             with tf.Session() as session:
                 session.run(tf.global_variables_initializer())
-                data=data.eval()
+                data=image.image(data.eval())
             if not isinstance(data,np.ndarray):
                 raise ValueError("v5: cannot evaluate tensor.")
         except ImportError:
@@ -136,15 +139,17 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
     if (multicol is None or multicol is False) and (sz[3] == 2):  # reset the view to single colors
         v5ProcessKeys(out,'CGeGvEv')
 
-    if not data.name is None:
+    if data.name is not None:
         out.NameWindow(data.name)
     else:
         name = util.caller_args()[0]
         out.NameWindow(name)
+    if fontSize is not None:
+        out.setFontSize(fontSize)
 
-    if not data.pixelsize is None:
+    if data.pixelsize is not None:
         pxs = util.expanddimvec(data.pixelsize,5,trailing=True)
-        Names = ['X','Y','Z','E','T']
+        Names = ['X', 'Y', 'Z', 'E', 'T']
         if (not data.unit is None) and (type(data.unit) == list) and len(data.unit)>4:
             Units = data.unit[0:5]
         else:
@@ -154,8 +159,7 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
         UnitV = 'photons'
         out.SetAxisScalesAndUnits(0, SV, pxs[0], pxs[1], pxs[2], pxs[3], pxs[4], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
 
-    if not data.dim_description is None:
-        names = None
+    if data.dim_description is not None:
         if type(data.dim_description) == str:
             names = [data.dim_description]
         else:
@@ -165,7 +169,10 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False):
             if e < sz[3]: # has to be a legal element
                 out.NameElement(e, name)
                 e += 1
-    # else:   # no name was given. Try to recover the caller's name
+    else:   # no name was given. Try to recover the caller's name
+        name = util.caller_args()[0]
+        for e in range(sz[3].astype(int)):
+                out.NameElement(e, name)
 
     v5ProcessKeys(out, '12') # to trigger the display update
     out.UpdatePanels()

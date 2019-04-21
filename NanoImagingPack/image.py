@@ -961,62 +961,63 @@ def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, n
          mode= 'convolution' or 'correlation'
          phase only: Phase correlation
 
-         If inputs are real than it tries to take the rfft
+         If inputs are real than it tries to use the rfft
 
     """
-    if np.ndim(im1) == np.ndim(im2):
-        old_arr = im1
-        if matchSizes:
-            for axis in range(np.ndim(im1)):
-                if (im1.shape[axis] != im2.shape[axis]):  # RH. I changed this. Broadcasting is a useful feature and error checking too!
-                    im1, im2 = match_size(im1, im2, axis, padmode='constant', odd=False)
-                    print('Matching sizes at axis ' + str(axis))
+    mindim = np.minimum(np.ndim(im1),np.ndim(im2))
+#    if np.ndim(im1) == np.ndim(im2):
+    old_arr = im1
+    if matchSizes:
+        for axis in range(np.ndim(im1)):
+            if (im1.shape[axis] != im2.shape[axis]):  # RH. I changed this. Broadcasting is a useful feature and error checking too!
+                im1, im2 = match_size(im1, im2, axis, padmode='constant', odd=False)
+                print('Matching sizes at axis ' + str(axis))
 
-        # create axes list
-        if axes is None:
-            axes = list(range(len(im1.shape)))
-        if type(axes) == int:
+    # create axes list
+    if axes is None:
+        axes = list(range(-mindim,0)) # list(range(len(im1.shape)))
+    if type(axes) == int:
+        axes = [axes]
+    try:
+        if np.issubdtype(axes.dtype, np.integer):
             axes = [axes]
-        try:
-            if np.issubdtype(axes.dtype, np.integer):
-                axes = [axes]
-        except AttributeError:
-            pass;
+    except AttributeError:
+        pass;
 
-        if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
-            FT1 = ft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
-            FT2 = ft(im2, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
-        else:
-
-            FT1 = rft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
-            FT2 = rft(im2, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
-
-        if norm2nd == True:
-            FT2 = FT2 / np.abs(FT2.flat[0])
-
-        if mode == 'convolution':
-            if phase_only:
-                cor = np.exp(1j * (np.angle(FT1) + np.angle(FT2)))
-            else:
-                cor = FT1 * FT2
-        elif mode == 'correlation':
-            if phase_only:
-                cor = np.exp(1j * (np.angle(FT1) - np.angle(FT2)))
-            else:
-                cor = FT1 * FT2.conjugate()
-        else:
-            raise ValueError('Wrong mode')
-            return im1
-        if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
-            return util.__cast__(ift(cor, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes), old_arr)
-        else:
-            if __DEFAULTS__['CC_ABS_RETURN']:
-                return util.__cast__(irft(cor, s=old_arr.shape, shift_after=False, shift_before=False, norm=None, ret='abs', axes=axes), old_arr)
-            else:
-                return util.__cast__(irft(cor, s=old_arr.shape, shift_after=False, shift_before=False, norm=None, axes=axes), old_arr)
+    if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
+        FT1 = ft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
+        FT2 = ft(im2, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
     else:
-        raise ValueError('Images have different dimensions')
+
+        FT1 = rft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
+        FT2 = rft(im2, shift_after=False, shift_before=True, norm=None, ret='complex', axes=axes)
+
+    if norm2nd == True:
+        FT2 = FT2 / np.abs(FT2.flat[0])
+
+    if mode == 'convolution':
+        if phase_only:
+            cor = np.exp(1j * (np.angle(FT1) + np.angle(FT2)))
+        else:
+            cor = FT1 * FT2
+    elif mode == 'correlation':
+        if phase_only:
+            cor = np.exp(1j * (np.angle(FT1) - np.angle(FT2)))
+        else:
+            cor = FT1 * FT2.conjugate()
+    else:
+        raise ValueError('Wrong mode')
         return im1
+    if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
+        return util.__cast__(ift(cor, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes), old_arr)
+    else:
+        if __DEFAULTS__['CC_ABS_RETURN']:
+            return util.__cast__(irft(cor, s=old_arr.shape, shift_after=False, shift_before=False, norm=None, ret='abs', axes=axes), old_arr)
+        else:
+            return util.__cast__(irft(cor, s=old_arr.shape, shift_after=False, shift_before=False, norm=None, axes=axes), old_arr)
+# else:
+#     raise ValueError('Images have different dimensions')
+#     return im1
 
 
 def correl(im1, im2, axes=None, phase_only=False, matchSizes=False):
@@ -1481,8 +1482,9 @@ class image(np.ndarray):
         obj.ax_shifted = []
         obj.metadata = None
 
-        obj.dim_description = {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []}
-                
+#        obj.dim_description = {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []}
+        obj.dim_description = None
+
         obj.name = name
         if pixelsize is None:
             obj.pixelsize = MyArray.ndim*[1.0] # [i*0+1.0 for i in MyArray.shape];
@@ -1613,6 +1615,16 @@ class image(np.ndarray):
         if path is None:
             path = join(__DEFAULTS__['DIRECTORY'],self.name)
         imsave(self, path = path, form = form, rescale = rescale, BitDepth = BitDepth, Floating = Floating, truncate = truncate)
+
+    def midSlice(self, ax = 0):
+        """
+            returns the subvolume by extracting the middle position along the given axis (as tuple) as seen for ft, i.e. im.shape//2
+            ----
+            ax : which axes (list of all axes)
+            If nothing given, it returns the value at the mid pos for all axis
+        """
+
+        return self[self.mid(0)]
 
     def midVal(self, ax = None):
         """
@@ -1902,7 +1914,8 @@ class image(np.ndarray):
                 else:
                     pxs[-i-1] = p[-i-1]
         self.pixelsize = pxs
-        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
+#        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
+        self.dim_description = getattr(obj,'dim_description', None)
         self.metadata = getattr(obj,'metadata',[])
         self.spectral_axes = getattr(obj, 'spectral_axes', [])
         self.ax_shifted = getattr(obj, 'ax_shifted', [])

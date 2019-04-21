@@ -156,7 +156,7 @@ def zernike(r,m,n, radial = False):
             zer += c*r**(n-2*k_el)
     return(zer*fact)
 
-def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0):
+def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0, pixelsize=None):
     img = zeros(np.prod(sz))
     if not seed is None:
         np.random.seed(seed)
@@ -168,6 +168,8 @@ def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0):
         img = image.convolve(img,ObjMask)
         if not doAdd:
             img[img > 1] = 1
+    if not pixelsize is None:
+        img.pixelsize = pixelsize
     return img
 
 def atan2(avec):
