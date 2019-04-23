@@ -554,6 +554,19 @@ def make_damp_ramp(length, function):
     x = np.arange(0, length,1)
     return(function(x, length-1))
 
+def isarray(image):
+    return isinstance(image, np.ndarray)
+
+def shapevec(image):
+    """
+        returns the shape of a tensor as a numpy ndarray. Works for images, tensors and ndarrays
+    """
+    myshape = image.shape
+    if isinstance(myshape,tuple) or isinstance(myshape,list):
+        return myshape
+    else:
+        return tuple(myshape.as_list())
+
 
 def normalize(M, mode, r = None):
     """

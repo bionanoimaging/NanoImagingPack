@@ -1,3 +1,9 @@
+"""
+Created on Wed Mar 21 15:27:02 2018
+
+@author: ckarras, Rainer Heintzmann
+"""
+
 import numpy as np
 from scipy.interpolate import interp1d
 from . import util
@@ -161,9 +167,9 @@ def rr(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None
     return np.sqrt(rr2(mysize, placement, offset, scale, freq))
 
 
-def phiphi(mysize=(256, 256), angle_range=1,placement='center'):
+def phiphi(mysize=(256, 256), angle_range=1, placement='center'):
     """
-    creates a ramp in phi direction
+    creates a ramp in phi direction. This does NOT account for the pixel sizes!! Use cosSinTheta instead!
     standart size is 256 X 256
 
     """
@@ -190,6 +196,33 @@ def phiphi(mysize=(256, 256), angle_range=1,placement='center'):
     # np.seterr(divide='warn', invalid = 'warn');
     # return(phi)
 
+def cosSinTheta(im, space=None):
+    """
+
+    :param im:
+    :param space:  If set to "ftfreq", the cos and sin of the angles in Fourier space are calculated. If None, the angels in real space (accounting for the pixelsizes). If "unit", the pixelsizes are ignored.
+    :return:
+    """
+    # theta = phiphi(im, 'freq')   # IS WRONG!!! correct angle estimation
+    # cos_theta = np.cos(theta)
+    # sin_theta = np.sin(theta)
+    myx = xx(im)
+    myy = yy(im)
+    if space is not None:
+        if space is "ftfreq":
+            FourierPix = im.px_freq_step()
+            myx *= FourierPix[-1]
+            myy *= FourierPix[-2]
+        else:
+            assert(space == "unit")
+    else:
+        myx *= im.pixelsize[-1]
+        myy *= im.pixelsize[-2]
+    myr = np.sqrt(myx**2+myy**2)
+    myr = myr.midValAsg(1.0) # to avoid division by zero
+    sin_theta = myy/myr
+    cos_theta = myx/myr
+    return cos_theta, sin_theta
 
 def VolumeList(MyShape=(256, 256), MyCenter='center', MyStretch=1, polar_axes=None, return_axes='all'):
     """

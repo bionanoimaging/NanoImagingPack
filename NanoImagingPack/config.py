@@ -2,7 +2,7 @@
 """
 Created on Wed Mar 21 15:27:02 2018
 
-@author: ckarras
+@author: ckarras, Rainer Heintzmann
 """
 
 """
@@ -41,56 +41,62 @@ class __zernikes__():
     vtrefoil='vtrefoil'
     vcoma= 'vcoma'
     hcoma = 'hcoma'
-    obtrefoil ='obtrefoil'
+    obtrefoil = 'obtrefoil'
     obquadfoil= 'obquadfoil'
     asti2nd = 'asti2nd'
     spheric = 'spheric'
-    vasti2nd ='vasti2nd'
-    vquadfoil='vquadfoil'
+    vasti2nd = 'vasti2nd'
+    vquadfoil= 'vquadfoil'
 
 
 # DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
-PSF_PARAMS = util.struct()
-PSF_PARAMS.explanation= '\n NA                    Numerical aperture \n'
-PSF_PARAMS.explanation+=' n                     refractive index \n'
-#PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
-PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
-PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
-PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n'
-PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
-PSF_PARAMS.explanation+=' pol_lin_angle         Only for linear polarization: whats the angle \n'
-PSF_PARAMS.explanation+=' vectorized            True or False -> Vectorial computation \n'
-PSF_PARAMS.explanation+=' aplanar               "excitation", "emission","excitation2","emission2" None, aplanatic factor, 2 means squared aplanatic factor  \n'
-PSF_PARAMS.explanation+=' apl                   choose aplanatic factor from a list  \n'
-PSF_PARAMS.explanation+=' off_focal_distance    distance (in image units!) of the computed focal field to the focus  \n'
-#PSF_PARAMS.explanation+=' Z_PXS_FOR_2D_IMG      ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: what is the pixelsize in z \n'
-#PSF_PARAMS.explanation+=' Z_STEPS_FOR_2D_IMG    ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: Number of z-slices \n'
-PSF_PARAMS.explanation+=' aberration_strength   For aberration -> refere to nip.set_aberration_map help \n'
-PSF_PARAMS.explanation+=' aberration_types      For aberration -> refere to nip.set_aberration_map help \n'
-PSF_PARAMS.explanation+=' aberration_zernikes   For aberration types -> choose Zernike polynomial from a list \n'
-PSF_PARAMS.explanation+=' aperture_transmission For defining an aperture -> refere to nip.set_aberration_map help \n'
-PSF_PARAMS.explanation+=' aperture_method       How to compute the base focal field "jinc" from ft(jinc), "hard" from circle in Fourier space \n'
+def PSF_PARAMS():
+    """
+    a functions returning a structure of default PSF_PARAMS. This prevents them from being changed!
+    :return: PSF_PARAMS stucture
+    """
+    __PSF_PARAMS = util.struct()
+    __PSF_PARAMS.explanation= '\n NA                    Numerical aperture \n'
+    __PSF_PARAMS.explanation+=' n                     refractive index \n'
+    #PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
+    __PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
+    __PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
+    __PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n'
+    __PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
+    __PSF_PARAMS.explanation+=' pol_lin_angle         Only for linear polarization: whats the angle \n'
+    __PSF_PARAMS.explanation+=' vectorized            True or False -> Vectorial computation \n'
+    __PSF_PARAMS.explanation+=' aplanar               "excitation", "emission","excitation2","emission2" None, aplanatic factor, 2 means squared aplanatic factor  \n'
+    __PSF_PARAMS.explanation+=' apl                   choose aplanatic factor from a list  \n'
+    __PSF_PARAMS.explanation+=' off_focal_distance    distance (in image units!) of the computed focal field to the focus  \n'
+    #PSF_PARAMS.explanation+=' Z_PXS_FOR_2D_IMG      ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: what is the pixelsize in z \n'
+    #PSF_PARAMS.explanation+=' Z_STEPS_FOR_2D_IMG    ONLY IF 2D IMAGE IS USED, BUT 3D TRANSFER REQUIRED: Number of z-slices \n'
+    __PSF_PARAMS.explanation+=' aberration_strength   For aberration -> refere to nip.set_aberration_map help \n'
+    __PSF_PARAMS.explanation+=' aberration_types      For aberration -> refere to nip.set_aberration_map help \n'
+    __PSF_PARAMS.explanation+=' aberration_zernikes   For aberration types -> choose Zernike polynomial from a list \n'
+    __PSF_PARAMS.explanation+=' aperture_transmission For defining an aperture -> refere to nip.set_aberration_map help \n'
+    __PSF_PARAMS.explanation+=' aperture_method       How to compute the base focal field "jinc" from ft(jinc), "hard" from circle in Fourier space \n'
 
-# Set the defaults to a standard widefield emission PSF at NA 1.4
-PSF_PARAMS.NA = 1.4
-PSF_PARAMS.n = 1.518
-#PSF_PARAMS.dimension = 2;
-PSF_PARAMS.wavelength = 520
-PSF_PARAMS.pols = __pols__
-PSF_PARAMS.pol = PSF_PARAMS.pols.circular
-PSF_PARAMS.pol_xy_phase_shift =0
-PSF_PARAMS.pol_lin_angle =0
-PSF_PARAMS.vectorized = True
-PSF_PARAMS.apl = __aplanars__
-PSF_PARAMS.aplanar = PSF_PARAMS.apl.emission
-PSF_PARAMS.off_focal_distance = 0
-#PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
-#PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
-PSF_PARAMS.aberration_strength = None
-PSF_PARAMS.aberration_types = None
-PSF_PARAMS.aberration_zernikes = __zernikes__
-PSF_PARAMS.aperture_transmission = None
-PSF_PARAMS.aperture_method = 'jinc'
+    # Set the defaults to a standard widefield emission PSF at NA 1.4
+    __PSF_PARAMS.NA = 1.4
+    __PSF_PARAMS.n = 1.518
+    #PSF_PARAMS.dimension = 2;
+    __PSF_PARAMS.wavelength = 520
+    __PSF_PARAMS.pols = __pols__
+    __PSF_PARAMS.pol = __PSF_PARAMS.pols.circular
+    __PSF_PARAMS.pol_xy_phase_shift =0
+    __PSF_PARAMS.pol_lin_angle =0
+    __PSF_PARAMS.vectorized = True
+    __PSF_PARAMS.apl = __aplanars__
+    __PSF_PARAMS.aplanar = __PSF_PARAMS.apl.emission
+    __PSF_PARAMS.off_focal_distance = 0
+    #__PSF_PARAMS.Z_PXS_FOR_2D_IMG = 100;
+    #__PSF_PARAMS.Z_STEPS_FOR_2D_IMG = 20;
+    __PSF_PARAMS.aberration_strength = None
+    __PSF_PARAMS.aberration_types = None
+    __PSF_PARAMS.aberration_zernikes = __zernikes__
+    __PSF_PARAMS.aperture_transmission = None
+    __PSF_PARAMS.aperture_method = 'jinc'
+    return __PSF_PARAMS
 
 def setDefault(name, value):
     __DEFAULTS__[name]=value
@@ -139,7 +145,7 @@ __DEFAULTS__ ={
         'IMG_IMG_FORMATS':  ['bmp', 'png'],
         'IMG_ZEISS_FORMATS': ['czi'],
         'IMG_DEFAULT_IMG_FOLDERS' :[os.path.join(os.path.split(__file__)[0],'resources')],     # Default folders to find images
-        'IMG_DEFAULT_IMG_NAME' : 'todesstern',                 # Default image to load
+        'IMG_DEFAULT_IMG_NAME' : 'resolution_512',  # Default image to load
         'IMG_VIEWER': 'VIEW5D',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!

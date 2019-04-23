@@ -2,7 +2,7 @@
 """
 Created on Wed Sep 12 14:38:16 2018
 
-@author: ckarras
+@author: Christian Karras, Rainer Heintzmann
 
 implement some functions here, to be used in the package
 

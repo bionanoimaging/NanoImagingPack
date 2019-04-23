@@ -3,7 +3,7 @@
 """
 Created on Thu Jul 27 17:22:51 2017
 
-@author: root
+@author: Christian Karras, Rainer Heintzmann
 
 This Package should contain funcitons in order to create psfs and otfs both 2-Dimensional and 3-Dimensional
  
@@ -11,9 +11,9 @@ Also SIM stuff
 """
 
 import numpy as np
-from .util import zernike, expanddim, midValAsg, zeros
+from .util import zernike, expanddim, midValAsg, zeros, shapevec
 from .transformations import rft,irft,ft2d
-from .coordinates import rr, phiphi, px_freq_step, ramp1D
+from .coordinates import rr, phiphi, px_freq_step, ramp1D, cosSinTheta
 from .config import PSF_PARAMS, __DEFAULTS__
 import numbers
 import warnings
@@ -21,8 +21,13 @@ from scipy.special import j1
 from .image import image
 from .view5d import v5 # for debugging
 
+def getDefaultPSF_PARAMS(psf_params):
+    if psf_params is None:
+        return PSF_PARAMS()
+    else:
+        return psf_params
 
-def __setPol__(im, psf_params= PSF_PARAMS):
+def __setPol__(im, psf_params= None):
     """
     Create the polarization maps (x and y), returned as tuple of 2 2D images based on the polarization parameters (pol, pol_xy_phase_shift, pol_lin_angle) of the psf parameter structure
 
@@ -30,6 +35,7 @@ def __setPol__(im, psf_params= PSF_PARAMS):
     :param psf_params: psf parameter structure
     :return: returns the polarization map (tuple of 2 images with x and y polarization components)
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     pol = [image(np.zeros(im.shape[-2:], dtype=np.complex128)),image(np.zeros(im.shape[-2:], dtype=np.complex128))]
     if psf_params.pol == 'elliptic':
         pol[0]+=1/np.sqrt(2)
@@ -65,14 +71,14 @@ def __setPol__(im, psf_params= PSF_PARAMS):
     return(tuple(pol))
 
 
-def aberrationMap(im, psf_params= PSF_PARAMS):
+def aberrationMap(im, psf_params= None):
     """
     create an aberration phase map (based on Zernike polynomials) or a transmission matrix (aperture) for PSF generation
 
     uses:
-        PSF_PARAMS.aberration_strength = None;
-        PSF_PARAMS.aberration_types = None;
-        PSF_PARAMS.aperture_transmission = None;
+        PSF_PARAMS().aberration_strength = None;
+        PSF_PARAMS().aberration_types = None;
+        PSF_PARAMS().aperture_transmission = None;
         returns the phase map (not the complex exponential!)
 
     strength:           strength of the aberration as multiples of 2pi in the phase (polynomial reach from -1 to 1)
@@ -100,9 +106,11 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
                     can be also lists or tuples -> Then everything will summed up
     transmission:   The transmission map
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     zernike_para = {'piston': (0,0),'tiltY': (-1,1),'tiltX': (1,1),'astigm': (-2,2),'defoc': (0,2),'vastig': (2,2),'vtrefoil': (-3,3),'vcoma': (-1,3),
                     'hcoma': (1,3),'obtrefoil': (3,3),'obquadfoil': (-4,4),'asti2nd': (-2,4),'spheric': (0,4),'vasti2nd': (2,4),'vquadfoil': (4,4)}
-    aberration_map = zeros(im.shape[-2:])  # phase in radiants
+    shape = shapevec(im)[-2:]   # works also for tensorflow objects
+    aberration_map = zeros(shape)  # phase in radiants
     strength = psf_params.aberration_strength
     aberration = psf_params.aberration_types
     # transmission = psf_params.aperture_transmission
@@ -126,7 +134,7 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
             pxs = __DEFAULTS__['IMG_PIXELSIZES']
             pxs = px_freq_step(im, pxs)[-2:]
 
-        r = rr(im.shape[-2:], scale=pxs) * psf_params.wavelength / psf_params.NA
+        r = rr(shape, scale=pxs) * psf_params.wavelength / psf_params.NA
         if isinstance(strength, numbers.Real):
             strength = [strength]
         if type(aberration) == str or isinstance(aberration,np.ndarray):
@@ -150,11 +158,12 @@ def aberrationMap(im, psf_params= PSF_PARAMS):
     aberration_map.name = "aberrated pupil phase"
     return aberration_map
 
-def propagatePupil(pupil, sizeZ, psf_params = PSF_PARAMS, mode = 'Fourier', doDampPupil=False):
-    myshape = (sizeZ,) + pupil.shape[-2:]
+def propagatePupil(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
+    psf_params = getDefaultPSF_PARAMS(psf_params)
+    myshape = (sizeZ,) + shapevec(pupil)[-2:]
     return pupil * __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape)
 
-def __make_propagator__(im, psf_params = PSF_PARAMS, doDampPupil=False, shape=None):
+def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     """
     Compute the field propagation matrix
 
@@ -164,14 +173,15 @@ def __make_propagator__(im, psf_params = PSF_PARAMS, doDampPupil=False, shape=No
                             TODO: Include chirp Z transform method
     :return:                Returns the phase propagation matrix (exp^i*delta_phi)
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
 
     pxs = im.pixelsize
     if shape is None:
-        shape = im.shape
+        shape = shapevec(im)
 
-    if (len(pxs)<3) and (len(shape)>2):
+    if (len(pxs)<3):
         axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
-        warnings.warn('Only 2 Dimensional image given -> using default ('+str(axial_pxs)+')')
+        warnings.warn('makePropagator: Only 2 Dimensional image given -> using default pixezsize[-3] = ('+str(axial_pxs)+')')
     else:
         axial_pxs = pxs[-3]
 
@@ -186,7 +196,7 @@ def __make_propagator__(im, psf_params = PSF_PARAMS, doDampPupil=False, shape=No
     else:
         return 1.0
 
-def pupilRadius(im, psf_params = PSF_PARAMS):
+def pupilRadius(im, psf_params = None):
     """
         returns a map of the radius to the center of the pupil with respect to the pupil aperture edgre as defined by lambda, N, NA and the image size.
 
@@ -194,6 +204,7 @@ def pupilRadius(im, psf_params = PSF_PARAMS):
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: map of raltive distance from center to the edge of the pupil
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     NA = psf_params.NA
     wl = psf_params.wavelength
     if isinstance(im, image):
@@ -201,30 +212,32 @@ def pupilRadius(im, psf_params = PSF_PARAMS):
     else: # RH: I think this should really throw an error. Default pixelsizes are NOT a good idea.
         pxs = __DEFAULTS__['IMG_PIXELSIZES']
         ft_pxs = px_freq_step(im, pxs)[-2:]
-    shape = im.shape[-2:]
+    shape = shapevec(im)[-2:]   # works also for tensorflow objects
 
     res = rr(shape, scale=ft_pxs) * wl / NA  # [:2]
     res.pixelsize = im.pixelsize
     return res
 
-def pupilAperture(im, psf_params = PSF_PARAMS):
+def pupilAperture(im, psf_params = None):
     """
     calulaltes a hard-edge pupil aperture by using pupilRadius<1.0
     :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: boolean aperture
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return pupilRadius(im,psf_params) < 1.0
 
 
-def jincAperture(im, psf_params = PSF_PARAMS):
+def jincAperture(im, psf_params = None):
     """
-    calulaltes a soft-edge pupil aperture by Fourier-transforming the real-space jinc solution of the problem
+    calulaltes a soft-edge pupil aperture by Fourier-transforming the real-space jinc solution of the problem.
     :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: boolean aperture
     """
-    shape=im.shape[-2:]
+    psf_params = getDefaultPSF_PARAMS(psf_params)
+    shape = shapevec(im)[-2:]   # works also for tensorflow objects
     NA = psf_params.NA
     wl = psf_params.wavelength
     np.seterr(divide='ignore', invalid='ignore')
@@ -239,14 +252,14 @@ def jincAperture(im, psf_params = PSF_PARAMS):
     plane.name = "jincAperture"
     return plane
 
-
-def cosSinAlpha(im, psf_params = PSF_PARAMS):
+def cosSinAlpha(im, psf_params = None):
     """
-    calculates the cos and sin of the angles of beams (in real space) in the pupil plane
+    calculates the cos and sin of the angles (alpha) of beams (in real space) to the optical axis in the pupil plane
     :param im: image in Fourier space, defing the coordinates. This can be obtained by Fourier-transforming a real space image with a set pixelsize
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: a tuple of cos(alpha) and sin(alpha) images in the pupil plane
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     NA = psf_params.NA
     n = psf_params.n
     s = NA / n
@@ -267,7 +280,7 @@ def dampPupilForRealSpaceCut(PhaseMap):
     damp = np.sinc(dphiX/2.0/np.pi)*np.sinc(dphiY/2.0/np.pi) # sin(pi x)/(pi x)
     return damp
 
-def defocusPhase(cos_alpha, defocus=None, psf_params = PSF_PARAMS):
+def defocusPhase(cos_alpha, defocus=None, psf_params = None):
     """
     calculates the complex-valued defocus phase propagation pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
 
@@ -276,6 +289,7 @@ def defocusPhase(cos_alpha, defocus=None, psf_params = PSF_PARAMS):
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: a phase map (in rad) of phases for the stated defocus
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     if defocus is None:
         defocus = psf_params.off_focal_distance
     defocusPhase = psf_params.n / psf_params.wavelength * cos_alpha * defocus
@@ -313,8 +327,42 @@ def aplanaticFactor(cos_alpha, aplanar = 'emission'):
     else:
         raise ValueError('Wrong aplanatic factor in PSF_PARAM structure:  "excitation", "emission","excitation2","emission2" or None, 2 means squared aplanatic factor for flux measurement')
 
+def aberratedPupil(im, psf_params = None):
+    """
+    Compute a scalar aberrated pupil
 
-def simLens(im, psf_params = PSF_PARAMS):
+    The following influences will be included:
+        1.)     Mode of plane field generation (from sinc or circle)
+        2.)     Aplanatic factor
+        3.)     Potential aberrations (set by set_aberration_map)
+
+    returns image of shape [3,y_im,x_im] where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
+    """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
+
+    cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
+
+    if psf_params.aperture_method == 'jinc':
+        plane = jincAperture(im, psf_params)
+    elif psf_params.aperture_method == 'hard':
+        aperture = pupilAperture(im, psf_params)
+        plane = aperture+0.0j
+    else:
+        raise ValueError('Wrong aperture_method: ' + psf_params.aperture_method + ' in PSF_PARAM structure: Choices are: jinc and hard')
+    # Apply aplanatic factor:
+    if not (psf_params.aplanar is None):
+        plane *= aplanaticFactor(cos_alpha, psf_params.aplanar)
+    # Apply aberrations and apertures
+    PhaseMap = 0;
+    if not (psf_params.aberration_types is None):
+        PhaseMap = PhaseMap + aberrationMap(im, psf_params)
+
+    # Apply z-offset:
+    PhaseMap += defocusPhase(cos_alpha, psf_params=psf_params)
+    plane *= np.exp(1j*PhaseMap)  # psf_params.off_focal_distance is used as default
+    return plane
+
+def simLens(im, psf_params = None):
     """
     Compute the 2D pupil-plane field (fourier transform of the electrical field in the plane (at position PSF_PARAMS.off_focal_dist))
 
@@ -326,31 +374,10 @@ def simLens(im, psf_params = PSF_PARAMS):
 
     returns image of shape [3,y_im,x_im] where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
 
-    cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
-    shape = im.shape[-2:]
-
-    # Make base field
-    if psf_params.aperture_method == 'jinc':
-        plane = jincAperture(im, psf_params)
-    elif psf_params.aperture_method == 'hard':
-        aperture = pupilAperture(im, psf_params)
-        plane = aperture+0.0j
-    else:
-        raise ValueError('Wrong aperture_method: ' + psf_params.aperture_method + ' in PSF_PARAM structure: Choices are: jinc and hard')
-
-    # Apply aplanatic factor:
-    if not (psf_params.aplanar is None):
-        plane *= aplanaticFactor(cos_alpha, psf_params.aplanar)
-
-    # Apply aberrations and apertures
-    PhaseMap = 0;
-    if not (psf_params.aberration_types is None):
-        PhaseMap = PhaseMap + aberrationMap(im, psf_params)
-
-    # Apply z-offset:
-    PhaseMap += defocusPhase(cos_alpha, psf_params=psf_params)
-    plane *= np.exp(1j*PhaseMap)  # psf_params.off_focal_distance is used as default
+    plane = aberratedPupil(im, psf_params)  # scalar aberrated (potentially defocussed) pupil
+    shape = shapevec(im)[-2:]   # works also for tensorflow objects
 
     # expand to 4 Dims, the 4th will contain the electric fields
     plane = plane.cat([plane, plane], -4)
@@ -359,13 +386,14 @@ def simLens(im, psf_params = PSF_PARAMS):
     # Apply vectorized distortions
     polx, poly = __setPol__(im, psf_params= psf_params)
     if psf_params.vectorized:
-        theta = phiphi(shape)
-        E_radial     = np.cos(theta) * polx-np.sin(theta) * poly
-        E_tangential = np.sin(theta) * polx+np.cos(theta) * poly
+        cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
+        cos_theta, sin_theta = cosSinTheta(im)
+        E_radial     = cos_theta * polx - sin_theta * poly
+        E_tangential = sin_theta * polx + cos_theta * poly
         E_z = E_radial * sin_alpha
         E_radial *= cos_alpha
-        plane[0] *=  np.cos(theta)*E_radial+np.sin(theta)*E_tangential
-        plane[1] *= -np.sin(theta)*E_radial+np.cos(theta)*E_tangential
+        plane[0] *=  cos_theta * E_radial + sin_theta * E_tangential
+        plane[1] *= -sin_theta * E_radial + cos_theta * E_tangential
         plane[2] *= E_z
     else:
         plane[0] *= polx
@@ -374,7 +402,7 @@ def simLens(im, psf_params = PSF_PARAMS):
     plane.name = "simLens pupil"
     return plane # *aperture  # hard edge aperture at ?
 
-def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
+def __make_transfer__(im, psf_params = None, mode = 'ctf', dimension = 2):
     """
     Creates the transfer function
     Also adds members PSF_PARAMS
@@ -385,6 +413,7 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
     :param dimension:           if 2-> only 2D, if None like input image
     :return:                    returns the transfer function (dimension x,y, potentially z and field components for ctf and apsf
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
 
     ret = simLens(im, psf_params)
     if dimension is None:
@@ -411,7 +440,7 @@ def __make_transfer__(im, psf_params = PSF_PARAMS, mode = 'ctf', dimension = 2):
     ret.name = mode # label the name accordingly
     return ret
 
-def otf(im, psf_params = PSF_PARAMS):
+def otf(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -432,7 +461,7 @@ def otf(im, psf_params = PSF_PARAMS):
 
         See also:
         ---------
-        PSF_PARAMS, psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
+        PSF_PARAMS(), psf, psf2d, otf, otf2d, apsf, apsf2d, ctf, ctf2d, simLens, setAberrationMap
 
 
         Example:
@@ -441,14 +470,14 @@ def otf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -456,7 +485,7 @@ def otf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -467,19 +496,19 @@ def otf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
             apsf = nip.apsf(im, para);
 
-        Examples regarding the PSF_PARAMS:
+        Examples regarding the PSF_PARAMS():
 
         -   Set up linear polarization of arbitrary angle:
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -487,7 +516,7 @@ def otf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -496,15 +525,16 @@ def otf(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'otf', dimension = None))
 
 
-def ctf(im, psf_params = PSF_PARAMS):
+def ctf(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -515,7 +545,7 @@ def ctf(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function. The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -534,14 +564,14 @@ def ctf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -549,7 +579,7 @@ def ctf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -560,19 +590,19 @@ def ctf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
             apsf = nip.apsf(im, para);
 
-        Examples regarding the PSF_PARAMS:
+        Examples regarding the PSF_PARAMS():
 
         -   Set up linear polarization of arbitrary angle:
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -580,7 +610,7 @@ def ctf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -589,15 +619,16 @@ def ctf(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'ctf', dimension = None))
 
 
-def apsf(im, psf_params = PSF_PARAMS):
+def apsf(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -608,7 +639,7 @@ def apsf(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -627,14 +658,14 @@ def apsf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -642,7 +673,7 @@ def apsf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -653,7 +684,7 @@ def apsf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
@@ -665,7 +696,7 @@ def apsf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -673,7 +704,7 @@ def apsf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -682,15 +713,16 @@ def apsf(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = None))
 
 
-def psf(im, psf_params = PSF_PARAMS):
+def psf(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -701,7 +733,7 @@ def psf(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -720,14 +752,14 @@ def psf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -735,7 +767,7 @@ def psf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -746,7 +778,7 @@ def psf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
@@ -758,7 +790,7 @@ def psf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -766,7 +798,7 @@ def psf(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -775,15 +807,16 @@ def psf(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = None))
 
 
-def otf2d(im, psf_params = PSF_PARAMS):
+def otf2d(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -794,7 +827,7 @@ def otf2d(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -813,14 +846,14 @@ def otf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -828,7 +861,7 @@ def otf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -839,7 +872,7 @@ def otf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
@@ -851,7 +884,7 @@ def otf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -859,7 +892,7 @@ def otf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -868,15 +901,16 @@ def otf2d(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'otf', dimension = 2).squeeze())
 
 
-def ctf2d(im, psf_params = PSF_PARAMS):
+def ctf2d(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -887,7 +921,7 @@ def ctf2d(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -906,14 +940,14 @@ def ctf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -921,7 +955,7 @@ def ctf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -932,7 +966,7 @@ def ctf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
@@ -944,7 +978,7 @@ def ctf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -952,7 +986,7 @@ def ctf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -961,15 +995,16 @@ def ctf2d(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'ctf', dimension = 2).squeeze())
 
 
-def apsf2d(im, psf_params = PSF_PARAMS):
+def apsf2d(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -980,7 +1015,7 @@ def apsf2d(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -999,14 +1034,14 @@ def apsf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -1014,7 +1049,7 @@ def apsf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -1025,7 +1060,7 @@ def apsf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
@@ -1037,7 +1072,7 @@ def apsf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -1045,7 +1080,7 @@ def apsf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -1054,15 +1089,16 @@ def apsf2d(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = 2).squeeze())
 
 
-def psf2d(im, psf_params = PSF_PARAMS):
+def psf2d(im, psf_params = None):
     """
         A set of functions to compute a transfer function of an objective
             psf         Point spread function
@@ -1073,7 +1109,7 @@ def psf2d(im, psf_params = PSF_PARAMS):
         Parameters
         ----------
         :param im:           The input image. It should contain the parameter pixelsize. If not the default parameters from "nip.config" will be used
-        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS"
+        :param psf_params:   The psf parameter struct. Use via modifying th "nip.PSF_PARAMS()"
         :return:             Returns the respective transfer function.  The image will have the extra attibute "PSF_PARAMS"
 
         - If the image is three dimensional, the transfer function is three dimensional as well. 2D images will give 2D transfer functions.
@@ -1092,14 +1128,14 @@ def psf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             psf = nip.psf2d(im, para);
 
          - Create 3D PSF with circular polarization:
 
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             nip.para.pol = nip.para.pols.elliptical;
             psf = nip.psf(im, para);
 
@@ -1107,7 +1143,7 @@ def psf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             soft_aperture = nip.gaussian(im.shape, 10);         #Define some soft aperture
             aber_map = nip.xx(im).normalize(1);                # Define some aberration map (x-ramp in this case)
             para.aberration_types=[para.aberration_zernikes.spheric, (3,5), aber_map]    # define list of aberrations (select from choice, zernike coeffs, or aberration map
@@ -1118,7 +1154,7 @@ def psf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.vectorized = False;
             para.aplanar = para.apl.emission
             para.foc_field_method = "circle"
@@ -1130,7 +1166,7 @@ def psf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "lin";           # you might as well choose via para.pol = para.pols.lin
             para.pol_lin_angle = np.pi*3/17;
 
@@ -1138,7 +1174,7 @@ def psf2d(im, psf_params = PSF_PARAMS):
 
             import NanoImagingPack as nip;
             import numpy as np;
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             para.pol = "elliptic";           # you might as well choose via para.pol = para.pols.lin
             para.pol_xy_phase_shift = np.pi*3/17;
 
@@ -1147,11 +1183,12 @@ def psf2d(im, psf_params = PSF_PARAMS):
             import NanoImagingPack as nip;
             import numpy as np;
             im = nip.readim('erika');
-            para = nip.PSF_PARAMS;
+            para = nip.PSF_PARAMS();
             polx = nip.xx(im).normalize(1)*8.0;
             poly = np.random.rand(im.shape[-2], im.shape[-1])*np.exp(-2.546j);
             para.pol = [polx, poly]
     """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
     return __make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = 2).squeeze()
 
 def jinc(mysize=[256,256],myscale=None):

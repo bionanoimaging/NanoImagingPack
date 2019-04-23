@@ -3,7 +3,7 @@
 """
 Created on Thu Jul 27 17:21:21 2017
 
-@author: root
+@author: Christian Karras, Rainer Heintzmann
 
  All kind of image handling
  
@@ -870,7 +870,7 @@ def toClipboard(im, separator='\t', decimal_delimiter='.', transpose=False):
     clipboard.CloseClipboard()
 
 
-def catE(*argv):
+def catE(*argv, matchsizes = False):
     """
         A shorthand for concatenating along the 4th (element dimension).
         Calls cat(imlist,-4)
@@ -880,7 +880,7 @@ def catE(*argv):
     if len(argv) == 1:
         res = argv[0]
     else:
-        res = cat(argv, -4)
+        res = cat(argv, -4, matchsizes=matchsizes)
     res.dim_description = util.caller_args()
     return res
 
@@ -1691,9 +1691,9 @@ class image(np.ndarray):
                 p = __DEFAULTS__['IMG_PIXELSIZES']
             for i in range(len(MyArray.shape)):
                 if i >= len(p):
-                    obj.pixelsize[i] = p[len(p)-1]
+                    obj.pixelsize[-i] = p[0]
                 else:
-                    obj.pixelsize[i] = p[i]
+                    obj.pixelsize[-i] = p[-i]
 
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
@@ -1831,7 +1831,15 @@ class image(np.ndarray):
             If nothing given, it returns the value at the mid pos for all axis
         """
         return self[self.mid()]
-        
+
+    def midValAsg(self, val):
+        """
+            assigns a value to the middle coordinate and returns the modified image
+            ----
+            val: value to assign
+        """
+        return util.midValAsg(self, val)
+
     def mid(self, ax = None):
         """
             returns the midpos of the given axis (as tuple) as seen for ft, i.e. im.shape//2

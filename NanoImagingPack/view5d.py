@@ -66,9 +66,6 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
     print("Lauching View5D: with datatype: "+str(data.dtype))
     VD = jn.autoclass('view5d.View5D')
 #    data=expanddim(data,5) # casts all arrays to 5D
-    sz=data.shape
-    sz=sz[::-1] # reverse
-    sz=np.append(sz,np.ones(5-len(data.shape)))
     #    data=np.transpose(data) # reverts all axes to common display direction
 #    data=np.moveaxis(data,(4,3,2,1,0),(0,1,2,3,4)) # reverts axes to common display direction
     if not isinstance(data,np.ndarray):
@@ -81,6 +78,9 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
                 raise ValueError("v5: cannot evaluate tensor.")
         except ImportError:
             raise ValueError("v5: unsupported datatype to display")
+    sz=data.shape
+    sz=sz[::-1] # reverse
+    sz=np.append(sz,np.ones(5-len(data.shape)))
 
     if (data.dtype=='complex' or data.dtype=='complex128' or data.dtype=='complex64'):
         dcr=data.real.flatten()
@@ -105,6 +105,8 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
                 v5ProcessKeys(out,'E') # advance to next element to the just added phase-only channel
                 v5ProcessKeys(out,12*'c') # toggle color mode 12x to reach the cyclic colormap
                 v5ProcessKeys(out,'vVe') # Toggle from additive into multiplicative display
+            if sz[3]==1:
+                v5ProcessKeys(out,'C') # Back to Multicolor mode
     else:
         dc=data.flatten().tolist()
         out=None

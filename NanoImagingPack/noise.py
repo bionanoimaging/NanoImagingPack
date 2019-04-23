@@ -23,6 +23,7 @@ def poisson(im, NPhot=None, seed=None, dtype=None):
     if seed != None:
         np.random.seed(seed)
     res = image.image(np.random.poisson(im))
-    if dtype != None:
+    res.pixelsize = im.pixelsize
+    if dtype != None: # otherwise this information is lost!
         res = res.astype(dtype)
     return res
