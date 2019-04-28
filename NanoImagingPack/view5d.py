@@ -6,6 +6,7 @@ Created on Fri Aug 10 15:45:37 2018
 """
 from pkg_resources import resource_filename
 from . import util
+from . import transformations
 from . import config
 from . import image
 
@@ -86,7 +87,7 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
         dcr=data.real.flatten()
         dci=data.imag.flatten()
         #dc=np.concatenate((dcr,dci)).tolist();
-        dc=np.stack((dcr,dci),axis=1).flatten().tolist()
+        dc = transformations.stack((dcr,dci), axis=1).flatten().tolist()
         #        dc.reverse()
         # dc=data.flatten().tolist();
         out = VD.Start5DViewerC(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY)
@@ -109,7 +110,6 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
                 v5ProcessKeys(out,'C') # Back to Multicolor mode
     else:
         dc=data.flatten().tolist()
-        out=None
         if data.dtype == 'float':
             out = VD.Start5DViewerF(dc,sz[0],sz[1],sz[2],sz[3],sz[4],SX,SY)  # calls the WRONG entry point to the Java program
         elif data.dtype == 'float32':
@@ -146,11 +146,12 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
     else:
         name = util.caller_args()[0]
         out.NameWindow(name)
+
     if fontSize is not None:
         out.setFontSize(fontSize)
 
     if data.pixelsize is not None:
-        pxs = util.expanddimvec(data.pixelsize,5,trailing=True)
+        pxs = util.expanddimvec(data.pixelsize, 5, trailing=False)
         Names = ['X', 'Y', 'Z', 'E', 'T']
         if (not data.unit is None) and (type(data.unit) == list) and len(data.unit)>4:
             Units = data.unit[0:5]
@@ -159,7 +160,8 @@ def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize
         SV = 1.0  # value scale
         NameV = 'intensity'
         UnitV = 'photons'
-        out.SetAxisScalesAndUnits(0, SV, pxs[0], pxs[1], pxs[2], pxs[3], pxs[4], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
+        pxs = [0.0 if listelem is None else listelem for listelem in pxs]  # replace None values with zero for display
+        out.SetAxisScalesAndUnits(0, SV, pxs[-1], pxs[-2], pxs[-3], pxs[-4], pxs[-5], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
 
     if data.dim_description is not None:
         if type(data.dim_description) == str:

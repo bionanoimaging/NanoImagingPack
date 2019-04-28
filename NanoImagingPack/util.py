@@ -138,9 +138,9 @@ def zernike(r,m,n, radial = False):
         raise ValueError('n must not be negative and |m| <= n')
     if radial == False:
         if m>=0:
-            fact = np.cos(np.abs(m) * coordinates.phiphi(r, angle_range = 2))
+            fact = np.cos(np.abs(m) * (-coordinates.phiphi(r)-np.pi/2))  # the shift was needed to be compatible with the other toolbox ...
         else:
-            fact = np.sin(np.abs(m) * coordinates.phiphi(r, angle_range = 2))
+            fact = np.sin(np.abs(m) * (-coordinates.phiphi(r)-np.pi/2))  # the shift was needed to be compatible with the other toolbox ...
     else:
         fact = 1
 
@@ -154,7 +154,7 @@ def zernike(r,m,n, radial = False):
         zer = np.zeros(r.shape)
         for c, k_el in zip(zer_coeff, k):       # on purpose used a for loop here, as it is indeed faster
             zer += c*r**(n-2*k_el)
-    return(zer*fact)
+    return zer*fact
 
 def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0, pixelsize=None):
     img = zeros(np.prod(sz))
@@ -237,6 +237,7 @@ def toList(val):
 def equalsizevec(vec1,vec2):
     return np.linalg.norm(vec1-vec2)==0.0
 
+
 def repToList(val,ndim,defaultVal=0):
     """
         converts a value to a list (if not already a list) and replicates a single input value to a chosen number of dimensions if needed
@@ -258,6 +259,15 @@ def repToList(val,ndim,defaultVal=0):
     return val
 
 from . import image
+
+def longestPixelsize(inputs):
+    pixelsize=None
+    for inp in inputs:
+        if isinstance(inp, image.image) and inp.pixelsize is not None:
+            if pixelsize is None or len(inp.pixelsize) > len(pixelsize):
+                pixelsize = inp.pixelsize
+            break
+    return pixelsize
 
 def splice(list1,list2):
     list1=list(list1)
@@ -890,7 +900,21 @@ def caller_string(backTrack=1):
     finally:
         del frame
 
-def caller_args():
+def cutToClosingBracket(astring):
+    istart = []  # stack of indices of opening parentheses
+    d = {}
+
+    for i, c in enumerate(astring):
+        if c == '(':
+            istart.append(i)
+        if c == ')':
+            try:
+                d[istart.pop()] = i
+            except IndexError:
+                return astring[:i]
+    return astring
+
+def caller_args(findString='('):
     frame = inspect.currentframe()
     #    if fktname==None:
     #        fktname="caller_argname"
@@ -904,7 +928,9 @@ def caller_args():
         #        m = re.search(r''+regexp, caller_lines)
         #        if m:
         #            caller_lines = m.group(1)
-        myargs = caller_lines[caller_lines.find('(') +1 :-1]
+        caller_lines = caller_lines.replace(" ", "")
+        myargs = caller_lines[caller_lines.find(findString) + len(findString):-1]
+        myargs = cutToClosingBracket(myargs)
         # if myargs[0]=='(':
         #     myargs=myargs[1:]
         # if myargs[-1] == ')':

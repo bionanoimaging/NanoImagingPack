@@ -718,7 +718,7 @@ def FRC(im1, im2, pixel_size=62, num_rings=10, correct_shift=True):
         im1 = ft(im1, shift_after=True, shift_before=False, ret='complex', axes=(0, 1))
         im2 = ft(im2, shift_after=True, shift_before=False, ret='complex', axes=(0, 1))
 
-        if type(im1) == image:
+        if isinstance(im1, image):
             pxs = image.pixelsize
         else:
             import numbers
@@ -816,7 +816,7 @@ def adjust_dims(imlist, maxdim=None):
     if type(imlist) == list or type(imlist) == tuple:
         dimsize_list = []
         for im in imlist:
-            if type(im) == np.ndarray:
+            if isinstance(im, np.ndarray):
                 dimsize_list.append(im.ndim)
             else:
                 err = True
@@ -881,7 +881,7 @@ def catE(*argv, matchsizes = False):
         res = argv[0]
     else:
         res = cat(argv, -4, matchsizes=matchsizes)
-    res.dim_description = util.caller_args()
+    res.dim_description = util.caller_args("catE(")
     return res
 
 
@@ -901,8 +901,10 @@ def cat(imlist, axis=None, destdims=None, matchsizes = False):
     imlist = list(imlist)
     imlist = [x for x in imlist if x is not None]
     for i in range(len(imlist)):
-        if type(imlist[i]) != np.ndarray:
-            imlist[i] = np.asarray(imlist[i])
+        if not isinstance(imlist[i], image):
+            imlist[i] = image(imlist[i])
+    pixelsize = util.longestPixelsize(imlist)
+
     imlist = tuple(imlist)
     shapes = np.asarray([list(im.shape) for im in imlist])
 
@@ -935,7 +937,7 @@ def cat(imlist, axis=None, destdims=None, matchsizes = False):
             else:
                 raise ValueError("cat, dimension "+str(i)+": Sizes are not matching. Adjust sizes or use the flag matchsizes=True.")
             # return(np.concatenate((imlist),axis).squeeze());
-    return image(np.concatenate(imlist, axis))  # RH  2.2.19
+    return image(np.concatenate(imlist, axis), pixelsize = pixelsize)
 
 
 def histogram(im, name='', bins=65535, range=None, normed=False, weights=None, density=None):
@@ -1338,9 +1340,6 @@ def line_cut(im, coord1=0, coord2=None, thickness=10):
             line_cut(im,coord1 = (120,200), coord2 = (500,300),thickness = 20)
                 creates a line cut from (120,200) to (500,300), averages ove 20 points around the cut
 
-
-
-
         returns 1D- array with linecut and rotation angle
     """
     through_all = False
@@ -1646,14 +1645,14 @@ class image(np.ndarray):
     def __new__(cls, MyArray = None, pixelsize = None, unit = '', info = '', name = None):
         import numbers
         if MyArray is None:
-            MyArray = np.zeros((128,128))
+            MyArray = util.zeros((128,128))
         if type(MyArray) is list or type(MyArray) is tuple:
             res = 1
             for k in MyArray: res*= isinstance(k, numbers.Integral);
             if res == 0:
                 raise ValueError('Only integers are allowed in lists or tuples for creating and image')
             else:
-                MyArray = np.zeros(MyArray)
+                MyArray = util.zeros(MyArray)
         obj = np.asarray(MyArray).view(cls)
         # Here all extradata goes in:
         obj.info = info
@@ -1666,7 +1665,7 @@ class image(np.ndarray):
         if __DEFAULTS__['IMG_NUMBERING']:
             max_im_number = 0
             for l in locals().values():
-                if type(l) == image:
+                if isinstance(l, image):
                     if l.im_number >= max_im_number: max_im_number = l.im_number+1;
             obj.im_number = max_im_number
         else:
@@ -1683,18 +1682,19 @@ class image(np.ndarray):
         obj.dim_description = None
 
         obj.name = name
-        if pixelsize is None:
-            obj.pixelsize = MyArray.ndim*[1.0] # [i*0+1.0 for i in MyArray.shape];
-            if hasattr(MyArray, 'pixelsize'):
-                p=MyArray.pixelsize
-            else:
-                p = __DEFAULTS__['IMG_PIXELSIZES']
-            for i in range(len(MyArray.shape)):
-                if i >= len(p):
-                    obj.pixelsize[-i] = p[0]
-                else:
-                    obj.pixelsize[-i] = p[-i]
-
+        if obj.pixelsize is None:
+            obj.pixelsize = pixelsize
+        #     obj.pixelsize = MyArray.ndim*[1.0] # [i*0+1.0 for i in MyArray.shape];
+        #     if hasattr(MyArray, 'pixelsize'):
+        #         p=MyArray.pixelsize
+        #     else:
+        #         p = __DEFAULTS__['IMG_PIXELSIZES']
+        #     for i in range(len(MyArray.shape)):
+        #         if i >= len(p):
+        #             obj.pixelsize[-i] = p[0]
+        #         else:
+        #             obj.pixelsize[-i] = p[-i]
+        #
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
             if len(pixelsize) > MyArray.ndim: pixelsize = pixelsize[:MyArray.ndim];
@@ -1705,6 +1705,9 @@ class image(np.ndarray):
         else:
             raise ValueError('Pixelsize must be list, tuple or number')
         return obj
+
+    def __repr__(self):   # will be called in the "print" representation
+         return "image"+str(self.shape)
 
     def _repr_pretty_(self, p, cycle):
 #        print("Here is _repr_pretty_  !!! "+__DEFAULTS__['IMG_VIEWER']);
@@ -1729,6 +1732,8 @@ class image(np.ndarray):
                         print("np.image"+str(self))
                     elif (len(mysize) == 2) and (mysize[0] < 5) and (mysize[1] < 5):
                         print("np.image"+str(self))
+                    elif type(self) == list and len(list) > 10:
+                        print("list of images of length " + str(len(self)))
                     else:
                         # if self.name is None:
                         #     self.name = util.caller_string(3)  # use the name of the caller
@@ -1752,8 +1757,11 @@ class image(np.ndarray):
         import numbers
         if pixelsize is None:
             p = __DEFAULTS__['IMG_PIXELSIZES']
-            self.pixelsize = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];    
-            self.pixelsize[-len(self.shape)::] = p[-len(self.shape)::]
+            if p is not None:
+                self.pixelsize = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
+                self.pixelsize[-len(self.shape)::] = p[-len(self.shape)::]
+            else:
+                self.pixelsize = p
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
             if len(pixelsize) > self.ndim: pixelsize = pixelsize[-self.ndim:];
@@ -1768,7 +1776,7 @@ class image(np.ndarray):
         """
             compares the pixelsize setting of the present image with a second image im2
         """
-        if type(im2) == image:
+        if isinstance(im2, image):
                     for pxs1, pxs2 in zip(self.pixelsize, im2.pixelsize):
                         if pxs1 != pxs2:
                             print('Warning: images have different pixelsizes! Computing FRC based of pixelsize of image 1')
@@ -1917,7 +1925,7 @@ class image(np.ndarray):
 
     def match_size(self,im2,axes = 0, padmode ='constant', odd = False):
         ret_im1, ret_im2 = match_size(self,im2,axes = axes, padmode =padmode, odd = odd)
-        if type(im2) == image:
+        if isinstance(im2, image):
             ret_im2.__array_finalize__(im2)
         return ret_im1, ret_im2
 
@@ -2077,6 +2085,95 @@ class image(np.ndarray):
         else:
             return coord
 
+#     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):  # this method is called whenever you use a ufunc
+#         f = {
+#             "reduce": ufunc.reduce,
+#             "accumulate": ufunc.accumulate,
+#             "reduceat": ufunc.reduceat,
+#             "outer": ufunc.outer,
+#             "at": ufunc.at,
+#             "__call__": ufunc,
+#         }
+#         [inputs[i] = inputs[i]  for i in inputs]
+#         output = super().__array_ufunc__(ufunc, method, *inputs, **kwargs)
+# #        output = image(f[method](*inputs, **kwargs))  # convert the inputs to np.ndarray to prevent recursion, call the function, then cast it back as ExampleTensor
+#         output.__dict__ = self.__dict__  # carry forward attributes
+#         return output
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):   # example method from: https://docs.scipy.org/doc/numpy-1.13.0/user/basics.subclassing.html
+        args = []
+        in_no = []
+        for i, input_ in enumerate(inputs):
+            if isinstance(input_, image):
+                in_no.append(i)
+                args.append(input_.view(np.ndarray))  # converts to a numpy view
+            else:
+                args.append(input_)
+
+        outputs = kwargs.pop('out', None)
+        out_no = []
+        if outputs:
+            out_args = []
+            for j, output in enumerate(outputs):
+                if isinstance(output, image):
+                    out_no.append(j)
+                    out_args.append(output.view(np.ndarray))
+                else:
+                    out_args.append(output)
+            kwargs['out'] = tuple(out_args)
+        else:
+            outputs = (None,) * ufunc.nout
+
+        # info = {}
+        # if in_no:
+        #     info['inputs'] = in_no
+        # if out_no:
+        #     info['outputs'] = out_no
+
+        results = super(image, self).__array_ufunc__(ufunc, method, *args, **kwargs)
+        if results is NotImplemented:
+            return NotImplemented
+
+        # if method == 'at':
+        #     if isinstance(inputs[0], image):
+        #         inputs[0].info = info
+        #     return
+
+        if ufunc.nout == 1:
+            results = (results,)
+
+        results = tuple((np.asarray(result).view(image)   # also calles __arrray_finalize__ which copies the pixelsizes
+                         if output is None else output)
+                        for result, output in zip(results, outputs))
+
+        if method == 'reduce' and isinstance(inputs[0],image) and inputs[0].pixelsize is not None:
+            keepdims = kwargs['keepdims']
+            for i, output_ in enumerate(results):
+                if isinstance(output_, image):
+                    if keepdims is False:  # else the pixelsizes are OK
+                        axes = kwargs['axis']
+                        ndims=len(inputs[0].pixelsize)
+                        if axes is None:
+                            output_.pixelsize = None
+                        else:
+                            if not isinstance(axes, tuple):
+                                axes = (axes,)
+                            output_.pixelsize = [inputs[0].pixelsize[e] for e in range(ndims) if e not in axes and ((e-ndims) not in axes)]
+                    else:
+                        output_.pixelsize = inputs[0].pixelsize.copy()
+
+        if method=="__call__":
+            for i, output_ in enumerate(results):
+                output_.pixelsize = util.longestPixelsize(inputs)
+
+        # if results and isinstance(results[0], image):
+        #     results[0].info = info
+
+        return results[0] if len(results) == 1 else results
+
+    # def __array_wrap__(self, result):
+    #     return image(result)  # can add other attributes of self as constructor
+
     def __array_finalize__(self, obj):
         if obj is None: return;   # is true for explicit creation of array
         # This stuff is important in case that the "__new__" method isn't called
@@ -2107,27 +2204,31 @@ class image(np.ndarray):
 #               1) the matplotlib widgets creates a lot of views which alway cause problemse (thats the reason for the try below)
 #               2) for ax swaping (also rolling, transposing changes in strides can't be identified in __array_finalize__)
         
-        p = __DEFAULTS__['IMG_PIXELSIZES']
-        if type(obj) == type(self):
-            pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-            for i in range(len(self.shape)):
-                try:
-                    pxs[-i-1] = obj.pixelsize[-i-1]  # new_axes[-i-1]
-                except:
-                    if i >= len(p):
-                        pxs[-i-1] = p[0]
-                    else:
-                        pxs[-i-1] = p[-i-1]
+        # p = __DEFAULTS__['IMG_PIXELSIZES']
+        # if type(obj) == type(self):
+        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
+        #     for i in range(len(self.shape)):
+        #         try:
+        #             pxs[-i-1] = obj.pixelsize[-i-1]  # new_axes[-i-1]
+        #         except:
+        #             if i >= len(p):
+        #                 pxs[-i-1] = p[0]
+        #             else:
+        #                 pxs[-i-1] = p[-i-1]
+        # else:
+        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
+        #     for i in range(len(self.shape)):
+        #         if i >= len(p):
+        #             pxs[-i-1] = p[0]
+        #         else:
+        #             pxs[-i-1] = p[-i-1]
+        # self.pixelsize = pxs
+        if isinstance(obj, image) and obj.pixelsize is not None:
+            self.pixelsize = obj.pixelsize.copy()
         else:
-            pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-            for i in range(len(self.shape)):
-                if i >= len(p):
-                    pxs[-i-1] = p[0]
-                else:
-                    pxs[-i-1] = p[-i-1]
-        self.pixelsize = pxs
+            self.pixelsize = __DEFAULTS__['IMG_PIXELSIZES'] # which is None
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
-        self.dim_description = getattr(obj,'dim_description', None)
+        self.dim_description = getattr(obj, 'dim_description', None)
         self.metadata = getattr(obj,'metadata',[])
         self.spectral_axes = getattr(obj, 'spectral_axes', [])
         self.ax_shifted = getattr(obj, 'ax_shifted', [])
@@ -2139,7 +2240,7 @@ class image(np.ndarray):
         max_im_number = 0
         if __DEFAULTS__['IMG_NUMBERING']:
             for l in locals().values():
-                if type(l) == image:
+                if isinstance(l,image):
                     if l.im_number >= max_im_number: max_im_number = l.im_number+1;
             self.im_number = max_im_number
         else:

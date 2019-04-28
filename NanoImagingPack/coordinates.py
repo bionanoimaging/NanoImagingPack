@@ -181,8 +181,6 @@ def phiphi(mysize=(256, 256), angle_range=1, placement='center'):
         myplacementX = placement[-1]
         myplacementY = placement[-2]
     phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2,placement=myplacementY), ramp1D(mysize[-1], ramp_dim=-1,placement=myplacementX))
-    if angle_range == 2:
-        phi = np.flipud(np.fliplr(np.mod(phi + 3 * np.pi, 2 * np.pi)))
     return (phi)
     # np.seterr(divide ='ignore', invalid = 'ignore');
     # x = ramp(mysize,1,'center');

@@ -140,21 +140,19 @@ def aberrationMap(im, psf_params= None):
         if type(aberration) == str or isinstance(aberration,np.ndarray):
             aberration = [aberration]
         elif type(aberration) == list or type(aberration) == tuple:
-            if  isinstance(aberration[0], numbers.Integral):
+            if isinstance(aberration[0], numbers.Integral):
                 aberration= [aberration]
         for s, ab in zip(strength, aberration):
-       #TODO: CHEKC if ZERNICKE MAP HAS TO BE STRETCHED OVER PI or over 2PI!!!
-       # ZERNICKE value range is between -1 and 1;
             if type(ab) == str:
                 m = zernike_para[ab][0]
                 n = zernike_para[ab][1]
-                aberration_map += s*zernike(r,m,n)*np.pi
+                aberration_map += s*zernike(r, m, n)*np.pi
             elif isinstance(ab,np.ndarray):
                 aberration_map += ab
             else:
                 m = ab[0]
                 n = ab[1]
-                aberration_map += s*zernike(r,m,n)*np.pi
+                aberration_map += s*zernike(r, m, n)*np.pi
     aberration_map.name = "aberrated pupil phase"
     return aberration_map
 
@@ -179,7 +177,11 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     if shape is None:
         shape = shapevec(im)
 
+    if pxs is None:
+        raise ValueError("To propagate the pixelsize needs to be defined! Found: None")
+
     if (len(pxs)<3):
+        raise ValueError("To propagate the pixelsize along Z needs to be defined!")
         axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
         warnings.warn('makePropagator: Only 2 Dimensional image given -> using default pixezsize[-3] = ('+str(axial_pxs)+')')
     else:
@@ -381,7 +383,7 @@ def simLens(im, psf_params = None):
 
     # expand to 4 Dims, the 4th will contain the electric fields
     plane = plane.cat([plane, plane], -4)
-    plane.dim_description = {'d3': ['Ex', 'Ey', 'Ez']}
+    plane.dim_description = ['Ex', 'Ey', 'Ez'] # {'d3': ['Ex', 'Ey', 'Ez']}
 
     # Apply vectorized distortions
     polx, poly = __setPol__(im, psf_params= psf_params)

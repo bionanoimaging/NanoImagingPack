@@ -139,7 +139,7 @@ __DEFAULTS__ ={
         'VIEWER_IMG_ORIGIN': 'upper',       #where is the origin of the image? 'upper' or 'lower' for upper or lower left corner
          
         #Image-Class Default Settings
-        'IMG_PIXELSIZES': [100,50, 50],      #Default pixelsizes (list or tuple -> has to be at least 3dimensional)
+        'IMG_PIXELSIZES': None,      # was [100,50, 50].  Default pixelsizes IS A BAD IDEA!!! (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
         'IMG_TIFF_FORMATS': ['tif', 'tiff'],
         'IMG_IMG_FORMATS':  ['bmp', 'png'],
@@ -227,8 +227,8 @@ def set_cfg():
             print("WARNING! Image viewer View5D could not be used as a default, since pyjnius is not properly installed. Reverting to NIP_VIEW as the default.")
             __DEFAULTS__['IMG_VIEWER'] ='NIP_VIEW'
             
-    if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:
-        print('WARNING: Default pixelsize is not 3 dimensional add default values of 100')
-        __DEFAULTS__['IMG_PIXELSIZES'] +=[100 for i in range(3-len(__DEFAULTS__['IMG_PIXELSIZES']))]
+    # if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:
+    #     print('WARNING: Default pixelsize is not 3 dimensional add default values of 100')
+    #     __DEFAULTS__['IMG_PIXELSIZES'] +=[100 for i in range(3-len(__DEFAULTS__['IMG_PIXELSIZES']))]
 #        print('Importing pyFFTW failed!');
 #        print('-> TAKING FFT from numpy!');

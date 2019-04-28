@@ -10,7 +10,7 @@ import numbers
 from . import util
 from . import image
 
-from .view5d import v5 # for debugging
+# from .view5d import v5 # for debugging
 # import warnings
 
 __REAL_AXIS__ = 0
@@ -325,6 +325,144 @@ def __check_type__(im, ft_axes, orig, name, real_axis=0, shift_axes=[]):
 
         # ifft shift
 
+# overwrite a couple of functions, which unfortunately are not using any wrappers like ufunc or finalize
+def pad(array, pad_width, mode, **kwargs):
+    return image.image(np.pad(array, pad_width, mode, **kwargs), pixelsize=array.pixelsize)
+
+def stack(arrays, axis=0, out=None):
+    pixelsize = arrays[0].pixelsize.copy()
+    res = image.image(np.stack(arrays, axis, out), pixelsize=pixelsize)
+    if axis == 0:
+        res.pixelsize = [None] + res.pixelsize
+    return res
+
+def fft(a, n=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.fft(a, n, axes, norm), pixelsize=a.pixelsize)
+
+def ifft(a, n=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.ifft(a, n, axes, norm), pixelsize=a.pixelsize)
+
+def fft2(a, s=None, axes=(-2, -1), norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.fft2(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def ifft2(a, s=None, axes=(-2, -1), norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.ifft2(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def fftn(a, s=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.fftn(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def ifftn(a, s=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.ifftn(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def rfft(a, n=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.rfft(a, n, axes, norm), pixelsize=a.pixelsize)
+
+def irfft(a, n=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.irfft(a, n, axes, norm), pixelsize=a.pixelsize)
+
+def rfft2(a, s=None, axes=(-2, -1), norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.rfft2(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def irfft2(a, s=None, axes=(-2, -1), norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.irfft2(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def rfftn(a, s=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.rfftn(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def irfftn(a, s=None, axes=None, norm=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.irfftn(a, s, axes, norm), pixelsize=a.pixelsize)
+
+def fftshift(a, axes=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.fftshift(a, axes), pixelsize=a.pixelsize)
+
+def ifftshift(a, axes=None):
+    """
+    shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
+    :param a:
+    :param axes:
+    :return:
+    """
+    return image.image(np.fft.ifftshift(a, axes), pixelsize=a.pixelsize)
+
+# introduce a couple of already shifted fts (similar to DipImage) for convenience
 def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = 'ortho'):
     """
         Fouriertransform of image
@@ -353,17 +491,16 @@ def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None,
 
     """
     #create axes list
-    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
 
     if shift_before == True:
-        im=np.fft.ifftshift(im, axes=axes) # mid to corner
+        im = ifftshift(im, axes=axes) # mid to corner
     if (not s is None) and (not axes is None) and len(axes)< len(s):
         s=s[-len(axes):] # it will automatically deal with the other axes
-    im=np.fft.fftn(im, axes=axes, s=s, norm=norm)
+    im = fftn(im, axes=axes, s=s, norm=norm)
     if shift_after == True:
-        im=np.fft.fftshift(im, axes=axes)  # corner freq to mid freq
-    return image.image(__ret_val__(im, ret), pixelsize=pxs)
+        im = fftshift(im, axes=axes)  # corner freq to mid freq
+    return __ret_val__(im, ret)
 
 def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm =  'ortho'):
     """
@@ -391,18 +528,16 @@ def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None
         real_axis: along which axes was the real fft done?
 
     """
-
-    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
 
     if shift_before == True:
-        im=np.fft.ifftshift(im, axes=axes) # mid to corner
+        im = ifftshift(im, axes=axes) # mid to corner
     if (not s is None) and (not axes is None) and len(axes)< len(s):
         s=s[-len(axes):] # it will automatically deal with the other axes
-    im=np.fft.ifftn(im, axes=axes, s=s, norm=norm)
+    im = ifftn(im, axes=axes, s=s, norm=norm)
     if shift_after == True:
-        im=np.fft.fftshift(im, axes=axes)  # corner freq to mid freq
-    return image.image(__ret_val__(im, ret), pixelsize=pxs)
+        im = fftshift(im, axes=axes)  # corner freq to mid freq
+    return __ret_val__(im, ret)
 
 
 def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
@@ -428,19 +563,18 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
 
     """
     # create axis, shift_ax and real_ax
-    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
     if shift_before == True:
         shift_ax = [i for i in axes if i != real_axis]
-        im=np.fft.ifftshift(im, axes=shift_ax) # mid freq to corner
+        im = ifftshift(im, axes=shift_ax) # mid freq to corner
     if (not s is None) and (not axes is None) and len(axes)< len(s):
         s=s[-len(axes):] # it will automatically deal with the other axes
-    im=np.fft.irfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultDataType)
+    im = irfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultDataType)
     if shift_after == True:
-        im=np.fft.fftshift(im, axes=axes)  # corner to mid
-    return image.image(__ret_val__(im, ret), pixelsize=pxs)
+        im = fftshift(im, axes=axes)  # corner to mid
+    return __ret_val__(im, ret)
 
 
 def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
@@ -472,7 +606,6 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
 
     """
     #create axes list
-    pxs = im.pixelsize
     axes=__checkAxes__(axes,im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
@@ -482,14 +615,14 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
         # return(ft(im, shift_after= shift, shift_before = shift_before, ret = ret, axes = axes, s = s, norm = norm));
     else:
         if shift_before == True:
-            im=np.fft.ifftshift(im, axes=axes) # mid to corner
+            im = ifftshift(im, axes=axes) # mid to corner
         if (not s is None) and (not axes is None) and len(axes) < len(s):
             s = s[-len(axes):]  # it will automatically deal with the other axes
-        im=np.fft.rfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultCpxDataType)
+        im = rfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultCpxDataType)
         if shift_after == True:
             shift_ax = [i for i in axes if i != real_axis]
-            im=np.fft.fftshift(im, axes=shift_ax)  # corner freq to mid freq
-        return image.image(__ret_val__(im, ret), pixelsize=pxs)
+            im =fftshift(im, axes=shift_ax)  # corner freq to mid freq
+        return __ret_val__(im, ret)
 
 def resample(img, factors=[2.0, 2.0]):
     """
