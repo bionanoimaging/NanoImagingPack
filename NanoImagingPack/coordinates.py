@@ -196,8 +196,8 @@ def phiphi(mysize=(256, 256), angle_range=1, placement='center'):
 
 def cosSinTheta(im, space=None):
     """
-
-    :param im:
+    calculates the cos and sin of the polar angle Theta in the pupil plane
+    :param im: image for sizes and pixelsizes
     :param space:  If set to "ftfreq", the cos and sin of the angles in Fourier space are calculated. If None, the angels in real space (accounting for the pixelsizes). If "unit", the pixelsizes are ignored.
     :return:
     """
@@ -220,6 +220,7 @@ def cosSinTheta(im, space=None):
     myr = myr.midValAsg(1.0) # to avoid division by zero
     sin_theta = myy/myr
     cos_theta = myx/myr
+    cos_theta.midValAsg(1.0) # to warrant cos^2 + sin^2 to equal to 1.0
     return cos_theta, sin_theta
 
 def VolumeList(MyShape=(256, 256), MyCenter='center', MyStretch=1, polar_axes=None, return_axes='all'):

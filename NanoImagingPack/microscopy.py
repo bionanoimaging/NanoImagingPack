@@ -11,7 +11,7 @@ Also SIM stuff
 """
 
 import numpy as np
-from .util import zernike, expanddim, midValAsg, zeros, shapevec
+from .util import zernike, expanddim, midValAsg, zeros, shapevec, nollIdx2NM
 from .transformations import rft,irft,ft2d
 from .coordinates import rr, phiphi, px_freq_step, ramp1D, cosSinTheta
 from .config import PSF_PARAMS, __DEFAULTS__
@@ -70,10 +70,22 @@ def __setPol__(im, psf_params= None):
         raise ValueError('Wrong Polarization: "lin", "lin_x", "lin_y", "azimuthal", "radial", "circular", "elliptic" or tuple or list of polarization maps (polx,poly)')
     return(tuple(pol))
 
+def zernikeStack(im, psf_params=None, nzernikes=15):
+    """
+    create a stack of Zernike base aberrations including the scalar pupil.
+    """
+    psf_params = getDefaultPSF_PARAMS(psf_params)
+    r = pupilRadius(im, psf_params)
+    myzernikes = zeros((nzernikes, im.shape[-2], im.shape[-1]))  # + 1j * nip.zeros((nzernikes, Po.shape[-2], Po.shape[-1]))
+    for noll in range(0, nzernikes):
+        n, m = nollIdx2NM(noll + 1)
+        myzernikes[noll, :, :] = zernike(r, m, n) * np.pi
+    myzernikes.name = "Zernike Polynomials"
+    return myzernikes
 
 def aberrationMap(im, psf_params= None):
     """
-    create an aberration phase map (based on Zernike polynomials) or a transmission matrix (aperture) for PSF generation
+    create an aberration phase map (based on Zernike polynomials) for PSF generation
 
     uses:
         PSF_PARAMS().aberration_strength = None;
@@ -87,7 +99,7 @@ def aberrationMap(im, psf_params= None):
                         or phasemap
 
                         or string
-                                piston     -> (Z0,0)
+                                piston     -> (Z00)
                                 tiltY      -> (Z-11)
                                 tiltX      -> (Z11)
                                 astigm     -> (Z-22)
@@ -104,7 +116,6 @@ def aberrationMap(im, psf_params= None):
                                 vquadfoil  -> (Z44)
 
                     can be also lists or tuples -> Then everything will summed up
-    transmission:   The transmission map
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
     zernike_para = {'piston': (0,0),'tiltY': (-1,1),'tiltX': (1,1),'astigm': (-2,2),'defoc': (0,2),'vastig': (2,2),'vtrefoil': (-3,3),'vcoma': (-1,3),
@@ -128,13 +139,13 @@ def aberrationMap(im, psf_params= None):
     #     else:
     #         raise ValueError('Wrong transmission -> must be 2D image or array of the same xy-dimension as the image')
     if strength is not None and aberration is not None:
-        if isinstance(im, image):
-            pxs=im.px_freq_step()[-2:]
-        else:
-            pxs = __DEFAULTS__['IMG_PIXELSIZES']
-            pxs = px_freq_step(im, pxs)[-2:]
-
-        r = rr(shape, scale=pxs) * psf_params.wavelength / psf_params.NA
+        # if isinstance(im, image):
+        #     pxs=im.px_freq_step()[-2:]
+        # else:
+        #     pxs = __DEFAULTS__['IMG_PIXELSIZES']
+        #     pxs = px_freq_step(im, pxs)[-2:]
+        # r = rr(shape, scale=pxs) * psf_params.wavelength / psf_params.NA  # BAD !
+        r = pupilRadius(im, psf_params)
         if isinstance(strength, numbers.Real):
             strength = [strength]
         if type(aberration) == str or isinstance(aberration,np.ndarray):
@@ -157,9 +168,12 @@ def aberrationMap(im, psf_params= None):
     return aberration_map
 
 def propagatePupil(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
+    return pupil * propagationStack(pupil, sizeZ, psf_params, mode, doDampPupil)
+
+def propagationStack(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
     psf_params = getDefaultPSF_PARAMS(psf_params)
     myshape = (sizeZ,) + shapevec(pupil)[-2:]
-    return pupil * __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape)
+    return __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape)
 
 def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     """
@@ -297,7 +311,6 @@ def defocusPhase(cos_alpha, defocus=None, psf_params = None):
     defocusPhase = psf_params.n / psf_params.wavelength * cos_alpha * defocus
     return 2.0 * np.pi * defocusPhase
 
-
 def aplanaticFactor(cos_alpha, aplanar = 'emission'):
     """
     calculated the aplanatic factor according to the argument aplanar
@@ -331,7 +344,7 @@ def aplanaticFactor(cos_alpha, aplanar = 'emission'):
 
 def aberratedPupil(im, psf_params = None):
     """
-    Compute a scalar aberrated pupil
+    Compute a scalar aberrated pupil, possibly with the jinc-Trick. Aplanatic factors are included, but not the pupil propagation stack
 
     The following influences will be included:
         1.)     Mode of plane field generation (from sinc or circle)
@@ -379,7 +392,7 @@ def simLens(im, psf_params = None):
     psf_params = getDefaultPSF_PARAMS(psf_params)
 
     plane = aberratedPupil(im, psf_params)  # scalar aberrated (potentially defocussed) pupil
-    shape = shapevec(im)[-2:]   # works also for tensorflow objects
+#    shape = shapevec(im)[-2:]   # works also for tensorflow objects
 
     # expand to 4 Dims, the 4th will contain the electric fields
     plane = plane.cat([plane, plane], -4)

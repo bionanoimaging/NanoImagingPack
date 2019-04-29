@@ -330,7 +330,7 @@ def pad(array, pad_width, mode, **kwargs):
     return image.image(np.pad(array, pad_width, mode, **kwargs), pixelsize=array.pixelsize)
 
 def stack(arrays, axis=0, out=None):
-    pixelsize = arrays[0].pixelsize.copy()
+    pixelsize = util.longestPixelsize(arrays) # arrays[0].pixelsize.copy()
     res = image.image(np.stack(arrays, axis, out), pixelsize=pixelsize)
     if axis == 0:
         res.pixelsize = [None] + res.pixelsize

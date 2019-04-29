@@ -125,8 +125,56 @@ def inrange(arr, ran):
         ran = ran[::-1]
     return((arr>ran[0])&(arr<ran[1]))
 
-def zernike(r,m,n, radial = False):
+# The code below is from https://github.com/david-hoffman/pyOTF/blob/master/zernike.py
+noll_mapping = np.array([
+    1, 3, 2, 5, 4, 6, 9, 7, 8, 10, 15, 13, 11, 12, 14, 21, 19, 17, 16,
+    18, 20, 27, 25, 23, 22, 24, 26, 28, 35, 33, 31, 29, 30, 32, 34,
+    36, 45, 43, 41, 39, 37, 38, 40, 42, 44, 55, 53, 51, 49, 47, 46,
+    48, 50, 52, 54, 65, 63, 61, 59, 57, 56, 58, 60, 62, 64, 66, 77,
+    75, 73, 71, 69, 67, 68, 70, 72, 74, 76, 78, 91, 89, 87, 85, 83,
+    81, 79, 80, 82, 84, 86, 88, 90, 105, 103, 101, 99, 97, 95, 93,
+    92, 94, 96, 98, 100, 102, 104, 119, 117, 115, 113, 111, 109,
+    107, 106, 108, 110, 112, 114, 116, 118, 120
+])
 
+# reverse mapping of noll indices
+noll_inverse = noll_mapping.argsort()
+
+def nollIdx2NM(noll):
+    """Convert from Noll's indices to radial degree and azimuthal degree"""
+    noll = np.asarray(noll)
+    if not np.issubdtype(noll.dtype, np.signedinteger):
+        raise ValueError("input is not integer, input = {}".format(noll))
+    if not (noll > 0).all():
+        raise ValueError(
+            "Noll indices must be greater than 0, input = {}".format(noll))
+    # need to subtract 1 from the Noll's indices because they start at 1.
+    p = noll_inverse[noll - 1]
+    n = np.ceil((-3 + np.sqrt(9 + 8 * p)) / 2)
+    m = 2 * p - n * (n + 2)
+    return n.astype(int), m.astype(int)
+
+
+def NM2NollIdx(n, m):
+    """Convert from radial and azimuthal degrees to Noll's index"""
+    n, m = np.asarray(n), np.asarray(m)
+    # check inputs
+    if not np.issubdtype(n.dtype, int):
+        raise ValueError(
+            "Radial degree is not integer, input = {}".format(n))
+    if not np.issubdtype(m.dtype, int):
+        raise ValueError(
+            "Azimuthal degree is not integer, input = {}".format(m))
+    if ((n - m) % 2).any():
+        raise ValueError(
+            "The difference between radial and azimuthal degree isn't mod 2")
+    # do the mapping
+    p = (m + n * (n + 2)) / 2
+    noll = noll_mapping[p.astype(int)]
+    return noll
+# end of code from https://github.com/david-hoffman/pyOTF/blob/master/zernike.py
+
+def zernike(r, m, n, radial = False):
     """
         compute the zerincke polynomial Z^m_n(r, phi)
 
@@ -147,11 +195,11 @@ def zernike(r,m,n, radial = False):
     m = np.abs(m)
     n = np.abs(n)
     if np.mod((n-m),2) ==1:
-        return(np.zeros(r.shape))
+        return zeros(r.shape, pixelsize=r.pixelsize)
     else:
-        k = np.arange(0, (n-m)//2+1,1)
+        k = np.arange(0, (n-m)//2+1, 1)
         zer_coeff = (-1)**k*factorial(n-k)/(factorial(k)*factorial((n+m)/2-k)*factorial((n-m)/2-k))
-        zer = np.zeros(r.shape)
+        zer = zeros(r.shape, pixelsize=r.pixelsize)
         for c, k_el in zip(zer_coeff, k):       # on purpose used a for loop here, as it is indeed faster
             zer += c*r**(n-2*k_el)
     return zer*fact
@@ -802,10 +850,10 @@ def ones(s,dtype=None,order='C'):
         s=s.shape
     return image.image(np.ones(s,dtype,order))
 
-def zeros(s,dtype=None,order='C'):
+def zeros(s, dtype=None, order='C', pixelsize=None):
     if isnp(s):
-        s=s.shape
-    return image.image(np.zeros(s,dtype,order))
+        s = s.shape
+    return image.image(np.zeros(s, dtype, order), pixelsize=pixelsize)
 
 
 def __cast__(arr, orig_arr=None):

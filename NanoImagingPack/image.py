@@ -2146,7 +2146,7 @@ class image(np.ndarray):
                          if output is None else output)
                         for result, output in zip(results, outputs))
 
-        if method == 'reduce' and isinstance(inputs[0],image) and inputs[0].pixelsize is not None:
+        if method == 'reduce' and isinstance(inputs[0], image) and inputs[0].pixelsize is not None:
             keepdims = kwargs['keepdims']
             for i, output_ in enumerate(results):
                 if isinstance(output_, image):
@@ -2164,7 +2164,8 @@ class image(np.ndarray):
 
         if method=="__call__":
             for i, output_ in enumerate(results):
-                output_.pixelsize = util.longestPixelsize(inputs)
+                if isinstance(output_, image):
+                    output_.pixelsize = util.longestPixelsize(inputs)
 
         # if results and isinstance(results[0], image):
         #     results[0].info = info
@@ -2224,7 +2225,7 @@ class image(np.ndarray):
         #             pxs[-i-1] = p[-i-1]
         # self.pixelsize = pxs
         if isinstance(obj, image) and obj.pixelsize is not None:
-            self.pixelsize = obj.pixelsize.copy()
+            self.pixelsize = list(obj.pixelsize).copy()
         else:
             self.pixelsize = __DEFAULTS__['IMG_PIXELSIZES'] # which is None
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})

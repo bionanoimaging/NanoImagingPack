@@ -28,11 +28,11 @@ def fit_gauss2D(dat, DBG = False, title = '2D Gauss fit', startPos=None, startSi
      """
 
     def remove_nan(arr):
-        return(arr[~np.isnan(arr)])
+        return arr[~np.isnan(arr)]
 
     def check_angle_bonds(dat,p):
         if (p[5] <0) or (p[5]>180):
-            return(1e6)
+            return 1e6
         else:
             return remove_nan(np.ravel(gaussian(*p)(*np.indices(dat.shape))-dat))
 
@@ -42,15 +42,15 @@ def fit_gauss2D(dat, DBG = False, title = '2D Gauss fit', startPos=None, startSi
         (m1, m2) = startPos
 
     if startSigma is None:
-        s1 = np.size(dat,axis=-1)/2
-        s2 = np.size(dat,axis=-2)/2
+        s1 = np.size(dat, axis=-1)/2
+        s2 = np.size(dat, axis=-2)/2
     else:
         (s1, s2) = startSigma
 
-    x,y = np.meshgrid(np.arange(0,np.size(dat,axis =-1),1),np.arange(0,np.size(dat,axis =-2),1))
-    guess =np.asarray([np.max(remove_nan(dat)),m1,m2,s1,s2,90,np.min(remove_nan(dat))])
+    x,y = np.meshgrid(np.arange(0,np.size(dat, axis =-1),1),np.arange(0,np.size(dat, axis =-2),1))
+    guess =np.asarray([np.max(remove_nan(dat)), m1, m2, s1, s2, 90, np.min(remove_nan(dat))])
 
-    deviation = lambda p: remove_nan(np.ravel(gaussian(*p)(np.indices(dat.shape)[1],np.indices(dat.shape)[0])-dat))
+    deviation = lambda p: remove_nan(np.ravel(gaussian(*p)(np.indices(dat.shape)[1], np.indices(dat.shape)[0])-dat))
     p, success = scp.optimize.leastsq(deviation, guess)
     if DBG:
         print('Initial guess parameters:')
@@ -92,12 +92,12 @@ def fit_FWHM(dat, Verbose = True, startPos=None, startSigma=None):
     FWHM_y = 2*(sigma_y * np.sqrt(-np.log(0.5)*2))
 
     if Verbose:
-        print("FWHM x: " + str(FWHM_x) + " pixels")
-        print("FWHM y: " + str(FWHM_y) + " pixels")
+        print("FWHM x: " + str(np.abs(FWHM_x)) + " pixels")
+        print("FWHM y: " + str(np.abs(FWHM_y)) + " pixels")
     FWHM_x *= dat.pixelsize[-1]
     FWHM_y *= dat.pixelsize[-2]
     if Verbose:
-        print("FWHM x: " + str(FWHM_x) + " " + dat.unit)
-        print("FWHM y: " + str(FWHM_y) + " " + dat.unit)
+        print("FWHM x: " + str(np.abs(FWHM_x)) + " " + dat.unit)
+        print("FWHM y: " + str(np.abs(FWHM_y)) + " " + dat.unit)
         v5(catE(dat, fitted))
     return FWHM_x, FWHM_y, amplitude
