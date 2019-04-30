@@ -204,8 +204,8 @@ def cosSinTheta(im, space=None):
     # theta = phiphi(im, 'freq')   # IS WRONG!!! correct angle estimation
     # cos_theta = np.cos(theta)
     # sin_theta = np.sin(theta)
-    myx = xx(im)
-    myy = yy(im)
+    myx = xx(im.shape[-2:])
+    myy = yy(im.shape[-2:])
     if space is not None:
         if space is "ftfreq":
             FourierPix = im.px_freq_step()

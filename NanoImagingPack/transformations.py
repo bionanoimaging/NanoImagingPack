@@ -267,7 +267,7 @@ def __fill_real_return__(im, ax, real_return, origi_shape):
         return(im)
 
 
-def __checkAxes__(axes,im):
+def __checkAxes__(axes, im):
     """
     checks axes. If None, all axes are meant and a list of axes is created. A single int number is also cast to a list.
     :param axes:
@@ -606,7 +606,7 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
 
     """
     #create axes list
-    axes=__checkAxes__(axes,im)
+    axes = __checkAxes__(axes, im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
     if (np.issubdtype(im.dtype, np.complexfloating)):

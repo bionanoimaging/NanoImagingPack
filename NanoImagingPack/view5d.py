@@ -45,7 +45,7 @@ def v5ProcessKeys(out,KeyList):
         out.UpdatePanels()
         out.repaint()
 
-def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize=18):
+def v5(data,SX=1200,SY=1200,multicol=None,gammaC=0.15,showPhases=False, fontSize=18, linkElements = None):
     '''
         lauches a java-based viewer view5d
         Since the viewer is based on calling java via the pyjnius Java bridge, it runs in its own thread each time. This causes overhead and may be not advisable for large

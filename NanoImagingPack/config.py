@@ -48,7 +48,6 @@ class __zernikes__():
     vasti2nd = 'vasti2nd'
     vquadfoil= 'vquadfoil'
 
-
 # DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
 def PSF_PARAMS():
     """

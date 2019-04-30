@@ -344,7 +344,7 @@ def aplanaticFactor(cos_alpha, aplanar = 'emission'):
 
 def aberratedPupil(im, psf_params = None):
     """
-    Compute a scalar aberrated pupil, possibly with the jinc-Trick. Aplanatic factors are included, but not the pupil propagation stack
+    Compute a scalar aberrated pupil, possibly with the jinc-Trick. Aplanatic factors are included, but not the pupil propagation stack or the vectorial effects
 
     The following influences will be included:
         1.)     Mode of plane field generation (from sinc or circle)
@@ -432,7 +432,7 @@ def __make_transfer__(im, psf_params = None, mode = 'ctf', dimension = 2):
 
     ret = simLens(im, psf_params)
     if dimension is None:
-        ret = ret * __make_propagator__(im, psf_params = psf_params, doDampPupil=True)  # field (kx,ky) propagated along the z - component
+        ret = ret * __make_propagator__(im, psf_params = psf_params, doDampPupil=False)  # field (kx,ky) propagated along the z - component
     if mode == 'ctf':  # Field transfer function is ft along z axis
         if ret.shape[-3] >1:
             ret = ret.ft(axes = -3)
@@ -828,7 +828,7 @@ def psf(im, psf_params = None):
             para.pol = [polx, poly]
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
-    return(__make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = None))
+    return __make_transfer__(im, psf_params = psf_params, mode = 'psf', dimension = None)
 
 
 def otf2d(im, psf_params = None):
@@ -1248,7 +1248,7 @@ def PSF2ROTF(psf):
         Transforms a real-valued PSF to a half-complex RFT, at the same time precompensating for the fftshift
     """
     # TODO: CHECK HERE IF FULL_SHIFT MIGTH BE NEEDED!!!
-    o = image(rft(psf,shift_before=True))  # accounts for the PSF to be placed correctly
+    o = image(rft(psf, shift_before=True))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
     o.name = "rotf"
     return o.astype('complex64')
