@@ -424,6 +424,8 @@ def expanddimvec(shape,ndims,othersizes=None,trailing=False):
         trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
         othersizes (defatul:None) : do not expand with ones, but rather use the provided sizes
     """
+    if shape is None:
+        return None
     if isinstance(shape,numbers.Number):
         shape=(shape,)
     else:

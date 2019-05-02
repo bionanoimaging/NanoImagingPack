@@ -112,7 +112,10 @@ def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
     newfullsz=res.shape[:-len(newfullsize)]+tuple(newfullsize)
     newfullsz=np.array(newfullsz)
     res = irft3d(res * rotf, newfullsz, maxdim,doWarn=False)
-    res.pixelsize = img.pixelsize * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+    if img.pixelsize is not None:
+        res.pixelsize = img.pixelsize * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+    else:
+        res.pixelsize = None
     return res
 
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
@@ -658,6 +661,9 @@ def resample(img, factors=[2.0, 2.0]):
         rfre=resampleRFT(rf,newrftsize,newsize,ModifyInput=True)
 #       print(rfre)
         res=irft(rfre,newsize,shift_after=True)  # why is the shift necessary??
-    res.pixelsize = img.pixelsize * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+    if img.pixelsize is not None:
+        res.pixelsize = img.pixelsize[-len(img.shape):] * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+    else:
+        res.pixelsize = None
 # no modification is needed to warrant that the integral does not change!
     return res

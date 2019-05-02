@@ -194,15 +194,18 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     if pxs is None:
         raise ValueError("To propagate the pixelsize needs to be defined! Found: None")
 
-    if (len(pxs)<3):
-        raise ValueError("To propagate the pixelsize along Z needs to be defined!")
-        axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
-        warnings.warn('makePropagator: Only 2 Dimensional image given -> using default pixezsize[-3] = ('+str(axial_pxs)+')')
+    if len(shape) > 2:
+        if (len(pxs)<3):
+            raise ValueError("To propagate the pixelsize along Z needs to be defined!")
+            axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
+            warnings.warn('makePropagator: Only 2 Dimensional image given -> using default pixezsize[-3] = ('+str(axial_pxs)+')')
+        else:
+            axial_pxs = pxs[-3]
     else:
-        axial_pxs = pxs[-3]
+        axial_pxs = None
 
     if len(shape)>2:
-        cos_alpha, sin_alpha = cosSinAlpha(im,psf_params)
+        cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
         defocus = axial_pxs * ramp1D(shape[-3], -3) # a series of defocus factors
         PhaseMap = defocusPhase(cos_alpha, defocus, psf_params)
         if doDampPupil:

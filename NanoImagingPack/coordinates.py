@@ -18,7 +18,7 @@ def unifysize(mysize):
         return mysize.shape
 
 
-def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pxs=1.0):
+def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pxs=None):
     """
     creates a ramp in the given direction direction
     standard size is 256 X 256
@@ -62,7 +62,10 @@ def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=Fa
     res = util.ones(mysize)
     res *= myramp
 
-    res.pixelsize = util.expanddimvec(pxs,res.ndim,trailing=True)
+    if pxs is not None:
+        res.pixelsize = util.expanddimvec(pxs, res.ndim, trailing=True)
+    else:
+        res.pixelsize = None
     return res
 
 
@@ -148,11 +151,11 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement=placement[0]
 #     res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
-    res = ((ramp(mysize, 0, myplacement, freq, pxs=scale) - offset[0]) * scale[0]) ** 2
-    for d in range(1, len(mysize)):
+    res = ((ramp(mysize, -1, myplacement, freq, pxs=scale) - offset[-1]) * scale[-1]) ** 2
+    for d in range(2, len(mysize)+1):
         if (type(placement) is list) or (type(placement) is np.array):
             myplacement = placement[d]
-        res += ((ramp1D(mysize[d], d, myplacement, freq, pxs=scale[d]) - offset[d]) * scale[d]) ** 2
+        res += ((ramp1D(mysize[-d], -d, myplacement, freq, pxs = scale[-d]) - offset[-d]) * scale[-d]) ** 2
     return res
 
 
