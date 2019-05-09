@@ -136,7 +136,10 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         else:
             print("View5D: unknown datatype: "+str(data.dtype))
             return None
-        v5ProcessKeys(out,'v') # remove first channel from overlay
+        if multicol is None and (data.colormodel == "RGB"):
+            multicol = True
+        if multicol is not None and not multicol:
+            v5ProcessKeys(out, 'v') # remove first channel from overlay
 
     if linkElements is not None:
         out.SetElementsLinked(linkElements)

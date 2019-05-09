@@ -282,11 +282,16 @@ def toList(val):
     else:
         return val
 
-def equalsizevec(vec1,vec2):
-    return np.linalg.norm(vec1-vec2)==0.0
+def equalsizevec(vec1, vec2):
+    return np.linalg.norm(np.array(vec1)-np.array(vec2)) == 0.0
 
 
-def repToList(val,ndim,defaultVal=0):
+def equalpixelsizevec(vec1, vec2):
+    maxdim = max(len(vec1), len(vec2))
+    return np.linalg.norm(np.array(vec1[-maxdim:])-np.array(vec2[-maxdim:])) == 0.0
+
+
+def repToList(val, ndim, defaultVal=0):
     """
         converts a value to a list (if not already a list) and replicates a single input value to a chosen number of dimensions if needed
 
@@ -303,7 +308,7 @@ def repToList(val,ndim,defaultVal=0):
     if isinstance(val, numbers.Number):
         return ndim*[val]
     if ndim != len(val):
-        val=(ndim-len(val))*[0]+val
+        val = (ndim-len(val))*[defaultVal] + val
     return val
 
 from . import image
@@ -312,6 +317,9 @@ def longestPixelsize(inputs):
     pixelsize=None
     for inp in inputs:
         if isinstance(inp, image.image) and inp.pixelsize is not None:
+            if pixelsize is not None:
+                if not equalpixelsizevec(pixelsize,inp.pixelsize):
+                    raise ValueError("Pixelsizes of arguments do not match!")
             if pixelsize is None or len(inp.pixelsize) > len(pixelsize):
                 pixelsize = inp.pixelsize
             break
@@ -386,26 +394,29 @@ def expand(vector, size, transpose = False):
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
-def castdimvec(mysize,ndims,wanteddim=0):
+def castdimvec(mysize, ndims, wanteddim=0):
     """
         expands a shape tuple to the necessary number of dimension casting the dimension to a wanted one
         ----------
         img: input image to expand
         ndims: number of dimensions to expand to
         wanteddim: number that the one-D axis should end up in (default:0)
+
+        see also:
+        expanddimvec
     """
-    mysize=tuple(mysize)
+    mysize = tuple(mysize)
     if wanteddim<0:
-        wanteddim=ndims+wanteddim
+        wanteddim = ndims+wanteddim
     if wanteddim+len(mysize) > ndims:
         raise ValueError("castdim: ndims is smaller than requested total size including the object to place.")
-    newshape=wanteddim*(1,)+mysize+(ndims-wanteddim-len(mysize))*(1,)
+    newshape = wanteddim*(1,)+mysize+(ndims-wanteddim-len(mysize))*(1,)
     return newshape
 
 def clip(img,minval=0.0,maxval=None):
     return np.clip(img,minval,maxval)
 
-def castdim(img,ndims,wanteddim=0):
+def castdim(img, ndims, wanteddim=0):
     """
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
         ----------
@@ -415,7 +426,7 @@ def castdim(img,ndims,wanteddim=0):
     """
     return np.reshape(img,castdimvec(img.shape,ndims,wanteddim))
 
-def expanddimvec(shape,ndims,othersizes=None,trailing=False):
+def expanddimvec(shape, ndims, othersizes=None, trailing=False):
     """
         expands an nd tuple (e.g image shape) to the necessary number of dimension by inserting leading dimensions
         ----------
@@ -423,6 +434,9 @@ def expanddimvec(shape,ndims,othersizes=None,trailing=False):
         ndims: number of dimensions to expand to
         trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
         othersizes (defatul:None) : do not expand with ones, but rather use the provided sizes
+
+        see also:
+        castdimvec
     """
     if shape is None:
         return None

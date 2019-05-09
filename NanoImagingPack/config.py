@@ -140,8 +140,8 @@ __DEFAULTS__ ={
         #Image-Class Default Settings
         'IMG_PIXELSIZES': None,      # was [100,50, 50].  Default pixelsizes IS A BAD IDEA!!! (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
-        'IMG_TIFF_FORMATS': ['tif', 'tiff'],
-        'IMG_IMG_FORMATS':  ['bmp', 'png'],
+        'IMG_TIFF_FORMATS': ['tif', 'tiff'],  # using the tiff package
+        'IMG_IMG_FORMATS':  ['bmp', 'png'],  # using the imageio package
         'IMG_ZEISS_FORMATS': ['czi'],
         'IMG_DEFAULT_IMG_FOLDERS' :[os.path.join(os.path.split(__file__)[0],'resources')],     # Default folders to find images
         'IMG_DEFAULT_IMG_NAME' : 'resolution_512',  # Default image to load

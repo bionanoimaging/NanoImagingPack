@@ -215,6 +215,16 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     else:
         return 1.0
 
+def cal_readnoise(images, bgimages, xrange=None, NBins=100):
+    varp = np.var(images, axis=0)
+    meanp = np.mean(images, axis=0)
+    if xrange is None:
+        xrange = [np.min(meanp), np.max(meanp)]
+    yrange = [np.min(varp), np.max(varp)]
+    (hist, xedges, yedges) = np.histogram2d(meanp, varp, bins=NBins, range=[xrange, yrange])
+    v5(hist)
+
+
 def pupilRadius(im, psf_params = None):
     """
         returns a map of the radius to the center of the pupil with respect to the pupil aperture edgre as defined by lambda, N, NA and the image size.
@@ -227,14 +237,17 @@ def pupilRadius(im, psf_params = None):
     NA = psf_params.NA
     wl = psf_params.wavelength
     if isinstance(im, image):
-        ft_pxs = im.px_freq_step()[-2:]
-    else: # RH: I think this should really throw an error. Default pixelsizes are NOT a good idea.
+        ft_pxs = im.px_freq_step()
+    else:
         pxs = __DEFAULTS__['IMG_PIXELSIZES']
-        ft_pxs = px_freq_step(im, pxs)[-2:]
+        ft_pxs = px_freq_step(im, pxs)
+    if ft_pxs is not None:
+        ft_pxs = ft_pxs[-2:]
+
     shape = shapevec(im)[-2:]   # works also for tensorflow objects
 
     res = rr(shape, scale=ft_pxs) * wl / NA  # [:2]
-    res.pixelsize = im.pixelsize
+    res.__array_finalize__(im)
     return res
 
 def pupilAperture(im, psf_params = None):
@@ -255,6 +268,8 @@ def jincAperture(im, psf_params = None):
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: boolean aperture
     """
+    if im.pixelsize is None:
+        raise ValueError("jincAperture needs the pixelsize to be present in the image. Please first set the pixelsize via img.set_pixelsize(value).")
     psf_params = getDefaultPSF_PARAMS(psf_params)
     shape = shapevec(im)[-2:]   # works also for tensorflow objects
     NA = psf_params.NA
@@ -284,7 +299,7 @@ def cosSinAlpha(im, psf_params = None):
     s = NA / n
     r = pupilRadius(im, psf_params)
     sin_alpha = s*r  # angle map sin
-    sin_alpha[sin_alpha>=1.0] = (1.0 - 1e-9)
+    sin_alpha[sin_alpha >= 1.0] = (1.0 - 1e-9)
     cos_alpha = np.sqrt(1-(sin_alpha)**2)  # angle map cos
     return cos_alpha, sin_alpha
 

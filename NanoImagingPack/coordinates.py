@@ -455,7 +455,7 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
                          size_x = 101 -> goes from -50 to 50
         negative : goes from negative size_x to 0
         positive : goes from 0 size_x to positive
-        freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
+        freq : if "ftfreq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
         int number: is the index where the center is!
     """
     if isinstance(mysize, np.ndarray):
@@ -509,7 +509,7 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
     return image(miniramp, pixelsize=pxs)
 
 
-def px_freq_step(im=(256, 256), pxs=62.5):
+def px_freq_step(im=(256, 256), pxs=None):
     """
         returns the frequency step in of one pixel in the fourier space for a given image as a list for the different coordinates
         The unit is 1/[unit pxs]
@@ -523,7 +523,11 @@ def px_freq_step(im=(256, 256), pxs=62.5):
     if isinstance(im, image):
         pxs = im.pixelsize
         im = im.shape
+        if pxs is None:
+            return None
     else:
+        if pxs is None:
+            return None
         if isinstance(im, np.ndarray):
             im = im.shape
 

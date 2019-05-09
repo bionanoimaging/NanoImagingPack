@@ -17,7 +17,7 @@ Created on Thu Jul 27 17:21:21 2017
 
 """
 
-import numbers
+# import numbers
 import tifffile as tif
 import numbers
 import numpy as np
@@ -25,8 +25,9 @@ from numpy.matlib import repmat
 from .FileUtils import list_files, get_sorted_file_list
 from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext, split, basename
 from os import mkdir, listdir
-from scipy import misc
-from scipy.ndimage import rotate
+import imageio
+import scipy
+from scipy.ndimage import rotate, zoom
 from scipy.ndimage.measurements import center_of_mass as cm
 
 from .functions import gaussian, coshalf
@@ -94,7 +95,7 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         path += '.' + form
 
     if util.get_type(img)[1] == 'image':
-        metadata = {'name': img.name, 'pixelsize': str(img.pixelsize), 'units': img.unit, 'info': img.info}
+        metadata = {'name': img.name, 'pixelsize': str(img.pixelsize), 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
     elif util.get_type(img)[1] == 'ndarray':
         metadata = {}
     else:
@@ -163,7 +164,7 @@ def readim(path=None, which=None, pixelsize=None):
                          'resolution_512' -Kai's resolution test image
                          'resolution_fine' -Kai's resolution test image (more pixels)
                          'MITO_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
-             which is  which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
+             which is which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
     """
     l = []
     if path is None:
@@ -179,22 +180,54 @@ def readim(path=None, which=None, pixelsize=None):
 
         if ext.lower() in __DEFAULTS__['IMG_TIFF_FORMATS']:
 
-            if which is None:
-                img = (tif.imread(path))  # RH 2.2.19 deleted: np.transpose
-            else:
-                img = (tif.imread(path, key=which))  # RH 2.2.19 deleted: np.transpose
+            with tif.TiffFile(path) as mytif:
+                img = mytif.asarray(key=which)
+                alltags = mytif.pages[0].tags
+                imagej_metadata = mytif.imagej_metadata
             img = img.view(image)
-            # img.pixelsize = pixelsize;
+            img.unit = alltags['ResolutionUnit'].value.name
+            img.colormodel = alltags['PhotometricInterpretation'].value.name
+            if imagej_metadata is None and pixelsize is None:
+                try:
+                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                    pixelsize = [psY, psX]
+                except ValueError:
+                    pass
+#                psZ = alltags['ZResolution'].value[0]
+            elif imagej_metadata is not None:
+                img.dim_description = imagej_metadata['Labels']
+                img.info = imagej_metadata['Info']
+                img.unit = imagej_metadata['unit']
+                psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                psZ = imagej_metadata['spacing']
+                pixelsize = [psZ, psY, psX]
+                if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
+                    img.colormodel = "RGB"
+            # if which is None:
+            #     img = (tif.imread(path))
+            # else:
+            #     img = (tif.imread(path, key=which))
+            if img.ndim == 3 and img.colormodel == "RGB":
+                img = img[:, np.newaxis, :, :]
             img.set_pixelsize(pixelsize)
+        elif ext.lower() in __DEFAULTS__['IMG_IMG_FORMATS']:
+                img = (imageio.imread(path))
+                img = img.view(image)
+                if img.ndim == 3:
+                    img = np.moveaxis(img[:, :, :, np.newaxis], [0, 1, 2, 3], [2, 3, 0, 1])
+                    img.colormodel = "RGB"
+                img.set_pixelsize(pixelsize)
         elif ext.lower() in __DEFAULTS__['IMG_ZEISS_FORMATS']:
             # TODO HERE: READ ONLY SELECTED SLICES OF THE IMAGE
             from .EXTERNAL.Gohlke_czi_reader import imread as cziread
             if __DEFAULTS__['IMG_SQUEEZE_ZEISS']:
                 img, meta = cziread(path)
-                img = img.squeeze().view(image)  # RH 2.2.19 deleted: np.transpose
+                img = img.squeeze().view(image)
             else:
                 img, meta = cziread(path)
-                img = img.view(image)  # RH 2.2.19 deleted: np.transpose
+                img = img.view(image)
             img = img.view(image, pixelsize)
             img.metadata = meta
             # TODO: Pixelsizes aus Metadaten fischen
@@ -202,18 +235,35 @@ def readim(path=None, which=None, pixelsize=None):
         else:
             try:
                 import PIL.Image as IM
-                img = (np.array(IM.open(path)))  # RH 2.2.19 deleted: np.transpose
+                myImg = IM.open(path)
+                img = np.array(myImg)
                 img = img.view(image)
+                img.colormodel = myImg.mode # may be RGB
+                if img.ndim==3 and img.colormodel=="RGB":
+                    img = np.moveaxis(img[:,:,:,np.newaxis], [0,1,2,3], [2,3,0,1])
                 img.set_pixelsize(pixelsize)
             except OSError:
                 raise ValueError('No valid image file')
         img.name = splitext(basename(path))[0]
         return img
     else:
-        raise ValueError('No valid filename')
+        url = path
+        try:
+            from urllib.request import urlopen
+            from PIL import Image
+
+            img = np.array(Image.open(urlopen(url)))
+            img = img.view(image)
+            if img.ndim == 3:
+                img = np.moveaxis(img[:, :, :, np.newaxis], [0, 1, 2, 3], [2, 3, 0, 1])
+                img.colormodel = "RGB"
+            img.name = splitext(basename(path))[0]
+            return img
+        except ValueError:
+            raise ValueError('No valid filename')
 
 
-def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel=0, ret_old_img_dim=False, axis=-3):
+def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel = None, ret_old_img_dim=False, axis=-3):
     """
         This reads a set of 2D Tiff files and creates one 3-D Stack from it.
         Path: The folder, containing the tiff-files
@@ -230,17 +280,6 @@ def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel=0, ret_old_i
         imtypes = __DEFAULTS__['IMG_TIFF_FORMATS'] + __DEFAULTS__['IMG_IMG_FORMATS']
         name_list = [f for f in file_list if splitext(f)[1][1:] in imtypes]
         # file_list = [f for f in listdir(path) if isfile(join(path, f))];
-    # DEPRICATED:
-    #        file_list.sort();
-    #        name_list =[];
-    #        for f in file_list:    #create name list
-    #            body,ext = splitext(f);
-    #            if filename == '':
-    #                if (ext.lower =='.tif') or  (ext.lower() =='.tiff') or (ext.lower() == '.png') or (ext.lower() == '.bmp'):
-    #                    name_list.append(f);    # Create list with names
-    #            else:
-    #                if ((ext =='.tif') or (ext =='.TIF') or (ext =='.tiff') or (ext =='.TIFF') or ext == '.png' or ext == '.bmp') and (body.find(filename)>=0):
-    #                    name_list.append(f);    # Create list with names
     else:
         name_list = filename
 
@@ -252,47 +291,25 @@ def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel=0, ret_old_i
     final_im = []
     for name in name_list:
         print(name, end=' ... ', flush=True)
-        if roi == [-1, -1, -1, -1]:
-            if splitext(name)[1][1:] == 'png' or splitext(name)[1][1:] == 'bmp':
-                im = misc.imread(path + name)
+        im = readim(path + name)
+        if roi != [-1, -1, -1, -1]:
+            if im.ndims == 2:
+                im = im[roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
+            elif im.ndims == 3:
+                im = im[:,roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
             else:
-                im = tif.imread(path + name)
-        else:
-            if splitext(name)[1][1:] == 'png' or splitext(name)[1][1:] == 'bmp':
-                im = misc.imread(path + name)[roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
-            else:
-                im = tif.imread(path + name)[roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
-        # im = im.transpose();     # CK 20.02.19 transpose outcommented
+                im = im[:, :, roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
         print(' Shape: ' + str(im.shape), end=' ; ', flush=True)
         if im.ndim > max_im_dim:
             max_im_dim = im.ndim
-        if np.ndim(im) != 2:
+        if channel is not None and np.ndim(im) > 3:
             print('Reading channel ' + str(channel))
-            im = im[:, :, channel]
+            im = im[channel]
         if number == 0:
             final_im = im
         else:
             final_im = cat((final_im, im), axis)
         number += 1
-
-    '''
-    DEPRECIATET CODE:                
-                dim = [np.size(im, axis =0), np.size(im, axis =1)];
-                number +=1;
-                if im_list is None:
-                    im_list = np.expand_dims(im,2);
-                else:
-                    im_list = np.concatenate((im_list,np.expand_dims(im,2)),axis =2)
-            else:
-                if (dim == [np.size(im, axis =0), np.size(im, axis =1)]):
-                    number +=1;
-                    if im_list is None:
-                        im_list = np.expand_dims(im,2);
-                    else:
-                        im_list = np.concatenate((im_list,np.expand_dims(im,2)),axis =2)
-                else:
-                    print('Wrong size of image '+ name);
-     '''
     print()
     print(str(number) + ' images read!')
 
@@ -300,7 +317,6 @@ def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel=0, ret_old_i
         return image(final_im, name=splitext(basename(path))[0]), max_im_dim
     else:
         return image(final_im, name=splitext(basename(path))[0])
-
 
 def gaussf(img, kernelSigma):
     """
@@ -668,7 +684,7 @@ def match_size(im1, im2, axes=None, padmode='constant', clip_offset=None, odd=Fa
 #            im2 = shift(im2, im2.shape//2)
 
 
-def FRC(im1, im2, pixel_size=62, num_rings=10, correct_shift=True):
+def FRC(im1, im2, pixel_size = None, num_rings = 10, correct_shift = True):
     """
         Compute the Fourier ring correlation (frc) between 2 2D-images
 
@@ -722,7 +738,9 @@ def FRC(im1, im2, pixel_size=62, num_rings=10, correct_shift=True):
             pxs = image.pixelsize
         else:
             import numbers
-            if isinstance(pixel_size, numbers.Number):
+            if pixel_size is None:
+                pxs = None
+            elif isinstance(pixel_size, numbers.Number):
                 pxs = [pixel_size, pixel_size]
             elif (type(pixel_size) == tuple or type(pixel_size) == list) and len(pixel_size) > 1:
                 pxs = pixel_size[:2]
@@ -1506,8 +1524,10 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
     else:  # perform padding
         pads = [(max(0, ROIsize[d] // 2 - centerpos[d]), max(0, centerpos[d] + ROIsize[d] - mysize[d] - ROIsize[d] // 2)) for d in range(img.ndim)]
         #        print(pads)
-        res = image(np.pad(res, tuple(pads), 'constant', constant_values=PadValue), pixelsize=res.pixelsize)  # ,PadValue
-        return res
+        resF = np.pad(res, tuple(pads), 'constant', constant_values=PadValue)
+        resF = resF.view(image)
+        resF.__array_finalize__(res)  # will copy information such as pixelsize from "res"
+        return resF
 
 
 def extractROI(im, roi=[(0, 10), (0, 10)], axes=None, extend='DEFAULT'):
@@ -1627,6 +1647,7 @@ class image(np.ndarray):
                                 if lenght of list or tuple is smaller than dimensions, the pxsize of remaining dimensions is set to 1
 
         unit              string of unit of pixelsize
+        colormodel        None means gray values. "RGB" means the first 3 coordinates along dimension -4 are interpreted as RGB colors.
         info              additional information
         name              image name
 
@@ -1642,10 +1663,12 @@ class image(np.ndarray):
 
     """
     
-    def __new__(cls, MyArray = None, pixelsize = None, unit = '', info = '', name = None):
+    def __new__(cls, MyArray = None, pixelsize = None, unit = '', info = '', name = None, colormodel = None):
         import numbers
         if MyArray is None:
             MyArray = util.zeros((128,128))
+        if isinstance(MyArray, image):  # this is an empty cast! Just return the input image
+            return MyArray
         if type(MyArray) is list or type(MyArray) is tuple:
             res = 1
             for k in MyArray: res*= isinstance(k, numbers.Integral);
@@ -1660,6 +1683,7 @@ class image(np.ndarray):
             obj.unit = __DEFAULTS__['IMG_PIXEL_UNITS']
         else:
             obj.unit = unit
+        obj.colormodel = colormodel
         obj.im_number = 0
 
         if __DEFAULTS__['IMG_NUMBERING']:
@@ -1682,28 +1706,7 @@ class image(np.ndarray):
         obj.dim_description = None
 
         obj.name = name
-        if obj.pixelsize is None:
-            obj.pixelsize = pixelsize
-        #     obj.pixelsize = MyArray.ndim*[1.0] # [i*0+1.0 for i in MyArray.shape];
-        #     if hasattr(MyArray, 'pixelsize'):
-        #         p=MyArray.pixelsize
-        #     else:
-        #         p = __DEFAULTS__['IMG_PIXELSIZES']
-        #     for i in range(len(MyArray.shape)):
-        #         if i >= len(p):
-        #             obj.pixelsize[-i] = p[0]
-        #         else:
-        #             obj.pixelsize[-i] = p[-i]
-        #
-        elif type(pixelsize) == list or type(pixelsize) == tuple:
-            if type(pixelsize) == tuple: pixelsize = list(pixelsize);
-            if len(pixelsize) > MyArray.ndim: pixelsize = pixelsize[:MyArray.ndim];
-            if len(pixelsize) < MyArray.ndim: pixelsize += (MyArray.ndim-len(pixelsize))*[pixelsize] # [i*0+1.0 for i in range(MyArray.ndim-len(pixelsize))];
-            obj.pixelsize = pixelsize
-        elif isinstance(pixelsize, numbers.Number) :
-            obj.pixelsize = MyArray.ndim*[pixelsize] # [i*0+pixelsize for i in MyArray.shape];
-        else:
-            raise ValueError('Pixelsize must be list, tuple or number')
+        obj.set_pixelsize(pixelsize)
         return obj
 
     def __repr__(self):   # will be called in the "print" representation
@@ -1741,6 +1744,7 @@ class image(np.ndarray):
                 elif __DEFAULTS__['IMG_VIEWER'] == 'INFO':
                     print('Image :'+self.name)
                     print('Shape: '+str(self.shape))
+                    print('Colormodel: '+self.colormodel)
                     print('Pixelsize: '+str(self.pixelsize))
                     print('Units: '+self.unit)
                     print('Info: '+self.info)
@@ -2012,20 +2016,21 @@ class image(np.ndarray):
 
     def extract_coordinate(self, c):
         return util.extract_coordinate(self, c)
-    
-    def bfp_image(self, wavelength, focal_length):
-        """
-            This returns the fourier transform of the image but with given coordinates as if you were placing the image in the Front focal plane and observing the pattern in the back focal plane
-            Make sure the units of wavelengths and focal length are correct
 
-            Only takes first 2 Dimensions
-        """
-        im = ft2d(self)
-        im.info = 'BFP image of '+self.name+' using a lens of focal length '+str(focal_length)
-        im.unit = 'same as focal length'
-        im.pixelsize[0] = im.pixelsize[0]*wavelength*focal_length
-        im.pixelsize[1] = im.pixelsize[1]*wavelength*focal_length
-        return im
+    # removed!
+    # def bfp_image(self, wavelength, focal_length):
+    #     """
+    #         This returns the fourier transform of the image but with given coordinates as if you were placing the image in the Front focal plane and observing the pattern in the back focal plane
+    #         Make sure the units of wavelengths and focal length are correct
+    #
+    #         Only takes first 2 Dimensions
+    #     """
+    #     im = ft2d(self)
+    #     im.info = 'BFP image of '+self.name+' using a lens of focal length '+str(focal_length)
+    #     im.unit = 'same as focal length'
+    #     im.pixelsize[0] = im.pixelsize[0]*wavelength*focal_length  # BAD! The pixelsize shoudl always refer to real space
+    #     im.pixelsize[1] = im.pixelsize[1]*wavelength*focal_length # BAD! The pixelsize shoudl always refer to real space
+    #     return im
 
     def rotate(self, angle, axes =(1,0)):
         """
@@ -2165,6 +2170,7 @@ class image(np.ndarray):
         if method=="__call__":
             for i, output_ in enumerate(results):
                 if isinstance(output_, image):
+                    output_.__array_finalize__(inputs[0]) # use the first input for new result. ToDo: should be changed to a smarter joining of information
                     output_.pixelsize = util.longestPixelsize(inputs)
 
         # if results and isinstance(results[0], image):
@@ -2224,10 +2230,7 @@ class image(np.ndarray):
         #         else:
         #             pxs[-i-1] = p[-i-1]
         # self.pixelsize = pxs
-        if isinstance(obj, image) and obj.pixelsize is not None:
-            self.pixelsize = list(obj.pixelsize).copy()
-        else:
-            self.pixelsize = __DEFAULTS__['IMG_PIXELSIZES'] # which is None
+        self.set_pixelsize(getattr(obj, 'pixelsize', None))
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
         self.dim_description = getattr(obj, 'dim_description', None)
         self.metadata = getattr(obj,'metadata',[])
@@ -2238,6 +2241,7 @@ class image(np.ndarray):
         self.unit = getattr(obj, 'unit',  __DEFAULTS__['IMG_PIXEL_UNITS'])
         self.name = getattr(obj, 'name', '')
         self.im_number = getattr(obj, 'im_number', 0)
+        self.colormodel = getattr(obj, 'colormodel', None)
         max_im_number = 0
         if __DEFAULTS__['IMG_NUMBERING']:
             for l in locals().values():
@@ -2255,3 +2259,25 @@ def shiftby(img, avec):
 
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
+
+def zoom(img, zoomfactors=None):
+    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
+
+def resize(img, newsize):
+    return image(np.resize(img, newsize), pixelsize = img.pixelsize)
+
+def tile(img, replicationFactors):
+    """
+    replicates an image several times along the stated dimensions. The syntax is similar to matlab
+    :param img: image to replicate
+    :param replicationFactors: list of replication factors
+    :return: replacted image
+
+    Example:
+    import NanoImagingPack as nip
+    nip.repmat(nip.readim(), [2,2,1])
+    """
+    return image(np.matlib.tile(img, replicationFactors), pixelsize=img.pixelsize)
+
+def repmat(img, replicationFactors):
+    return tile(img, replicationFactors)
