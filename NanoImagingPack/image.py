@@ -196,9 +196,15 @@ def readim(path=None, which=None, pixelsize=None):
                     pass
 #                psZ = alltags['ZResolution'].value[0]
             elif imagej_metadata is not None:
-                img.dim_description = imagej_metadata['Labels']
-                img.info = imagej_metadata['Info']
-                img.unit = imagej_metadata['unit']
+                try:
+                    img.dim_description = imagej_metadata['Labels']
+                except:
+                    pass
+                try:
+                    img.info = imagej_metadata['Info']
+                    img.unit = imagej_metadata['unit']
+                except:
+                    pass
                 psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
                 psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
                 psZ = imagej_metadata['spacing']
@@ -246,18 +252,21 @@ def readim(path=None, which=None, pixelsize=None):
                 raise ValueError('No valid image file')
         img.name = splitext(basename(path))[0]
         return img
-    else:
+    else:  # try to load this as an URL with the PIL Toolbox
         url = path
         try:
             from urllib.request import urlopen
             from PIL import Image
-
-            img = np.array(Image.open(urlopen(url)))
+            myImg = Image.open(urlopen(url))
+            img = np.array(myImg)
             img = img.view(image)
-            if img.ndim == 3:
+            img.colormodel = myImg.mode  # may be RGB
+            if img.ndim == 3 and img.colormodel == "RGB":
                 img = np.moveaxis(img[:, :, :, np.newaxis], [0, 1, 2, 3], [2, 3, 0, 1])
                 img.colormodel = "RGB"
             img.name = splitext(basename(path))[0]
+            img.set_pixelsize(pixelsize)
+            img.info = myImg.info  # probably not so useful
             return img
         except ValueError:
             raise ValueError('No valid filename')

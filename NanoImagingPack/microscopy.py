@@ -303,6 +303,21 @@ def cosSinAlpha(im, psf_params = None):
     cos_alpha = np.sqrt(1-(sin_alpha)**2)  # angle map cos
     return cos_alpha, sin_alpha
 
+def FresnelCoefficiens(cos_alpha, sin_alpha, n1, n2):
+    """
+    returns a tuple of Fresnel coefficient maps (Ep/E0) and (Es/E0) when the light is transiting from refractive index n1 to n2.
+    :param cos_alpha: the cosine of the angle of the incident beam towards the normal
+    :param n1: refractive index of the medium of the incident beam
+    :param n2: refractive index of the medium of the outgoing beam
+    :return: ((Ep/E0p),(Es/E0s))  with E0p being the incident amplitude for the parallel polarisation and Ep being the outgoing amplitude.
+    """
+    cos_beta = np.sqrt(n1**2 - n2**2 * sin_alpha**2) / n2    # n1 sin_alpha = n2  sin_beta. sin_
+
+    Frac = n1*cos_alpha + n2*cos_beta
+    F_s = 2*n1*cos_alpha / Frac
+    F_p = (n1*cos_alpha - n2*cos_beta) / Frac
+    return (F_s, F_p)
+
 def dampPupilForRealSpaceCut(PhaseMap):
     """
     considers the limited field-of-view effect in real space by dimming the higher frequencies in the pupil plane.
