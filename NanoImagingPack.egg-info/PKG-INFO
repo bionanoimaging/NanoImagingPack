@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: NanoImagingPack
-Version: 1.0.0.dev6
+Version: 2.0.0.dev2
 Summary: A nice little image processing package
 Home-page: UNKNOWN
-Author: Christian Karras
-Author-email: christian-karras@gmx.de
+Author: Christian Karras, Rainer Heintzmann
+Author-email: christian-karras@gmx.de, heintzmann@gmail.com
 License: UNKNOWN
 Description: This is a package for simple image processing.
         It is oriented on the DIP-Image package, which is available for Matlab. 

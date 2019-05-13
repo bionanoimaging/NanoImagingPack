@@ -7,6 +7,9 @@ Created on Tue Sep 18 23:38:28 2018
 """
 
 import setuptools
+from NanoImagingPack.__NIP_META__ import __author__, __author_email__, __description__, __License__, __Operating_system__, __Programming_language__,__title__, __url__, __version__
+
+
 
 
 # If you want to incorporate c-files
@@ -19,13 +22,15 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+
+
 setuptools.setup(
     # ext_mdoules = [External_code/cos_module],        <- for incorporating c-files
-    name="NanoImagingPack",
-    version="1.0.0 dev6",
-    author="Christian Karras",
-    author_email="christian-karras@gmx.de",
-    description="A nice little image processing package",
+    name=__title__,
+    version=__version__,
+    author=__author__,
+    author_email=__author_email__,
+    description=__description__,
     long_description=long_description,
     long_description_content_type="text/markdown",
     
@@ -37,8 +42,8 @@ setuptools.setup(
     package_data={'NanoImagingPack':['resources/*']},
     packages=setuptools.find_packages(),
     classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU General Public License (GPL)",
-        "Operating System :: OS Independent",
+        __Programming_language__,
+        __License__,
+        __Operating_system__,
     ],
 )
