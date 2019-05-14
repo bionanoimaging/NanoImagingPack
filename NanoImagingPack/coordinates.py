@@ -149,12 +149,12 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
         raise TypeError('rr2: Wrong data type for scale -> must be Numbers, list, tuple or none')
     myplacement=placement
     if (type(placement) is list) or (type(placement) is np.array):
-        myplacement=placement[0]
+        myplacement=placement[-1]
 #     res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
     res = ((ramp(mysize, -1, myplacement, freq, pxs=scale) - offset[-1]) * scale[-1]) ** 2
     for d in range(2, len(mysize)+1):
         if (type(placement) is list) or (type(placement) is np.array):
-            myplacement = placement[d]
+            myplacement = placement[-d]
         res += ((ramp1D(mysize[-d], -d, myplacement, freq, pxs = scale[-d]) - offset[-d]) * scale[-d]) ** 2
     return res
 
@@ -183,7 +183,7 @@ def phiphi(mysize=(256, 256), angle_range=1, placement='center'):
     if (type(placement) is list) or (type(placement) is np.array):
         myplacementX = placement[-1]
         myplacementY = placement[-2]
-    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2,placement=myplacementY), ramp1D(mysize[-1], ramp_dim=-1,placement=myplacementX))
+    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2, placement=myplacementY), ramp1D(mysize[-1], ramp_dim=-1, placement=myplacementX))
     return (phi)
     # np.seterr(divide ='ignore', invalid = 'ignore');
     # x = ramp(mysize,1,'center');
@@ -548,7 +548,7 @@ def px_freq_step(im=(256, 256), pxs=None):
         if len(im) > len(pxs):
             im = im[-len(pxs):]
 
-    return ([1 / (p * s) for p, s in zip(pxs, im)])
+    return [1 / (p * s) if (p is not None and p != 0) else 0 for p, s in zip(pxs, im)]
 
 
 def get_freq_of_pixel(im=(256, 256), coord=(0., 0.), pxs=62.5, shift=True, real=False):

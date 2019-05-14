@@ -311,12 +311,12 @@ def FresnelCoefficiens(cos_alpha, sin_alpha, n1, n2):
     :param n2: refractive index of the medium of the outgoing beam
     :return: ((Ep/E0p),(Es/E0s))  with E0p being the incident amplitude for the parallel polarisation and Ep being the outgoing amplitude.
     """
-    cos_beta = np.sqrt(n1**2 - n2**2 * sin_alpha**2) / n2    # n1 sin_alpha = n2  sin_beta. sin_
-
-    Frac = n1*cos_alpha + n2*cos_beta
-    F_s = 2*n1*cos_alpha / Frac
-    F_p = (n1*cos_alpha - n2*cos_beta) / Frac
-    return (F_s, F_p)
+    sin_beta = n1 * sin_alpha / n2
+    cos_beta = np.sqrt(1 - sin_beta**2)    # n1 sin_alpha = n2  sin_beta.
+    numerator = 2*n1*cos_alpha
+    F_s = numerator / (n1 * cos_alpha + n2 * cos_beta)
+    F_p = numerator / (n2 * cos_alpha + n1 * cos_beta)
+    return (F_s, F_p, cos_beta, sin_beta)
 
 def dampPupilForRealSpaceCut(PhaseMap):
     """
@@ -400,6 +400,7 @@ def aberratedPupil(im, psf_params = None):
     # Apply aplanatic factor:
     if not (psf_params.aplanar is None):
         plane *= aplanaticFactor(cos_alpha, psf_params.aplanar)
+
     # Apply aberrations and apertures
     PhaseMap = 0;
     if not (psf_params.aberration_types is None):
@@ -417,8 +418,9 @@ def simLens(im, psf_params = None):
     The following influences will be included:
         1.)     Mode of plane field generation (from sinc or circle)
         2.)     Aplanatic factor
-        3.)     Potential aberrations (set by set_aberration_map)
-        4.)     Vectorial effects
+        3.)     The losses induced by reflections at the coverslip (via Fresnel coefficients). Only if n_cs is not set to None.
+        4.)     Potential aberrations (set by set_aberration_map)
+        5.)     Vectorial effects
 
     returns image of shape [3,y_im,x_im] where x_im and y_im are the xy dimensions of the input image. In the third dimension are the field components (0: Ex, 1: Ey, 2: Ez)
     """
@@ -433,11 +435,22 @@ def simLens(im, psf_params = None):
 
     # Apply vectorized distortions
     polx, poly = __setPol__(im, psf_params= psf_params)
+    if psf_params.n_embedding is None:
+        n_embedding = psf_params.n
+    else:
+        n_embedding = psf_params.n_embedding
+
+
     if psf_params.vectorized:
         cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
         cos_theta, sin_theta = cosSinTheta(im)
         E_radial     = cos_theta * polx - sin_theta * poly
         E_tangential = sin_theta * polx + cos_theta * poly
+        if psf_params.n_cs is not None:
+            (Fs1, Fp1, cos_alpha2, sin_alpha2) = FresnelCoefficiens(cos_alpha, sin_alpha, n_embedding, psf_params.n_cs)
+            (Fs2, Fp2, cos_alpha3, sin_alpha3) = FresnelCoefficiens(cos_alpha2, sin_alpha2, psf_params.n_cs, psf_params.n)
+            E_radial *= Fp1 * Fp2
+            E_tangential *= Fs1 * Fs2
         E_z = E_radial * sin_alpha
         E_radial *= cos_alpha
         plane[0] *=  cos_theta * E_radial + sin_theta * E_tangential
