@@ -4,6 +4,7 @@ setup.py
 NanoImagingPack/DeviceControll.py
 NanoImagingPack/FileUtils.py
 NanoImagingPack/TestDampEdge.py
+NanoImagingPack/TestPSFSim.py
 NanoImagingPack/__NIP_META__.py
 NanoImagingPack/__init__.py
 NanoImagingPack/alignment.py
@@ -11,14 +12,13 @@ NanoImagingPack/config.py
 NanoImagingPack/coordinates.py
 NanoImagingPack/fitting.py
 NanoImagingPack/functions.py
-NanoImagingPack/image (g-TP's conflicted copy 2018-11-28).py
 NanoImagingPack/image.py
 NanoImagingPack/mask.py
 NanoImagingPack/microscopy.py
 NanoImagingPack/noise.py
+NanoImagingPack/simulations.py
 NanoImagingPack/transformations.py
 NanoImagingPack/util.py
-NanoImagingPack/view (g-TP's conflicted copy 2018-11-28).py
 NanoImagingPack/view.py
 NanoImagingPack/view5d.py
 NanoImagingPack.egg-info/PKG-INFO
@@ -36,6 +36,8 @@ NanoImagingPack/sim/REP_FILE.py
 NanoImagingPack/sim/__init__.py
 NanoImagingPack/sim/create_grating.py
 NanoImagingPack/sim/find_grating.py
+NanoImagingPack/sim/find_grating_old.py
+NanoImagingPack/sim/find_grating_very_old.py
 NanoImagingPack/sim/peak_finder.py
 NanoImagingPack/sim/reconstruction.py
 NanoImagingPack/sim/system.py

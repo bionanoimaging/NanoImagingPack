@@ -1,0 +1,33 @@
+package:
+  name: nanoimagingpack
+  version: 2.0.0.dev2
+
+source:
+  git_rev: 
+  git_url: https://gitlab.com/bionanoimaging/nanoimagingpack
+
+requirements:
+  build:
+    - python
+    - setuptools
+    - tifffile
+    - scipy 
+    - imageio
+    - matplotlib
+    - IPython
+  run:
+    - python
+    - tifffile
+    - mock>=2.0
+    - scipy
+    - imageio
+    - matplotlib
+    - IPython
+test:
+  imports:
+    - NanoImagingPack
+
+about:
+  home: https://gitlab.com/bionanoimaging/nanoimagingpack
+  license: GPL
+  
