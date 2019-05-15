@@ -10,7 +10,7 @@ Basic settings:
 """
 import os
 from . import util
-from .FileUtils import str_to_path
+#from .FileUtils import str_to_path
 
 
 class __pols__():
@@ -119,11 +119,14 @@ __DEFAULTS__ ={
         'ARRAY_RETURN_TYPE': 'image',    # return type of arrays in functions -> 'image' -> returns image, properties might be adapted from input image, 'ndarray' -> numpy array, 'asInput' -> like input
         'TEST_LOG_FILE': os.path.join(os.path.split(__file__)[0], 'test_log.txt'),
 
+        # HAMAMATSU_ORCA_FLASH SETTINGS
+        'ORCA_TMCAMCON_DLL_Path': os.path.abspath(r"C:\Windows\system32\tmcamcon.dll"),
+
         # HAMAMATSU_SLM_SETTINGS:
         'LCOS_OVERDRIVE' : True,
         'LCOS_USE_CORR_PATTERN' : True,
-        'LCOS_DLL_PATH' : str_to_path(r'C:\HamamatsuSLM'),  # Path of the Lcos_Reg.dll -> The hpkusbd2.dll has to be in the correct windows folder
-        'LCOS_CORR_PATTERN_PATH':str_to_path(r'Z:\FastSIM_Setup\Hamamatsu_SLM_Steuerung\deformation_correction_pattern'),
+        'LCOS_DLL_PATH' : os.path.abspath(r'C:\HamamatsuSLM'),  # Path of the Lcos_Reg.dll -> The hpkusbd2.dll has to be in the correct windows folder
+        'LCOS_CORR_PATTERN_PATH':os.path.abspath(r'Z:\FastSIM_Setup\Hamamatsu_SLM_Steuerung\deformation_correction_pattern'),
         'LCOS_DEFAULT_WAVELENGTH' : '488',
 
         #ThorlabsPM100_Settings:

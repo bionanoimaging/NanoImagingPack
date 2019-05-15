@@ -165,6 +165,8 @@ def readim(path=None, which=None, pixelsize=None):
                          'resolution_fine' -Kai's resolution test image (more pixels)
                          'MITO_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
              which is which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
+
+             you also can read in hamamatsu dcimg files if dcamapi is installed (maybe you have to set the path in nip.__DEFAULTS__['ORCA_TMCAMCON_DLL_Path']!
     """
     l = []
     if path is None:
@@ -237,6 +239,10 @@ def readim(path=None, which=None, pixelsize=None):
             img = img.view(image, pixelsize)
             img.metadata = meta
             # TODO: Pixelsizes aus Metadaten fischen
+            img.set_pixelsize(pixelsize)
+        elif ext.lower == 'dcimg':
+            from .FileUtils import read_dcimg;
+            img = read_dcimg(filepath = path, framelist=which, ret_times=False, high_contrast=False, view=None)
             img.set_pixelsize(pixelsize)
         else:
             try:
