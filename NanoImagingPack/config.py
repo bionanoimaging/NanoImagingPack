@@ -113,22 +113,23 @@ __DEFAULTS__ ={
         # General default settings
         'CUDA' : False,                    # use cuda for computations -> Has to be implemented
         'DEBUG':6,                         # Debugmessage level (0-10): use it with config.DBG_MSG(value) for controll, when which message should be displayed
-        'DIRECTORY': os.getcwd(),          # Default data directory 
+        'DIRECTORY': os.getcwd(),          # Default data directory
         'JAVA': False,                     # Java support
-        'LOOKFOR_RATIO' : 0.5,              # How is the lookfor function behaving? -> between 0 and 1 -> higher numbers indicate that a higher agreement between input and output is required
+        'LOOKFOR_RATIO' : 0.9,#0.5,              # How is the lookfor function behaving? -> between 0 and 1 -> higher numbers indicate that a higher agreement between input and output is required
         'ARRAY_RETURN_TYPE': 'image',    # return type of arrays in functions -> 'image' -> returns image, properties might be adapted from input image, 'ndarray' -> numpy array, 'asInput' -> like input
-        
+        'TEST_LOG_FILE': os.path.join(os.path.split(__file__)[0], 'test_log.txt'),
+
         # HAMAMATSU_SLM_SETTINGS:
         'LCOS_OVERDRIVE' : True,
         'LCOS_USE_CORR_PATTERN' : True,
         'LCOS_DLL_PATH' : str_to_path(r'C:\HamamatsuSLM'),  # Path of the Lcos_Reg.dll -> The hpkusbd2.dll has to be in the correct windows folder
         'LCOS_CORR_PATTERN_PATH':str_to_path(r'Z:\FastSIM_Setup\Hamamatsu_SLM_Steuerung\deformation_correction_pattern'),
         'LCOS_DEFAULT_WAVELENGTH' : '488',
-        
+
         #ThorlabsPM100_Settings:
         'PM100_WAVELENGTH' : 500,
         'PM100_RESOURCE' : 'USB0::0x1313::0x8078::P0015032::INSTR',    # Figure this out wiht the help of visa resourc manager
-        
+
         #Viewer_Default_Settings
         'VIEWER_MAX_CLICK_TIME': 0.5,             # Click time for recognizing marker
         'VIEWER_FORMAT_VALUE_STRING':'%1.4f',      # Format value for satus bar
@@ -140,7 +141,7 @@ __DEFAULTS__ ={
         'VIEWER_GAMMA_MIN': 0.1,
         'VIEWER_GAMMA_INIT_COMPLEX' : 0.2,   # Gamma value for complex values
         'VIEWER_IMG_ORIGIN': 'upper',       #where is the origin of the image? 'upper' or 'lower' for upper or lower left corner
-         
+
         #Image-Class Default Settings
         'IMG_PIXELSIZES': None,      # was [100,50, 50].  Default pixelsizes IS A BAD IDEA!!! (list or tuple -> has to be at least 3dimensional)
         'IMG_PIXEL_UNITS': 'nm',             # Default units of image pixelsizes
@@ -152,9 +153,9 @@ __DEFAULTS__ ={
         'IMG_VIEWER': 'VIEW5D',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!
-        
+
         'EXTRACT_EXTEND':True,           # should an extracted image be padded with zeros or not?
-      
+
         #PSF_OTF_DEFAULTS  -> also Defaults for the Transfer class
         'TRANSFER_NA' : 0.8,
         'TRANSFER_n' :   1.0,
@@ -166,7 +167,7 @@ __DEFAULTS__ ={
         'TRANSFER_APLANATIC': 'illumination', # aplanatic factor ('illumination', 'detection', None)
         'TRANSFER_FOC_ FIELD_MODE': 'theoretical', # how to compute the focal field? theoretical -> from sinc, circular -> circular mask for ctf
         'TRANSFER_NORM': 'max',                   # normalization of the transfer functions ('max' -> norm to maximum value, 'sum' -> norm to sum)
-        
+
         # TODO DEPRICATED: DELETE AFTER TESTS
         # #FT Default settings
         # 'FT_NORM': "ortho",           # None or "ortho": Normalization of FT: if None -> zero frequency ft strengths contains all image pixels, if 'ortho' -> the ft and the ift have the same scaling factor (but than the zero freq. contains only sqrt(pixelsumme))
@@ -195,7 +196,7 @@ __DEFAULTS__ ={
         # correlator
         'CC_ABS_RETURN': False ,     # if true, the absolute value will be returned when correlating real images. RH: Changed to False!! An anticorrelation is not a correlation!!
 
-        
+
         # SIM STUFF
         'SHOW_GRAT_SEARCH_INFO': True
         }
@@ -229,7 +230,7 @@ def set_cfg():
         except ImportError:
             print("WARNING! Image viewer View5D could not be used as a default, since pyjnius is not properly installed. Reverting to NIP_VIEW as the default.")
             __DEFAULTS__['IMG_VIEWER'] ='NIP_VIEW'
-            
+
     # if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:
     #     print('WARNING: Default pixelsize is not 3 dimensional add default values of 100')
     #     __DEFAULTS__['IMG_PIXELSIZES'] +=[100 for i in range(3-len(__DEFAULTS__['IMG_PIXELSIZES']))]
