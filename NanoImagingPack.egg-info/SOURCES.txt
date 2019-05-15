@@ -36,8 +36,6 @@ NanoImagingPack/sim/REP_FILE.py
 NanoImagingPack/sim/__init__.py
 NanoImagingPack/sim/create_grating.py
 NanoImagingPack/sim/find_grating.py
-NanoImagingPack/sim/find_grating_old.py
-NanoImagingPack/sim/find_grating_very_old.py
 NanoImagingPack/sim/peak_finder.py
 NanoImagingPack/sim/reconstruction.py
 NanoImagingPack/sim/system.py
