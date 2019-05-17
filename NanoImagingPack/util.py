@@ -861,10 +861,10 @@ def iseven(anumber):
 from . import config
 
 
-def ones(s,dtype=None,order='C'):
+def ones(s, dtype=None, order='C', pixelsize=None):
     if isnp(s):
         s=s.shape
-    return image.image(np.ones(s,dtype,order))
+    return image.image(np.ones(s,dtype,order), pixelsize=pixelsize)
 
 def zeros(s, dtype=None, order='C', pixelsize=None):
     if isnp(s):

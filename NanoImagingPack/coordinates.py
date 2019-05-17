@@ -548,7 +548,7 @@ def px_freq_step(im=(256, 256), pxs=None):
         if len(im) > len(pxs):
             im = im[-len(pxs):]
 
-    return [1 / (p * s) if (p is not None and p != 0) else 0 for p, s in zip(pxs, im)]
+    return [(1 / (p * s) if (p != 0) else np.inf) if (p is not None) else None for p, s in zip(pxs, im)]
 
 
 def get_freq_of_pixel(im=(256, 256), coord=(0., 0.), pxs=62.5, shift=True, real=False):

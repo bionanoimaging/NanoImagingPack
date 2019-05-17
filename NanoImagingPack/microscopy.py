@@ -1304,6 +1304,6 @@ def convROTF(img,otf): # should go into nip
     """
         convolves with a half-complex OTF, which can be generated using PSF2ROTF
     """
-    res = irft(rft(img,shift_before=False,shift_after=False) * expanddim(otf,img.ndim),shift_before=False,shift_after=False, s = img.shape)
+    res = irft(rft(img, shift_before=False, shift_after=False) * expanddim(otf, img.ndim),shift_before=False, shift_after=False, s = img.shape)
     res.name = "convolved"
     return res

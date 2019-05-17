@@ -2190,6 +2190,32 @@ class image(np.ndarray):
     # def __array_wrap__(self, result):
     #     return image(result)  # can add other attributes of self as constructor
 
+
+    def __getitem__(self, item):
+#        print("getitem")
+        res = super().__getitem__(item)
+        if not isinstance(res, image):
+            return res
+        if self.pixelsize is None:
+            res.set_pixelsize(None)
+        elif isinstance(item, numbers.Integral):
+            res.set_pixelsize(self.pixelsize[1:])
+        elif isinstance(item, np.ndarray):
+            res.set_pixelsize(self.pixelsize)
+        elif isinstance(item, tuple):
+            pxs=[]
+            p=0
+            for i in range(len(item)):
+                if item[i] is None:
+                    pxs.append(None)
+                elif isinstance(item[i], numbers.Integral):
+                    p += 1
+                else:
+                    pxs.append(self.pixelsize[p])
+                    p += 1
+            res.set_pixelsize(pxs)
+        return res
+
     def __array_finalize__(self, obj):
         if obj is None: return;   # is true for explicit creation of array
         # This stuff is important in case that the "__new__" method isn't called
@@ -2242,7 +2268,7 @@ class image(np.ndarray):
         self.set_pixelsize(getattr(obj, 'pixelsize', None))
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
         self.dim_description = getattr(obj, 'dim_description', None)
-        self.metadata = getattr(obj,'metadata',[])
+        self.metadata = getattr(obj, 'metadata',[])
         self.spectral_axes = getattr(obj, 'spectral_axes', [])
         self.ax_shifted = getattr(obj, 'ax_shifted', [])
         #self.pixelsize = getattr(obj, 'pixelsize',  pxs);
