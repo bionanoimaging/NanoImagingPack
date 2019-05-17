@@ -187,14 +187,20 @@ def readim(path=None, which=None, pixelsize=None):
                 alltags = mytif.pages[0].tags
                 imagej_metadata = mytif.imagej_metadata
             img = img.view(image)
-            img.unit = alltags['ResolutionUnit'].value.name
-            img.colormodel = alltags['PhotometricInterpretation'].value.name
+            try:
+                img.unit = alltags['ResolutionUnit'].value.name;
+            except KeyError:
+                img.unit = None;
+            try:
+                img.colormodel = alltags['PhotometricInterpretation'].value.name;
+            except KeyError:
+                img.colormodel = None;
             if imagej_metadata is None and pixelsize is None:
                 try:
                     psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
                     psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
                     pixelsize = [psY, psX]
-                except ValueError:
+                except:
                     pass
 #                psZ = alltags['ZResolution'].value[0]
             elif imagej_metadata is not None:
@@ -207,12 +213,15 @@ def readim(path=None, which=None, pixelsize=None):
                     img.unit = imagej_metadata['unit']
                 except:
                     pass
-                psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                psZ = imagej_metadata['spacing']
-                pixelsize = [psZ, psY, psX]
-                if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
-                    img.colormodel = "RGB"
+                try:
+                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                    psZ = imagej_metadata['spacing']
+                    pixelsize = [psZ, psY, psX]
+                    if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
+                        img.colormodel = "RGB"
+                except:
+                    pass;
             # if which is None:
             #     img = (tif.imread(path))
             # else:
