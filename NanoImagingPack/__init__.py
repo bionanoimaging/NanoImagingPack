@@ -28,6 +28,7 @@ from .view5d import * # rainer's java viewer
 from .__NIP_META__ import __version__, __title__,__author__
 from .config import __DEFAULTS__
 from .image import image as image;
+from .test import *;
 
 ## packages
 from . import resources

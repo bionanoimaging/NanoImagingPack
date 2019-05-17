@@ -165,6 +165,8 @@ def readim(path=None, which=None, pixelsize=None):
                          'resolution_fine' -Kai's resolution test image (more pixels)
                          'MITO_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
              which is which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
+
+             you also can read in hamamatsu dcimg files if dcamapi is installed (maybe you have to set the path in nip.__DEFAULTS__['ORCA_TMCAMCON_DLL_Path']!
     """
     l = []
     if path is None:
@@ -237,6 +239,10 @@ def readim(path=None, which=None, pixelsize=None):
             img = img.view(image, pixelsize)
             img.metadata = meta
             # TODO: Pixelsizes aus Metadaten fischen
+            img.set_pixelsize(pixelsize)
+        elif ext.lower == 'dcimg':
+            from .FileUtils import read_dcimg;
+            img = read_dcimg(filepath = path, framelist=which, ret_times=False, high_contrast=False, view=None)
             img.set_pixelsize(pixelsize)
         else:
             try:
@@ -553,8 +559,8 @@ def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelp
     grid = np.meshgrid(*[np.arange(width[i, 0], newsize[i] - width[i, 1]) for i in range(len(newsize))], indexing='ij')
     mask[tuple(grid)] = 0
 
-    nimg = np.pad(nimg, width, 'constant')
-    wimg = np.pad(wimg, width, 'constant')
+    nimg = util.__cast__(np.pad(nimg, width, 'constant'), img)
+    wimg = util.__cast__(np.pad(wimg, width, 'constant'), img)
 
     nimg2 = np.real(ift(transfer * ft(nimg)))
     wimg2 = np.real(ift(transfer * ft(wimg)))
@@ -1266,7 +1272,7 @@ def shear(img, shearamount=10, shearDir=0, shearOrtho=None, center='center', pad
         img_pad = img
 
     fft = np.fft.fft(img_pad, axis=shearDir)
-    fx = ramp(img_pad.shape, shearDir, freq='fftfreq', shift=True)
+    fx = np.fft.fftshift( ramp(img_pad.shape, shearDir, freq='ftfreq', shift=True), axes = shearDir)
     sx = shearamount * ramp(img_pad.shape, shearOrtho, center) / (img_pad.shape[shearOrtho] - 1)
 
     myshear = np.exp(-1j * 2 * np.pi * (fx * sx))
@@ -1284,6 +1290,221 @@ def rot_2D_im(M, angle):
     import scipy.ndimage as image
     return image.interpolation.rotate(M, angle, reshape=False)
 
+def rot2d(img, angle, padding = True, **kwargs):
+    """
+    rot2d function
+    
+    Rotates an 2D image ba a given angle using multiply shear.
+    
+    Parameters
+    ----------
+        img     image to be rotated
+        
+        angle   angle for rotation, in deg
+                    
+        padding padding of the image to not lose information after rotation, default is True
+        
+        possible kwargs:
+            
+            crop                if the central part of the image should be extracted after rotation, default is true
+            inverse             usefull for backrotation to minimize errors, default is False
+            black_background    fills the empty parts of the image after rotation with zeros, default is True
+                                    rotates an equaly sized (like the image) black rectangle (0) with white border (1) for comparison
+            extra_0             parameter for black background, increases the area to be cut out, default is 0
+            extra_1             parameter for black background, thickness of the white border, default is 3
+            threshold           parameter for black background, threshold value for cutting, default is 0.5
+    
+    Returns
+    -------
+        img : rotated image
+        
+    Examples
+    --------
+        import NanoImagingPack as nip
+        img = nip.readim()
+        
+        nip.rot2d(img, 20)
+        nip.rot2d(img, 20, padding = False)
+        nip.rot2d(img, 20, black_background = False, crop = False)
+    """
+    old_arr = img
+    if 'inverse' in kwargs:
+        inverse = kwargs.get('inverse')
+    else:
+        inverse = False
+    if 'crop' in kwargs:
+        crop = kwargs.get('crop')
+    else:
+        crop = True
+    if 'black_background' in kwargs:
+        black_background = kwargs.get('black_background')
+    else:
+        black_background = True
+    if 'extra_0' in kwargs:
+        extra_0 = kwargs.get('extra_0')
+    else:
+        extra_0 = 0
+    if 'extra_1' in kwargs:
+        extra_1 = kwargs.get('extra_1')
+    else:
+        extra_1 = 3
+    if 'threshold' in kwargs:
+        threshold = kwargs.get('threshold')
+    else:
+        threshold = 0.5
+    
+    shape_in = np.array(img.shape)
+    
+    """ 
+        rotation of n*90 degree before shearing to minimize error
+        this yealds to rotation angles -45<angle<45
+    """
+    
+    full = np.floor_divide(angle,90)
+    half = np.floor_divide(angle,45)
+    ang = np.mod(angle,45)
+    
+    if(ang == 0 and half < 0 and np.mod(half, 2) != 0):
+        half = half - 1
+        ang = 45
+    
+    angle =  -(full*90-half*45+ang)
+    
+    pre_angle = (np.mod(half,2)+full)*90
+    pre_rot = np.floor_divide(pre_angle,90)
+    
+    pre_rot = pre_rot - np.floor_divide(pre_rot,4) * 4
+    
+    if inverse == False:
+        if pre_rot == 1:
+            img = np.rot90(img, axes = (0,1))
+        elif pre_rot == 2:
+            img = np.flip(img)
+        elif pre_rot == 3:
+            img = np.rot90(img, axes = (1,0))
+       
+    if angle != 0:
+   
+        """ constants for shearing and padding """
+        
+        angle = angle * np.pi/180
+        size = np.array(img.shape)
+        c = np.cos(angle)
+        s = np.sin(angle)
+        t = np.tan(angle/2)
+        
+        """ pad the image """
+        rotMat = np.array([[c,-s],[s,c]])
+        corners = np.array([
+                    [size[0],0],
+                    [size[0],size[1]],
+                    [0,size[1]],
+                    [0,0]
+                    ])
+        corners = (np.array(list(map(rotMat.dot, corners)))).T
+            
+        dx = max(corners[0]) - min(corners[0])
+        dy = max(corners[1]) - min(corners[1])
+                    
+        pad = np.array([[0,0],[0,0]])
+        if dx > size[0]:
+                off = np.ceil((dx - size[0])/2).astype(int)
+                pad[0] = [off,off]
+        if dy > size[1]:
+                off = np.ceil((dy - size[1])/2).astype(int)
+                pad[1] = [off,off]
+            
+        border = 2*np.array([pad[0,0]+ pad[0,1], pad[1,0] + pad[1,1]])
+        img_pad = DampOutside(img, border, usepixels = 3, kernelpower = 3)    
+        newsize = np.array(img_pad.shape)
+        
+        """ now: shearing """
+        
+        s = newsize[1]*s
+        t = -newsize[0]*t
+        
+        if black_background == True:
+            try:
+                mask = np.zeros(size)
+                mask = np.pad(mask,extra_0, mode = 'constant')
+                mask = np.pad(mask, extra_1, mode = 'constant', constant_values = 1)
+                mask = DampOutside(mask, width = border-extra_0-extra_1, usepixels = 3, kernelpower = 3)
+                    
+                img_rot = shear(shear(shear(img_pad,t,1, padding=False, center = 'center'),s,0, padding=False, center = 'center'),t,1, padding=False, center = 'center')
+                mask_shear = shear(shear(shear(mask,t,1, padding=False, center = 'center'),s,0, padding=False, center = 'center'),t,1, padding=False, center = 'center')
+                flag = mask_shear > threshold
+                img_rot[flag] = 0
+            
+            except:
+                img_rot = shear(shear(shear(img_pad,t,1, padding=False, center = 'center'),s,0, padding=False, center = 'center'),t,1, padding=False, center = 'center')
+                
+        else:
+            img_rot = shear(shear(shear(img_pad,t,1, padding=False, center = 'center'),s,0, padding=False, center = 'center'),t,1, padding=False, center = 'center')
+          
+        """ crop the image """
+        if crop == True and padding == True:
+            ymin = border[0] - extra_0
+            xmin = border[1] - extra_0
+        
+            ymax = ymin + size[0] + 1 + 2*extra_0
+            xmax = xmin + size[1] + 1 + 2*extra_0
+        
+            center = np.array([(ymax+ymin)/2, (xmax+xmin)/2])
+        
+            corners = [
+                [ymin, xmin],
+                [ymin, xmax],
+                [ymax, xmin],
+                [ymax, xmax]
+                ]
+            rotMat = np.array([[np.cos(angle), -np.sin(angle)],[np.sin(angle), np.cos(angle)]])
+            corners = np.array([rotMat.dot(c-center)+center for c in corners]).T
+        
+            ymin = np.floor(min(corners[0])).astype(int)
+            xmin = np.floor(min(corners[1])).astype(int)
+        
+            ymax = np.ceil(max(corners[0])).astype(int)
+            xmax = np.ceil(max(corners[1])).astype(int)
+        
+            flag = np.zeros(newsize)
+            flag[ymin:ymax, xmin:xmax] = 1
+        
+            img_rot = np.extract(flag == 1, img_rot).reshape(
+                                                    (ymax-ymin),
+                                                    (xmax-xmin))
+    else:
+        img_rot = img
+    
+    if inverse == True:
+        if pre_rot == 1:
+            img_rot = np.rot90(img_rot, axes = (0,1))
+        elif pre_rot == 2:
+            img_rot = np.flip(img_rot)
+        elif pre_rot == 3:
+            img_rot = np.rot90(img_rot, axes = (1,0))
+    
+    """ remove padding """
+    if padding == False:
+        # add extra padding
+        
+        extra_pad = shape_in - np.array(img_rot.shape)
+        extra_pad[extra_pad<0] = 0
+        if np.amax(extra_pad > 0):
+            extra_pad = np.array([extra_pad,extra_pad]).T
+            if black_background == True:
+                img_rot = np.pad(img_rot, extra_pad, 'constant')
+            else:    
+                img_rot = DampOutside(img_rot, extra_pad)
+     
+        center = np.array(img_rot.shape)/2
+        edge = shape_in/2
+        
+        if -np.ceil(center[0]-edge[0]).astype(int) != 0:
+            img_rot = img_rot[np.floor(center[0]-edge[0]).astype(int):-np.ceil(center[0]-edge[0]).astype(int),:]
+        if -np.ceil(center[1]-edge[1]).astype(int) != 0:
+            img_rot = img_rot[:,np.floor(center[1]-edge[1]).astype(int):-np.ceil(center[1]-edge[1]).astype(int)]
+          
+    return util.__cast__(img_rot, old_arr)
 
 def centroid(im):
     """

@@ -8,7 +8,7 @@ In this module some file utilitis are implemented
 """
 
 import os.path
-
+from .config import __DEFAULTS__;
 
 def getFolder():
     """
@@ -128,20 +128,24 @@ def str_to_path(name):
         since this disables the usage of  '\' as controll character
 
     """
-    def __change2path__(s):
-        import os
-        s = os.path.normpath(s)
-        if (s[-2:] != '\\') and s[-4] != '.':
-            s = s+'\\'
-        return(s)
+    import os;
+    return(os.path.abspath(name));
 
-    if type(name) == str:
-        return(__change2path__(name))
-    elif type(name) == list:
-        return([__change2path__(s) for s in name])
-    else:
-        print('Not a string or a list')
-        return(':-(')
+#   DEPRICATED CODE:
+#    def __change2path__(s):
+#        import os
+#        s = os.path.normpath(s)
+#        if (s[-2:] != '\\') and s[-4] != '.':
+#            s = s+'\\'
+#        return(s)
+
+#    if type(name) == str:
+#        return(__change2path__(name))
+#    elif type(name) == list:
+#        return([__change2path__(s) for s in name])
+#    else:
+#        print('Not a string or a list')
+#        return(':-(')
 
 
 def parse_m_files(directory, name, ignore_comments = True, subfolders = False, exclude_list = ()):
@@ -178,3 +182,124 @@ def parse_m_files(directory, name, ignore_comments = True, subfolders = False, e
                     if pos >=0:
                         if (commenter <0) or (commenter > pos) or (ignore_comments == False):
                             print(file + '\t\t Line: '+str(l))
+
+
+def read_dcimg(filepath, framelist=None, ret_times=False, high_contrast=False, view=None):
+    '''
+        Read the images from a dcimg streaming file
+
+        This requires the hamamatsu TMCAMCON.dll -> path has to be set in "config.py"
+
+        filepath:    path to dcimg file
+        framelist:   images to read:
+                        None: read all images
+                        range, int, list, tuple, ndarray: indicate whice images to read
+        ret_times: returns second parameter with time stamps if true
+        high_contrast: Refere to help of TMCAMCON.DLL
+        view:          Refere to help of TMCAMCON.DLL
+    '''
+    import numpy as np;
+    import ctypes as ct;
+    from .image import image as IMAGE;
+    try:
+        TMCAMCON_DLL = ct.cdll.LoadLibrary(__DEFAULTS__['ORCA_TMCAMCON_DLL_Path']);  # Links to dll
+    except OSError:
+        print(
+            "DCIMG opening faild, because I could not hook up to tmcamcon.dll. Install DCAMAPI and/or set the path in nip.__DEFAULTS__['ORCA_TMCAMCON_DLL_Path']");
+        return;
+    import numbers;
+
+    def __unhook_dll__(TMCAMCON_DLL):
+        libHandle = TMCAMCON_DLL._handle;
+        del TMCAMCON_DLL;
+        kernel32 = ct.WinDLL('kernel32', use_last_error=True);
+        kernel32.FreeLibrary.argtypes = [ct.c_int64];
+        kernel32.FreeLibrary(libHandle)
+
+    try:
+        # Define Dll Functions
+        DC_OPEN = TMCAMCON_DLL.TMCC_OPENDCIMGFILE_40;
+        DC_OPEN.restype = ct.c_uint32;
+        DC_OPEN.argtypes = [ct.POINTER(ct.c_uint32), ct.c_char_p, ct.POINTER(ct.c_int32), ct.POINTER(ct.c_int32)];
+        DC_CLOSE = TMCAMCON_DLL.TMCC_CLOSEDCIMGFILE_40;
+        DC_CLOSE.restype = ct.c_uint32;
+        DC_CLOSE.argtypes = [ct.c_uint32, ct.POINTER(ct.c_int32)];
+        DC_INFO = TMCAMCON_DLL.TMCC_GETDCIMGFRAMEINFO_40;
+        DC_INFO.restype = ct.c_uint32;
+        DC_INFO.argtypes = [ct.c_uint32, ct.c_int32, ct.POINTER(ct.c_int32), ct.POINTER(ct.c_int32),
+                            ct.POINTER(ct.c_int32)];
+        DC_DATA = TMCAMCON_DLL.TMCC_GETDCIMGFRAMEDATA_40;
+        DC_DATA.restype = ct.c_uint32;
+        DC_DATA.argtypes = [ct.c_uint32, ct.c_int32, ct.POINTER(ct.c_uint16), ct.POINTER(ct.c_double), ct.c_int32,
+                            ct.POINTER(ct.c_int32)];
+
+        # open dcimg file
+        f_handle = ct.c_uint32(0);
+        c_tot_frames = ct.c_int32(0);
+        c_err_val = ct.c_int32(0);
+        c_img_width = ct.c_int32(0);
+        c_img_height = ct.c_int32(0);
+        c_img_time_stamp = ct.c_double(0);
+
+        if view is None:
+            opt = int(high_contrast) * 16
+        elif view == 1:
+            opt = int(high_contrast) * 16 + 1048576;
+        elif view == 2:
+            opt = int(high_contrast) * 16 + 2097152;
+        elif view == 2:
+            opt = int(high_contrast) * 16 + 3145728;
+        elif view == 2:
+            opt = int(high_contrast) * 16 + 4194304;
+        else:
+            print('Wrong veiw setting -> setting it to Default');
+            opt = int(high_contrast) * 16
+        c_opt = ct.c_int32(opt);
+        b_file = filepath.encode('utf-8');
+        ret = DC_OPEN(ct.byref(f_handle), b_file, ct.byref(c_tot_frames), ct.byref(c_err_val));
+        print('Total frames: ' + str(c_tot_frames.value));
+        if c_tot_frames.value > 0:
+            # prepare image lists:
+            if framelist is None:
+                framelist = list(range(c_tot_frames.value + 1));
+            elif isinstance(framelist, numbers.Integral):
+                framelist = [framelist];
+            elif isinstance(framelist, range) or isinstance(framelist, tuple) or isinstance(framelist, np.ndarray):
+                framelist = list(framelist);
+            else:
+                __unhook_dll__(TMCAMCON_DLL);
+                raise ValueError('Wrong framelist datatype')
+            new_list = []
+            for el in framelist:
+                if isinstance(el, numbers.Integral):
+                    if el > c_tot_frames.value:
+                        print('WARNING: ' + str(el) + ' out of range -> ignoring it');
+                    else:
+                        new_list.append(el);
+                else:
+                    print('Waringin: ' + str(el) + ' has wrong data type -> ignoring it');
+            ret = DC_INFO(f_handle, ct.c_int32(0), ct.byref(c_img_width), ct.byref(c_img_height), ct.byref(c_err_val));
+            img = IMAGE((len(new_list), c_img_height.value, c_img_width.value)).astype(np.uint16);
+            times = IMAGE([len(new_list)]);
+
+            for num, el in enumerate(new_list):
+                print('Reading image number ... ' + str(el));
+                buf_im = IMAGE((c_img_height.value, c_img_width.value)).astype(np.uint16);
+                ret = DC_DATA(f_handle, ct.c_int32(el), buf_im.ctypes.data_as(ct.POINTER(ct.c_uint16)),
+                              ct.byref(c_img_time_stamp), c_opt, ct.byref(c_err_val));
+                times[num] = c_img_time_stamp.value;
+
+                img[num] = buf_im;
+        else:
+            print('File is empty!')
+        # close dcimg file
+        ret = DC_CLOSE(f_handle, ct.byref(c_err_val))
+    except Exception as e:
+        print('Return value of dll is' + str(ret));
+        print(e)
+    __unhook_dll__(TMCAMCON_DLL)
+    print('Done');
+    if ret_times:
+        return (img, np.asarray(times));
+    else:
+        return (img)
