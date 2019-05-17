@@ -472,8 +472,9 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
 #                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
 #                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
 
-	
-	if method == "moisan":
+
+
+    if method == "moisan":
         den = util.midValAsg(image(den), 1)  # to avoid the division by zero error
         den = ft(mysum) / den
         den = util.midValAsg(den, 0)  # kill the zero frequency
