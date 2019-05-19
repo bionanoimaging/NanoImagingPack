@@ -2034,6 +2034,12 @@ class image(np.ndarray):
                     print(self)
 
     def set_pixelsize(self, pixelsize = None, factors = None):
+        """
+        sets the pixelsize of a (newly?) created array. Note that pixelsize=None means unknwon. Dimension entries with None mean that this dimension does not have a pixelsize.
+        :param pixelsize: pixelsize to set to. If None, the pixelsize will be None, which means that this image does not have a pixelsize.
+        :param factors: If not None, these factors will be applied to the stated pixelsize. This is useful for operations which zoom in images.
+        :return:
+        """
         import numbers
         if pixelsize is None:
             p = __DEFAULTS__['IMG_PIXELSIZES']
@@ -2045,16 +2051,21 @@ class image(np.ndarray):
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
             if len(pixelsize) > self.ndim: pixelsize = pixelsize[-self.ndim:];
-            if len(pixelsize) < self.ndim: pixelsize = [None for i in range(self.ndim-len(pixelsize))] + pixelsize;
-            self.pixelsize = pixelsize
+            if len(pixelsize) < self.ndim: pixelsize = [None for d in range(self.ndim-len(pixelsize))] + pixelsize;
+            self.pixelsize = list(pixelsize).copy()
         elif isinstance(pixelsize, numbers.Number) :
-            self.pixelsize = [pixelsize for i in self.shape] # replicate the single value to all entries
+            self.pixelsize = [pixelsize for d in self.shape] # replicate the single value to all entries
         elif isinstance(pixelsize, np.ndarray):
-            self.pixelsize = list(pixelsize)
+            self.pixelsize = list(pixelsize).copy()
         else:
             raise ValueError('Pixelsize must be list, tuple or number')
         if factors is not None and pixelsize is not None:
-            self.pixelsize = [asize*afactor if (asize is not None and afactor is not None) else None for asize,afactor in zip(self.pixelsize, factors)]
+            mindim = min(len(factors),len(self.pixelsize))
+            for d in range(mindim):
+                asize = self.pixelsize[-d-1]
+                afactor = factors[-d-1]
+                if asize is not None and afactor is not None:
+                    self.pixelsize[-d-1] = asize*afactor
 
     def __compare_pixel_sizes__(self, im2):
         """
@@ -2569,14 +2580,30 @@ class image(np.ndarray):
 def shiftby(img, avec):
     return np.real(ift(coordinates.applyPhaseRamp(ft(img), avec)))
 
-
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
 
 def zoom(img, zoomfactors=None):
+    """
+    zooms by interpolation using the SciPy command interpolation.zoom.
+    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
+    :param img: image to zoom
+    :param zoomfactors: factors as a list of zoom factors, one for each direction
+    :return: zoomed image
+    see also:
+    resample
+    """
     return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
 
 def resize(img, newsize):
+    """
+    resizes the array by filling in replicative 1D copies of the whole array. See np.resize for details.
+    :param img: image to resize
+    :param newsize: newsize to resize to
+    :return: resized image
+
+    see also: tile
+    """
     return image(np.resize(img, newsize), pixelsize = img.pixelsize)
 
 def tile(img, replicationFactors):
@@ -2593,4 +2620,12 @@ def tile(img, replicationFactors):
     return image(np.matlib.tile(img, replicationFactors), pixelsize=img.pixelsize)
 
 def repmat(img, replicationFactors):
+    """
+    modelled after the Matlab repmat command, which is in Pyhton called "tile".
+    :param img: image to replicate
+    :param replicationFactors: how many times to replicate the original shape
+    :return: the replicated array
+    see also:
+    tile
+    """
     return tile(img, replicationFactors)

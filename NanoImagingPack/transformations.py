@@ -16,33 +16,33 @@ from . import image
 __REAL_AXIS__ = 0
 
 
-def resampledSize(oldsize,factors,RFT=False):
-    oldsize=np.array(oldsize)
-    if isinstance(factors,numbers.Number):
-        factors=oldsize*0.0+factors
+def resampledSize(oldsize, factors, RFT=False):
+    oldsize = np.array(oldsize)
+    if isinstance(factors, numbers.Number):
+        factors = oldsize * 0.0 + factors
     else:
-        factors=util.expanddimvec(factors, len(oldsize))
-    newsize=np.ceil(oldsize*factors).astype("int")
+        factors = util.expanddimvec(factors, len(oldsize))
+    newsize = np.ceil(oldsize * factors).astype("int")
     if RFT:
-        RFTMirrorAx=-1
-        newsize[RFTMirrorAx]=np.ceil((oldsize[RFTMirrorAx]-1)*factors[RFTMirrorAx]+1).astype("int")
+        RFTMirrorAx = -1
+        newsize[RFTMirrorAx] = np.ceil((oldsize[RFTMirrorAx] - 1) * factors[RFTMirrorAx] + 1).astype("int")
     return newsize
 
-def RFTShift(img,maxdim=3,ShiftAfter=True):
-    RFTMirrorAx=-1
-    ndims=img.ndim
-    axes=[d for d in range(ndims)]
-    oldsize=np.array(img.shape[-ndims::])
-    shift1=oldsize//2 # roll along all dimensions except for the RFT-mirrored one
-    shift1[RFTMirrorAx]=0
-    shift1[:-maxdim:]=0
-    if ShiftAfter==False:
-        shift1=-shift1
-#    print(shift1)
-    return np.roll(img,shift1,axes)
 
+def RFTShift(img, maxdim=3, ShiftAfter=True):
+    RFTMirrorAx = -1
+    ndims = img.ndim
+    axes = [d for d in range(ndims)]
+    oldsize = np.array(img.shape[-ndims::])
+    shift1 = oldsize // 2  # roll along all dimensions except for the RFT-mirrored one
+    shift1[RFTMirrorAx] = 0
+    shift1[:-maxdim:] = 0
+    if ShiftAfter == False:
+        shift1 = -shift1
+    #    print(shift1)
+    return np.roll(img, shift1, axes)
 
-def resampleRFT(img, newrftsize, newfullsize, maxdim=3, ModifyInput=False):
+def resampleRFT(img, newrftsize, oldfullsize, newfullsize, maxdim=3, ModifyInput=False):
     """
     Cuts (or expands) an RFT to the appropriate size to perform downsampling
 
@@ -62,19 +62,25 @@ def resampleRFT(img, newrftsize, newfullsize, maxdim=3, ModifyInput=False):
     Example
     -------
     """
-    RFTMirrorAx=-1
-    ndims=img.ndim
-    oldsize=img.shape[-ndims::]
-    mycenter=np.array(oldsize)//2
-    newXcenter= newrftsize[RFTMirrorAx] // 2
-    mycenter[RFTMirrorAx]=newXcenter
-    
-    res = image.extractFt(RFTShift(img, maxdim), newrftsize, mycenter, ModifyInput, ignoredim=img.ndim - 1)
-    if (newrftsize[-1] < oldsize[-1]) and util.iseven(newfullsize[-1]): # the slice corresponds to both sides of the fourier transform as a sum
-        aslice = util.subslice(res, -1, -1)
-        res = util.subsliceAsg(res, -1, -1, aslice * 2.0)   # distribute it evenly, also to keep parseval happy and real arrays real
+    RFTMirrorAx = -1
+    ndims = img.ndim
+    oldsize = img.shape[-ndims::]
+    mycenter = np.array(oldsize) // 2
+    newXcenter = newrftsize[RFTMirrorAx] // 2
+    mycenter[RFTMirrorAx] = newXcenter
 
-    return RFTShift(res,maxdim,ShiftAfter=False) # this can probably be done more efficiently directly in the rft
+    res = image.extractFt(RFTShift(img, maxdim), newrftsize, mycenter, ModifyInput, ignoredim=img.ndim - 1)
+    if (newrftsize[-1] < oldsize[-1]) and util.iseven(newfullsize[-1]):  # the slice corresponds to both sides of the fourier transform as a sum
+        aslice = util.subslice(res, -1, -1)
+        res = util.subsliceAsg(res, -1, -1, aslice * 2.0)  # distribute it evenly, also to keep parseval happy and real arrays real
+
+    mindim = min(len(list(oldfullsize)),len(list(newfullsize)))
+    if img.pixelsize is not None:
+        res.set_pixelsize(img.pixelsize, factors=np.array(oldfullsize[-mindim:]) / np.array(newfullsize[-mindim:]))
+    else:
+        res.pixelsize = None
+
+    return RFTShift(res, maxdim, ShiftAfter=False)  # this can probably be done more efficiently directly in the rft
 
 
 def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
@@ -106,67 +112,72 @@ def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
 
     """
     #    def grad(dy, variables=['tfin','otf']):
+    axes = None
+    if maxdim is not None:
+        axes = [d for d in range(-maxdim, 0)]  # transform along all the axes within the maxdim range
 
-    myrft = rft3d(img, maxdim,doWarn=False)
-    res = resampleRFT(myrft, rotf.shape, newfullsize, maxdim)
-    newfullsz=res.shape[:-len(newfullsize)]+tuple(newfullsize)
-    newfullsz=np.array(newfullsz)
-    res = irft3d(res * rotf, newfullsz, maxdim,doWarn=False)
+    myrft = rft(img, axes=axes)
+    oldfullsize = img.shape
+    res = resampleRFT(myrft, rotf.shape, oldfullsize, newfullsize, maxdim=maxdim)
+    newfullsz = res.shape[:-len(newfullsize)] + tuple(newfullsize)
+    newfullsz = np.array(newfullsz)
+    res = irft(res * rotf, newfullsz, axes=axes)
     if img.pixelsize is not None:
-        res.set_pixelsize(img.pixelsize, factors = np.array(img.shape) / np.array(res.shape))
+        res.set_pixelsize(img.pixelsize, factors=np.array(img.shape) / np.array(res.shape))
     else:
         res.pixelsize = None
     return res
 
+
 # TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
-def ft2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
+def ft2d(im, shift_after=True, shift_before=True, ret='complex', s=None, norm="ortho"):
     """
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    if np.ndim(im)<2:
+    if np.ndim(im) < 2:
         print('Too few dimensions')
         raise ValueError('Too few dimensions for ft2d')
-#        return im
+    #        return im
     else:
-        return ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm)
+        return ft(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=(-2, -1), s=s, norm=norm)
 
 
-def ift2d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
+def ift2d(im, shift_after=True, shift_before=True, ret='complex', s=None, norm="ortho"):
     """
         Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    
-    if np.ndim(im)<2:
+
+    if np.ndim(im) < 2:
         print('Too few dimensions')
         raise ValueError('Too few dimensions for ift2d')
-#        return(im)
+    #        return(im)
     else:
-        return ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-2, -1), s = s, norm = norm)
+        return ift(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=(-2, -1), s=s, norm=norm)
 
 
-def ft3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
+def ft3d(im, shift_after=True, shift_before=True, ret='complex', s=None, norm="ortho"):
     """
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    if np.ndim(im)<3:
+    if np.ndim(im) < 3:
         print('Too few dimensions')
         raise ValueError('Too few dimensions for ft3d')
-#        return(im)
+    #        return(im)
     else:
-        return ft(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm)
+        return ft(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=(-3, -2, -1), s=s, norm=norm)
 
 
-def ift3d(im, shift_after = True, shift_before = True, ret ='complex', s = None, norm = "ortho"):
+def ift3d(im, shift_after=True, shift_before=True, ret='complex', s=None, norm="ortho"):
     """
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    
-    if np.ndim(im)<3:
+
+    if np.ndim(im) < 3:
         print('Too few dimensions')
         raise ValueError('Too few dimensions for ift3d')
-#        return(im)
+    #        return(im)
     else:
-        return ift(im, shift_after= shift_after, shift_before= shift_before, ret = ret, axes = (-3, -2, -1), s = s, norm = norm)
+        return ift(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=(-3, -2, -1), s=s, norm=norm)
 
 
 # now the rft abbreviations:
@@ -175,12 +186,12 @@ def rft2d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm
     """
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    axes=(-2, -1)
-    ndims=np.ndim(im)
+    axes = (-2, -1)
+    ndims = np.ndim(im)
     if ndims < 2:
         if doWarn:
             print('rft2d Warning: Less than 2 dimensions in input image')
-        axes=axes[-ndims:]
+        axes = axes[-ndims:]
     return (rft(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, s=s, norm=norm))
 
 
@@ -188,13 +199,13 @@ def irft2d(im, newsize, shift_after=False, shift_before=False, ret='complex', no
     """
         Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    newsize=util.expanddimvec(newsize, im.ndim)
-    axes=(-2, -1)
-    ndims=np.ndim(im)
+    newsize = util.expanddimvec(newsize, im.ndim)
+    axes = (-2, -1)
+    ndims = np.ndim(im)
     if ndims < 2:
         if doWarn:
             print('irft2d Warning: Less than 2 dimensions in input image')
-        axes=axes[-ndims:]
+        axes = axes[-ndims:]
         newsize = newsize[-ndims:]
 
     return (irft(im, newsize, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, norm=norm))
@@ -204,12 +215,12 @@ def rft3d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm
     """
         Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    axes=(-3, -2, -1)
-    ndims=np.ndim(im)
+    axes = (-3, -2, -1)
+    ndims = np.ndim(im)
     if ndims < 3:
         if doWarn:
             print('rft3d Warning: Less than 3 dimensions in input image')
-        axes=axes[-ndims:]
+        axes = axes[-ndims:]
     return (rft(im, shift_after=shift_after, shift_before=shift_before, ret=ret, axes=axes, s=s, norm=norm))
 
 
@@ -217,9 +228,9 @@ def irft3d(im, newsize, shift_after=False, shift_before=False, ret='complex', no
     """
         Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
     """
-    newsize=util.expanddimvec(newsize, im.ndim)
+    newsize = util.expanddimvec(newsize, im.ndim)
     axes = (-3, -2, -1)
-    ndims=np.ndim(im)
+    ndims = np.ndim(im)
     if ndims < 3:
         if doWarn:
             print('irft3d Warning: Less than 3 dimensions in input image')
@@ -230,15 +241,15 @@ def irft3d(im, newsize, shift_after=False, shift_before=False, ret='complex', no
 
 def __ret_val__(im, mode):
     if mode == 'abs':
-        return(np.abs(im))
+        return (np.abs(im))
     elif mode == 'phase':
-        return(np.angle(im))
+        return (np.angle(im))
     elif mode == 'real':
-        return(np.real(im))
+        return (np.real(im))
     elif mode == 'imag':
-        return(np.imag(im))
+        return (np.imag(im))
     else:
-        return(im)
+        return (im)
 
 
 def __fill_real_return__(im, ax, real_return, origi_shape):
@@ -246,28 +257,28 @@ def __fill_real_return__(im, ax, real_return, origi_shape):
         if real_return == 'full',
         this function makes out of a rfft result an fft result
     """
-    
+
     if real_return == 'full':
         if type(ax) == tuple:
-           ax = list(ax)
+            ax = list(ax)
         axis = ax[-1]  # axis of rfft;
         ax = ax[:-1]  # axis of fft
 
         half = im.swapaxes(axis, -1)
-        if np.mod(origi_shape[axis],2) == 0:     
+        if np.mod(origi_shape[axis], 2) == 0:
             half = np.flipud(np.conjugate(half[1:-1]))
         else:
             half = np.flipud(np.conjugate(half[1:]))
         half = half.swapaxes(axis, -1)
-        if len(ax)>0:
+        if len(ax) > 0:
             for a in ax:
-                half = half.swapaxes(a,-1)
+                half = half.swapaxes(a, -1)
                 half = half[::-1]  # Reverse the other axis since the real fft is point symmetric
-                half = np.roll(half, 1,0)  # for some reason one has to roll the axis, otherwise there will be one point wrong :(
-                half = half.swapaxes(a,-1)
-        return np.concatenate((im,half), axis)
+                half = np.roll(half, 1, 0)  # for some reason one has to roll the axis, otherwise there will be one point wrong :(
+                half = half.swapaxes(a, -1)
+        return np.concatenate((im, half), axis)
     else:
-        return(im)
+        return (im)
 
 
 def __checkAxes__(axes, im):
@@ -277,7 +288,7 @@ def __checkAxes__(axes, im):
     :return: axes
     """
     if axes is None:
-            axes = list(range(len(im.shape)))
+        axes = list(range(len(im.shape)))
     if isinstance(axes, int):
         axes = [axes]
     # TODO: What was the reason for that?
@@ -328,16 +339,19 @@ def __check_type__(im, ft_axes, orig, name, real_axis=0, shift_axes=[]):
 
         # ifft shift
 
+
 # overwrite a couple of functions, which unfortunately are not using any wrappers like ufunc or finalize
 def pad(array, pad_width, mode, **kwargs):
     return image.image(np.pad(array, pad_width, mode, **kwargs), pixelsize=array.pixelsize)
 
+
 def stack(arrays, axis=0, out=None):
-    pixelsize = util.joinAllPixelsizes(arrays) # arrays[0].pixelsize.copy()
+    pixelsize = util.joinAllPixelsizes(arrays)  # arrays[0].pixelsize.copy()
     res = image.image(np.stack(arrays, axis, out), pixelsize=pixelsize)
     if axis == 0:
         res.pixelsize = [None] + res.pixelsize
     return res
+
 
 def fft(a, n=None, axes=None, norm=None):
     """
@@ -348,6 +362,7 @@ def fft(a, n=None, axes=None, norm=None):
     """
     return image.image(np.fft.fft(a, n, axes, norm), pixelsize=a.pixelsize)
 
+
 def ifft(a, n=None, axes=None, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -356,6 +371,7 @@ def ifft(a, n=None, axes=None, norm=None):
     :return:
     """
     return image.image(np.fft.ifft(a, n, axes, norm), pixelsize=a.pixelsize)
+
 
 def fft2(a, s=None, axes=(-2, -1), norm=None):
     """
@@ -366,6 +382,7 @@ def fft2(a, s=None, axes=(-2, -1), norm=None):
     """
     return image.image(np.fft.fft2(a, s, axes, norm), pixelsize=a.pixelsize)
 
+
 def ifft2(a, s=None, axes=(-2, -1), norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -374,6 +391,7 @@ def ifft2(a, s=None, axes=(-2, -1), norm=None):
     :return:
     """
     return image.image(np.fft.ifft2(a, s, axes, norm), pixelsize=a.pixelsize)
+
 
 def fftn(a, s=None, axes=None, norm=None):
     """
@@ -384,6 +402,7 @@ def fftn(a, s=None, axes=None, norm=None):
     """
     return image.image(np.fft.fftn(a, s, axes, norm), pixelsize=a.pixelsize)
 
+
 def ifftn(a, s=None, axes=None, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -392,6 +411,7 @@ def ifftn(a, s=None, axes=None, norm=None):
     :return:
     """
     return image.image(np.fft.ifftn(a, s, axes, norm), pixelsize=a.pixelsize)
+
 
 def rfft(a, n=None, axes=None, norm=None):
     """
@@ -402,6 +422,7 @@ def rfft(a, n=None, axes=None, norm=None):
     """
     return image.image(np.fft.rfft(a, n, axes, norm), pixelsize=a.pixelsize)
 
+
 def irfft(a, n=None, axes=None, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -410,6 +431,7 @@ def irfft(a, n=None, axes=None, norm=None):
     :return:
     """
     return image.image(np.fft.irfft(a, n, axes, norm), pixelsize=a.pixelsize)
+
 
 def rfft2(a, s=None, axes=(-2, -1), norm=None):
     """
@@ -420,6 +442,7 @@ def rfft2(a, s=None, axes=(-2, -1), norm=None):
     """
     return image.image(np.fft.rfft2(a, s, axes, norm), pixelsize=a.pixelsize)
 
+
 def irfft2(a, s=None, axes=(-2, -1), norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -428,6 +451,7 @@ def irfft2(a, s=None, axes=(-2, -1), norm=None):
     :return:
     """
     return image.image(np.fft.irfft2(a, s, axes, norm), pixelsize=a.pixelsize)
+
 
 def rfftn(a, s=None, axes=None, norm=None):
     """
@@ -438,6 +462,7 @@ def rfftn(a, s=None, axes=None, norm=None):
     """
     return image.image(np.fft.rfftn(a, s, axes, norm), pixelsize=a.pixelsize)
 
+
 def irfftn(a, s=None, axes=None, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -446,6 +471,7 @@ def irfftn(a, s=None, axes=None, norm=None):
     :return:
     """
     return image.image(np.fft.irfftn(a, s, axes, norm), pixelsize=a.pixelsize)
+
 
 def fftshift(a, axes=None):
     """
@@ -456,6 +482,7 @@ def fftshift(a, axes=None):
     """
     return image.image(np.fft.fftshift(a, axes), pixelsize=a.pixelsize)
 
+
 def ifftshift(a, axes=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -465,8 +492,9 @@ def ifftshift(a, axes=None):
     """
     return image.image(np.fft.ifftshift(a, axes), pixelsize=a.pixelsize)
 
+
 # introduce a couple of already shifted fts (similar to DipImage) for convenience
-def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm = 'ortho'):
+def ft(im, shift_after=True, shift_before=True, ret='complex', axes=None, s=None, norm='ortho'):
     """
         Fouriertransform of image
 
@@ -493,19 +521,20 @@ def ft(im, shift_after = True, shift_before = True, ret ='complex', axes = None,
                     Value at zero freq. gives sqrt(number photons ) (check!!!)
 
     """
-    #create axes list
-    axes=__checkAxes__(axes,im)
+    # create axes list
+    axes = __checkAxes__(axes, im)
 
     if shift_before == True:
-        im = ifftshift(im, axes=axes) # mid to corner
-    if (not s is None) and (not axes is None) and len(axes)< len(s):
-        s=s[-len(axes):] # it will automatically deal with the other axes
+        im = ifftshift(im, axes=axes)  # mid to corner
+    if (not s is None) and (not axes is None) and len(axes) < len(s):
+        s = s[-len(axes):]  # it will automatically deal with the other axes
     im = fftn(im, axes=axes, s=s, norm=norm)
     if shift_after == True:
         im = fftshift(im, axes=axes)  # corner freq to mid freq
     return __ret_val__(im, ret)
 
-def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None, s = None, norm =  'ortho'):
+
+def ift(im, shift_after=True, shift_before=True, ret='complex', axes=None, s=None, norm='ortho'):
     """
         Performs the inverse Fourier transform
 
@@ -531,19 +560,19 @@ def ift(im, shift_after = True, shift_before = True, ret ='complex', axes = None
         real_axis: along which axes was the real fft done?
 
     """
-    axes=__checkAxes__(axes,im)
+    axes = __checkAxes__(axes, im)
 
     if shift_before == True:
-        im = ifftshift(im, axes=axes) # mid to corner
-    if (not s is None) and (not axes is None) and len(axes)< len(s):
-        s=s[-len(axes):] # it will automatically deal with the other axes
+        im = ifftshift(im, axes=axes)  # mid to corner
+    if (not s is None) and (not axes is None) and len(axes) < len(s):
+        s = s[-len(axes):]  # it will automatically deal with the other axes
     im = ifftn(im, axes=axes, s=s, norm=norm)
     if shift_after == True:
         im = fftshift(im, axes=axes)  # corner freq to mid freq
     return __ret_val__(im, ret)
 
 
-def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = None,  norm = None):
+def irft(im, s, shift_after=False, shift_before=False, ret='complex', axes=None, norm=None):
     """
         Performs the inverse Fourier transform
 
@@ -566,21 +595,21 @@ def irft(im, s,shift_after = False,shift_before = False, ret ='complex', axes = 
 
     """
     # create axis, shift_ax and real_ax
-    axes=__checkAxes__(axes,im)
+    axes = __checkAxes__(axes, im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
     if shift_before == True:
         shift_ax = [i for i in axes if i != real_axis]
-        im = ifftshift(im, axes=shift_ax) # mid freq to corner
-    if (not s is None) and (not axes is None) and len(axes)< len(s):
-        s=s[-len(axes):] # it will automatically deal with the other axes
+        im = ifftshift(im, axes=shift_ax)  # mid freq to corner
+    if (not s is None) and (not axes is None) and len(axes) < len(s):
+        s = s[-len(axes):]  # it will automatically deal with the other axes
     im = irfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultDataType)
     if shift_after == True:
         im = fftshift(im, axes=axes)  # corner to mid
     return __ret_val__(im, ret)
 
 
-def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = None,  s = None, norm = None):
+def rft(im, shift_after=False, shift_before=False, ret='complex', axes=None, s=None, norm=None):
     """
         real Fouriertransform of image. Note the real axis is always the last (of the given) axes
 
@@ -608,7 +637,7 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
         full_shift:  Def = False If true, the shift operations will be performed over all axes (given by axes) including the real one. Otherwise the shift operations will exclude the real axis direction.
 
     """
-    #create axes list
+    # create axes list
     axes = __checkAxes__(axes, im)
     real_axis = max(axes)  # always the last axis is the real one   as Default
 
@@ -618,13 +647,13 @@ def rft(im, shift_after = False, shift_before = False, ret = 'complex', axes = N
         # return(ft(im, shift_after= shift, shift_before = shift_before, ret = ret, axes = axes, s = s, norm = norm));
     else:
         if shift_before == True:
-            im = ifftshift(im, axes=axes) # mid to corner
+            im = ifftshift(im, axes=axes)  # mid to corner
         if (not s is None) and (not axes is None) and len(axes) < len(s):
             s = s[-len(axes):]  # it will automatically deal with the other axes
         im = rfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultCpxDataType)
         if shift_after == True:
             shift_ax = [i for i in axes if i != real_axis]
-            im =fftshift(im, axes=shift_ax)  # corner freq to mid freq
+            im = fftshift(im, axes=shift_ax)  # corner freq to mid freq
         return __ret_val__(im, ret)
 
 def resample(img, factors=[2.0, 2.0]):
@@ -642,30 +671,25 @@ def resample(img, factors=[2.0, 2.0]):
 
     See also
     -------
-    Convolve, rft irft, PSF2ROTF, preFFTShift
+    zoom, Convolve, rft irft, PSF2ROTF, preFFTShift
 
     Example
     -------
     """
     if np.iscomplexobj(img):
-        myft=ft(img)
-        newsize=resampledSize(img.shape,factors)
-        res=ift(image.extractFt(myft,newsize,ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
+        myft = ft(img)
+        newsize = resampledSize(img.shape, factors)
+        res = ift(image.extractFt(myft, newsize, ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
     else:
-        rf=rft(img,shift_before=True) # why is the shift necessary??
-        oldsize=rf.shape
-#       print(oldsize)
-        newrftsize=resampledSize(oldsize,factors,RFT=True)
-        newsize=resampledSize(img.shape,factors)
-#       print(newsize)
-        rfre=resampleRFT(rf,newrftsize,newsize,ModifyInput=True)
-#       print(rfre)
-        res=irft(rfre,newsize,shift_after=True)  # why is the shift necessary??
-    if img.pixelsize is not None:
-        img.pixelsize = list(img.pixelsize) # to be sure this is a list and not ndarray
-        img.pixelsize = [img.pixelsize[-d-1]* np.array(img.shape) / np.array(res.shape) if (img.pixelsize[-d-1] is not None) else None for d in range(res.ndim)]
-#        res.pixelsize = img.pixelsize[-len(img.shape):] * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
-    else:
-        res.pixelsize = None
-# no modification is needed to warrant that the integral does not change!
+        rf = rft(img, shift_before=True)  # why is the shift necessary??
+        oldsize = rf.shape
+        #       print(oldsize)
+        newrftsize = resampledSize(oldsize, factors, RFT=True)
+        newsize = resampledSize(img.shape, factors)
+        #       print(newsize)
+        # the function below already takes care of the pixelsize
+        rfre = resampleRFT(rf, newrftsize, img.shape, newsize, ModifyInput=True)
+        #       print(rfre)
+        res = irft(rfre, newsize, shift_after=True)  # why is the shift necessary??
+    # no modification is needed to warrant that the integral does not change!
     return res
