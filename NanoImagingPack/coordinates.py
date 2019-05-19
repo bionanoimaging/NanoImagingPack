@@ -18,7 +18,7 @@ def unifysize(mysize):
         return mysize.shape
 
 
-def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pxs=None):
+def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pixelsize=None):
     """
     creates a ramp in the given direction direction
     standard size is 256 X 256
@@ -51,7 +51,7 @@ def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=Fa
         freq = "freq"
         mysize[rftdir] = (mysize[rftdir] + 1) // 2
 
-    myramp = ramp1D(mysize[ramp_dim], ramp_dim, placement, freq, pxs)
+    myramp = ramp1D(mysize[ramp_dim], ramp_dim, placement, freq, pixelsize)
     mysize[ramp_dim] = myramp.shape[ramp_dim]  # since the rfreq option changes the size
 
     #    if freq=="rfreq" and ramp_dim==rftdir:  # CAREFUL: The frequency-based methods have sometimes already been pre-shifted.
@@ -62,14 +62,14 @@ def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=Fa
     res = util.ones(mysize)
     res *= myramp
 
-    if pxs is not None:
-        res.pixelsize = util.expanddimvec(pxs, res.ndim, trailing=True)
+    if pixelsize is not None:
+        res.pixelsize = util.expanddimvec(pixelsize, res.ndim, trailing=True)
     else:
         res.pixelsize = None
     return res
 
 
-def xx(mysize=(256, 256), placement='center', freq=None):
+def xx(mysize=(256, 256), placement='center', freq=None, pixelsize=None):
     """
     creates a ramp in x direction
     standart size is 256 X 256
@@ -83,10 +83,10 @@ def xx(mysize=(256, 256), placement='center', freq=None):
     myplacement=placement
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement = placement[-1]
-    return (ramp(mysize, -1, myplacement, freq))
+    return (ramp(mysize, -1, myplacement, freq, pixelsize=pixelsize))
 
 
-def yy(mysize=(256, 256), placement='center', freq=None):
+def yy(mysize=(256, 256), placement='center', freq=None, pixelsize=None):
     """
     creates a ramp in y direction
     standart size is 256 X 256
@@ -100,10 +100,10 @@ def yy(mysize=(256, 256), placement='center', freq=None):
     myplacement=placement
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement = placement[-2]
-    return (ramp(mysize, -2, myplacement, freq))
+    return (ramp(mysize, -2, myplacement, freq, pixelsize=pixelsize))
 
 
-def zz(mysize=(256, 256), placement='center', freq=None):
+def zz(mysize=(256, 256), placement='center', freq=None, pixelsize=None):
     """
     creates a ramp in z direction
     standart size is 256 X 256
@@ -117,10 +117,10 @@ def zz(mysize=(256, 256), placement='center', freq=None):
     myplacement=placement
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement = placement[-3]
-    return (ramp(mysize, -3, myplacement))
+    return (ramp(mysize, -3, myplacement, pixelsize=pixelsize))
 
 
-def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None):
+def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None, pixelsize=None):
     """
     creates a square of a ramp in r direction 
     standart size is 256 X 256
@@ -129,6 +129,8 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     scale is tuple, list, none or number. It defines the pixelsize.
     """
     import numbers
+    if pixelsize is None and isinstance(mysize, image):
+        pixelsize = mysize.pixelsize
     mysize = list(unifysize(mysize))
     if offset is None:
         offset = len(mysize) * [0]  # RH 3.2.19
@@ -151,15 +153,23 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement=placement[-1]
 #     res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
-    res = ((ramp(mysize, -1, myplacement, freq, pxs=scale) - offset[-1]) * scale[-1]) ** 2
+    if pixelsize is None:
+        res = ((ramp(mysize, -1, myplacement, freq) - offset[-1]) * scale[-1]) ** 2
+    else:
+        res = ((ramp(mysize, -1, myplacement, freq, pixelsize=pixelsize) - offset[-1]) * scale[-1]) ** 2
     for d in range(2, len(mysize)+1):
         if (type(placement) is list) or (type(placement) is np.array):
             myplacement = placement[-d]
-        res += ((ramp1D(mysize[-d], -d, myplacement, freq, pxs = scale[-d]) - offset[-d]) * scale[-d]) ** 2
+        if pixelsize is None:
+            res += ((ramp1D(mysize[-d], -d, myplacement, freq) - offset[-d]) * scale[-d]) ** 2
+        else:
+            res += ((ramp1D(mysize[-d], -d, myplacement, freq, pixelsize=pixelsize[-d]) - offset[-d]) * scale[-d]) ** 2
+    # if pixelsize is not None:   # only assign a pixelsize with scale changing it if that dimension already has a pixelsize
+    #     res.pixelsize = [scale[-d-1]*pixelsize[-d-1] if (pixelsize[-d-1] is not None) else None for d in range(res.ndim)]
     return res
 
 
-def rr(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None):
+def rr(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None, pixelsize=None):
     """
     creates a ramp in r direction 
     standart size is 256 X 256
@@ -167,10 +177,10 @@ def rr(mysize=(256, 256), placement='center', offset=None, scale=None, freq=None
     offset -> x/y offset in pixels (number, list or tuple)
     scale is tuple, list, none or number of axis scale
     """
-    return np.sqrt(rr2(mysize, placement, offset, scale, freq))
+    return np.sqrt(rr2(mysize, placement, offset, scale, freq, pixelsize=pixelsize))
 
 
-def phiphi(mysize=(256, 256), angle_range=1, placement='center'):
+def phiphi(mysize=(256, 256), angle_range=1, placement='center', pixelsize=None):
     """
     creates a ramp in phi direction. This does NOT account for the pixel sizes!! Use cosSinTheta instead!
     standart size is 256 X 256
@@ -183,7 +193,7 @@ def phiphi(mysize=(256, 256), angle_range=1, placement='center'):
     if (type(placement) is list) or (type(placement) is np.array):
         myplacementX = placement[-1]
         myplacementY = placement[-2]
-    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2, placement=myplacementY), ramp1D(mysize[-1], ramp_dim=-1, placement=myplacementX))
+    phi = np.arctan2(ramp1D(mysize[-2], ramp_dim=-2, placement=myplacementY, pixelsize=pixelsize), ramp1D(mysize[-1], ramp_dim=-1, placement=myplacementX, pixelsize=pixelsize))
     return (phi)
     # np.seterr(divide ='ignore', invalid = 'ignore');
     # x = ramp(mysize,1,'center');
@@ -217,8 +227,11 @@ def cosSinTheta(im, space=None):
         else:
             assert(space == "unit")
     else:
-        myx *= im.pixelsize[-1]
-        myy *= im.pixelsize[-2]
+        if im.pixelsize is not None:
+            if im.pixelsize[-1] is not None:
+                myx *= im.pixelsize[-1]
+            if im.pixelsize[-2] is not None:
+                myy *= im.pixelsize[-2]
     myr = np.sqrt(myx**2+myy**2)
     myr = myr.midValAsg(1.0) # to avoid division by zero
     sin_theta = myy/myr
@@ -411,9 +424,9 @@ def freq_ramp(im, pxs=50, shift=True, real=False, axis=0):
     if isinstance(im, np.ndarray):
         im = im.shape
     if real and (axis == -1 or axis == max(im)):
-        res = ramp(im, ramp_dim=axis, placement='positive', shift=shift, pxs=1) * 1 / (im[axis] * pxs)
+        res = ramp(im, ramp_dim=axis, placement='positive', shift=shift, pixelsize=1) * 1 / (im[axis] * pxs)
     else:
-        res = ramp(im, ramp_dim=axis, placement='center', shift=shift, pxs=1) * 1 / (im[axis] * pxs)
+        res = ramp(im, ramp_dim=axis, placement='center', shift=shift, pixelsize=1) * 1 / (im[axis] * pxs)
 
     return (res)
 
@@ -441,7 +454,7 @@ def applyPhaseRamp(img, shiftvec):
     return res
 
 
-def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
+def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pixelsize=None):
     """
     creates a 1D-ramp along only one dimension. The trailing dimension sizes are all one.
 
@@ -487,27 +500,24 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pxs=1.0):
     elif freq == "ftradfreq":
         miniramp = miniramp * 2.0 * np.pi / mysize
     elif freq == "fftfreq":
-        miniramp = np.fft.fftfreq(mysize, pxs)
+        miniramp = np.fft.fftfreq(mysize, pixelsize)
     elif freq == "rfftfreq":
-        miniramp = np.fft.rfftfreq(mysize, pxs)
+        miniramp = np.fft.rfftfreq(mysize, pixelsize)
     elif freq == "fftradfreq":
-        miniramp = np.fft.fftfreq(mysize, pxs / 2.0 / np.pi)
+        miniramp = np.fft.fftfreq(mysize, pixelsize / 2.0 / np.pi)
     elif freq == "rfftradfreq":
-        miniramp = np.fft.rfftfreq(mysize, pxs / 2.0 / np.pi)
+        miniramp = np.fft.rfftfreq(mysize, pixelsize / 2.0 / np.pi)
     elif not freq == None:
         raise ValueError(
             "unknown option for freq. Valid options are ftfreq, ftradfreq, fftfreq, rfftfreq, fftradfreq and rfftradfreq.")
     #        miniramp=miniramp*(np.pi/(mysize//2))
 
     if ramp_dim > 0:
-        miniramp = util.expanddim(miniramp, ramp_dim + 1,
-                                  trailing=False)  # expands to this dimension numbe by inserting trailing axes. Also converts to
+        miniramp = util.expanddim(miniramp, ramp_dim + 1, trailing=False)  # expands to this dimension numbe by inserting trailing axes. Also converts to
     elif ramp_dim < -1:
-        miniramp = util.expanddim(miniramp, -ramp_dim,
-                                  trailing=True)  # expands to this dimension numbe by inserting prevailing axes. Also converts to
-    pxs = util.expanddimvec(pxs, miniramp.ndim, trailing=True)
-    return image(miniramp, pixelsize=pxs)
-
+        miniramp = util.expanddim(miniramp, -ramp_dim, trailing=True)  # expands to this dimension numbe by inserting prevailing axes. Also converts to
+    pixelsize = util.expanddimvec(pixelsize, miniramp.ndim, trailing=True, value=None)
+    return image(miniramp, pixelsize=pixelsize)
 
 def px_freq_step(im=(256, 256), pxs=None):
     """

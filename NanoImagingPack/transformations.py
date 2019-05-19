@@ -113,7 +113,7 @@ def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
     newfullsz=np.array(newfullsz)
     res = irft3d(res * rotf, newfullsz, maxdim,doWarn=False)
     if img.pixelsize is not None:
-        res.pixelsize = img.pixelsize * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+        res.set_pixelsize(img.pixelsize, factors = np.array(img.shape) / np.array(res.shape))
     else:
         res.pixelsize = None
     return res
@@ -333,7 +333,7 @@ def pad(array, pad_width, mode, **kwargs):
     return image.image(np.pad(array, pad_width, mode, **kwargs), pixelsize=array.pixelsize)
 
 def stack(arrays, axis=0, out=None):
-    pixelsize = util.longestPixelsize(arrays) # arrays[0].pixelsize.copy()
+    pixelsize = util.joinAllPixelsizes(arrays) # arrays[0].pixelsize.copy()
     res = image.image(np.stack(arrays, axis, out), pixelsize=pixelsize)
     if axis == 0:
         res.pixelsize = [None] + res.pixelsize
@@ -662,7 +662,9 @@ def resample(img, factors=[2.0, 2.0]):
 #       print(rfre)
         res=irft(rfre,newsize,shift_after=True)  # why is the shift necessary??
     if img.pixelsize is not None:
-        res.pixelsize = img.pixelsize[-len(img.shape):] * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
+        img.pixelsize = list(img.pixelsize) # to be sure this is a list and not ndarray
+        img.pixelsize = [img.pixelsize[-d-1]* np.array(img.shape) / np.array(res.shape) if (img.pixelsize[-d-1] is not None) else None for d in range(res.ndim)]
+#        res.pixelsize = img.pixelsize[-len(img.shape):] * np.array(img.shape) / np.array(res.shape) # since it was messed up before!
     else:
         res.pixelsize = None
 # no modification is needed to warrant that the integral does not change!

@@ -17,7 +17,7 @@ import numbers
 import time
 import functools
 from . import coordinates
-
+from collections.abc import Iterable
 
 class struct(object): # this class can be used as a base class or simply be instantiated to mimic a struct (like matlab) with pretty print
             
@@ -116,6 +116,8 @@ def ftimer(func):
         return value
     return(wrap_tmr)
 
+def isIterable(avar):
+    return isinstance(avar, Iterable)
 
 def inrange(arr, ran):
     """
@@ -313,16 +315,48 @@ def repToList(val, ndim, defaultVal=0):
 
 from . import image
 
-def longestPixelsize(inputs):
-    pixelsize=None
+def joinPixelsizes(vec1, vec2):
+    """
+    joins two pixelsize vectors together, comparing their sizes and possibly rasining an error on disagreement. None entries are treated to mean any pixelsize.
+    :param vec1: pixelsize vector one
+    :param vec2: pixelsize vector two
+    :return: joined pixelsize vector
+    """
+    if vec1 is None:
+        return vec2
+    elif vec2 is None:
+        return vec1
+    l1 = len(vec1)
+    l2 = len(vec2)
+    maxlen = max(l1,l2)
+    res = maxlen*[None]
+    for d in range(maxlen):
+        if d < l1:
+            if d < l2:
+                if vec1[-d-1] is None:
+                    res[-d - 1] = vec2[-d - 1]
+                elif vec2[-d-1] is None:
+                    res[-d - 1] = vec1[-d - 1]
+                elif vec2[-d-1] != vec1[-d-1]:
+                        raise ValueError("disagreement detected comparing pixelsizes "+str(vec1)+" with "+str(vec2)+".")
+                else:
+                    res[-d - 1] = vec1[-d - 1]
+            else:
+                res[-d - 1] = vec1[-d - 1]
+        else:
+            res[-d - 1] = vec2[-d - 1]
+    return res
+
+def joinAllPixelsizes(inputs):
+    """
+    goes through a list of images and extracts a joined (longest) pixelsize vector. None entries in pixelsizes are treated as possible matches. Disagreeing pixelsizes raise a ValueError.
+    :param inputs: list or tuple of images
+    :return: joined pixelsize vector
+    """
+    pixelsize = None
     for inp in inputs:
-        if isinstance(inp, image.image) and inp.pixelsize is not None:
-            if pixelsize is not None:
-                if not equalpixelsizevec(pixelsize,inp.pixelsize):
-                    raise ValueError("Pixelsizes of arguments do not match!")
-            if pixelsize is None or len(inp.pixelsize) > len(pixelsize):
-                pixelsize = inp.pixelsize
-            break
+        if isinstance(inp, image.image):
+            pixelsize = joinPixelsizes(pixelsize, inp.pixelsize)
     return pixelsize
 
 def splice(list1,list2):
@@ -424,11 +458,11 @@ def castdim(img, ndims, wanteddim=0):
         ndims: number of dimensions to expand to
         wanteddim: number that the one-D axis should end up in (default:0)
     """
-    return np.reshape(img,castdimvec(img.shape,ndims,wanteddim))
+    return np.reshape(img, castdimvec(img.shape, ndims, wanteddim))
 
-def expanddimvec(shape, ndims, othersizes=None, trailing=False):
+def expanddimvec(shape, ndims, othersizes=None, trailing=False, value=1):
     """
-        expands an nd tuple (e.g image shape) to the necessary number of dimension by inserting leading dimensions
+        expands an nd tuple (e.g image shape) to the necessary number of dimension by inserting leading (or trailing) dimensions
         ----------
         img: input image to expand
         ndims: number of dimensions to expand to
@@ -448,9 +482,9 @@ def expanddimvec(shape, ndims, othersizes=None, trailing=False):
     if missingdims > 0:
         if othersizes is None:
             if trailing:
-                return shape+(missingdims)*(1,)
+                return shape+(missingdims)*(value,)
             else:
-                return (missingdims)*(1,)+shape
+                return (missingdims)*(value,)+shape
         else:
             if trailing:
                 return shape+tuple(othersizes[-missingdims::])
@@ -459,7 +493,18 @@ def expanddimvec(shape, ndims, othersizes=None, trailing=False):
     else:
         return shape[-ndims:]
 
-def expanddim(img,ndims,trailing=False):
+def expandPixelsize(img, trailing=False):
+    """
+    adjusts the pixelsize of an image by adding dimensions of size None.
+    :param img:  image for which the pixelsize should be adjusted
+    :param trailing: if True, the dimensions will be added to the end rather that to the beginning which is the default (meaning outermost)
+    :param ndims: number of dimensions to expand to. None means, to use the dimensions of the image
+    :return: the image with the changed pixelsize
+    """
+    img.set_pixelsize(img.pixelsize)  # set_pixelsize now takes care to expand the pixelsizes, if necessary
+    return img
+
+def expanddim(img, ndims, trailing=False):
     """
         expands an nd image to the necessary number of dimension by inserting leading dimensions
         ----------
@@ -467,7 +512,10 @@ def expanddim(img,ndims,trailing=False):
         ndims: number of dimensions to expand to
         trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
     """
-    return np.reshape(img,expanddimvec(img.shape,ndims,None,trailing))
+    res = np.reshape(img, expanddimvec(img.shape, ndims, None, trailing))
+    if isinstance(res, image.image):
+        res = expandPixelsize(res)
+    return res
 
 def dimVec(d,mysize,ndims):
     """

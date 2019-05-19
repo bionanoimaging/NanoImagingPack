@@ -39,12 +39,11 @@ from .view5d import v5, JNIUS_RUNNING # for debugging
 from . import util
 import warnings
 
-from pkg_resources import resource_filename
-from IPython.lib.pretty import pretty
+# from pkg_resources import resource_filename
+# from IPython.lib.pretty import pretty
 
 defaultDataType=np.float32
 defaultCpxDataType=np.complex64
-
 
 def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     """
@@ -173,8 +172,11 @@ def readim(path=None, which=None, pixelsize=None):
         path = __DEFAULTS__['IMG_DEFAULT_IMG_NAME']
     for p in __DEFAULTS__['IMG_DEFAULT_IMG_FOLDERS']:
         l += (list_files(p, ''))
+    full_default_names = [splitext(split(el)[1])[0]+splitext(split(el)[1])[1] for el in l]
+    if path in full_default_names: # check for defauls including the ending
+        path = l[full_default_names.index(path)]
     default_names = [splitext(split(el)[1])[0] for el in l]
-    if path in default_names:
+    if path in default_names: # check again without the endings
         path = l[default_names.index(path)]
 
     if isfile(path):
@@ -183,7 +185,7 @@ def readim(path=None, which=None, pixelsize=None):
         if ext.lower() in __DEFAULTS__['IMG_TIFF_FORMATS']:
 
             with tif.TiffFile(path) as mytif:
-                img = mytif.asarray(key=which)
+                img = mytif.asarray(key = which)
                 alltags = mytif.pages[0].tags
                 imagej_metadata = mytif.imagej_metadata
             img = img.view(image)
@@ -251,7 +253,7 @@ def readim(path=None, which=None, pixelsize=None):
                 img = np.array(myImg)
                 img = img.view(image)
                 img.colormodel = myImg.mode # may be RGB
-                if img.ndim==3 and img.colormodel=="RGB":
+                if img.ndim == 3 and img.colormodel == "RGB":
                     img = np.moveaxis(img[:,:,:,np.newaxis], [0,1,2,3], [2,3,0,1])
                 img.set_pixelsize(pixelsize)
             except OSError:
@@ -842,7 +844,7 @@ def adjust_dims(imlist, maxdim=None):
 
     def __exp_dims__(im):
         for i in range(im.ndim, maxdim):
-            im = np.expand_dims(im, 0)  # i RH 2.2.19
+            im = np.expand_dims(im, 0)
         return im
 
     err = False
@@ -936,7 +938,7 @@ def cat(imlist, axis=None, destdims=None, matchsizes = False):
     for i in range(len(imlist)):
         if not isinstance(imlist[i], image):
             imlist[i] = image(imlist[i])
-    pixelsize = util.longestPixelsize(imlist)
+    pixelsize = util.joinAllPixelsizes(imlist)
 
     imlist = tuple(imlist)
     shapes = np.asarray([list(im.shape) for im in imlist])
@@ -968,7 +970,7 @@ def cat(imlist, axis=None, destdims=None, matchsizes = False):
             if matchsizes:
                 imlist = [match_size(im, imlist[np.argmax(shapes[:, i])], i, padmode='constant', odd=False)[0] for im in imlist]
             else:
-                raise ValueError("cat, dimension "+str(i)+": Sizes are not matching. Adjust sizes or use the flag matchsizes=True.")
+                raise ValueError("cat, dimension "+str(i)+": Shapes are not matching. Adjust shapes or use the flag matchsizes=True.")
             # return(np.concatenate((imlist),axis).squeeze());
     return image(np.concatenate(imlist, axis), pixelsize = pixelsize)
 
@@ -1987,7 +1989,7 @@ class image(np.ndarray):
                 else:
                     print(self)
 
-    def set_pixelsize(self, pixelsize):
+    def set_pixelsize(self, pixelsize = None, factors = None):
         import numbers
         if pixelsize is None:
             p = __DEFAULTS__['IMG_PIXELSIZES']
@@ -1999,12 +2001,16 @@ class image(np.ndarray):
         elif type(pixelsize) == list or type(pixelsize) == tuple:
             if type(pixelsize) == tuple: pixelsize = list(pixelsize);
             if len(pixelsize) > self.ndim: pixelsize = pixelsize[-self.ndim:];
-            if len(pixelsize) < self.ndim: pixelsize = [i*0+1.0 for i in range(self.ndim-len(pixelsize))] + pixelsize;
+            if len(pixelsize) < self.ndim: pixelsize = [None for i in range(self.ndim-len(pixelsize))] + pixelsize;
             self.pixelsize = pixelsize
         elif isinstance(pixelsize, numbers.Number) :
-            self.pixelsize = [i*0+pixelsize for i in self.shape]
+            self.pixelsize = [pixelsize for i in self.shape] # replicate the single value to all entries
+        elif isinstance(pixelsize, np.ndarray):
+            self.pixelsize = list(pixelsize)
         else:
             raise ValueError('Pixelsize must be list, tuple or number')
+        if factors is not None and pixelsize is not None:
+            self.pixelsize = [asize*afactor if (asize is not None and afactor is not None) else None for asize,afactor in zip(self.pixelsize, factors)]
 
     def __compare_pixel_sizes__(self, im2):
         """
@@ -2107,7 +2113,6 @@ class image(np.ndarray):
         return tuple(pos)
 
     def expanddim(self, ndims, trailing = False):
-        # TODO: Dealing with pixel sizes of expanded image
         return util.expanddim(self, ndims = ndims, trailing= trailing)
 
 
@@ -2401,7 +2406,7 @@ class image(np.ndarray):
             for i, output_ in enumerate(results):
                 if isinstance(output_, image):
                     output_.__array_finalize__(inputs[0]) # use the first input for new result. ToDo: should be changed to a smarter joining of information
-                    output_.pixelsize = util.longestPixelsize(inputs)
+                    output_.pixelsize = util.joinAllPixelsizes(inputs)
 
         # if results and isinstance(results[0], image):
         #     results[0].info = info
@@ -2422,7 +2427,15 @@ class image(np.ndarray):
         elif isinstance(item, numbers.Integral):
             res.set_pixelsize(self.pixelsize[1:])
         elif isinstance(item, np.ndarray):
-            res.set_pixelsize(self.pixelsize)
+            if item.dtype == np.bool:
+                res.set_pixelsize(None)  # this is an access with a boolean image.  The pixelsize should not be set here as the result is a 1D vector not relating to sizes. self.pixelsize
+            elif item.dtype == np.int: # isinstance(item[0], numbers.Integral):
+                if item.ndim > 1:
+                    util.expandpixelsizevec(res)
+            elif isinstance(item[0], tuple) or isinstance(item[0], list):
+                res.set_pixelsize(None)  # this is an access with an image.  The pixelsize should not be set here as the result is a 1D vector not relating to sizes. self.pixelsize
+            else:
+                raise ValueError("unknown indexing method")
         elif isinstance(item, tuple):
             pxs=[]
             p=0
