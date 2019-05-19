@@ -7,9 +7,14 @@ changing plattforms
 
 conda convert --platform all ~/anaconda3/conda-bld/linux-64/nanoimagingpack-2.0.0.dev2-py37_0.tar.bz2 -o outputdir/
 
+conda convert --platform win-64 ~/anaconda3/conda-bld/linux-64/nanoimagingpack-2.0.0.dev3-py37_0.tar.bz2 -o outputdir/
+
 
 upload
 
 anaconda upload ~/anaconda3/conda-bld/linux-64/nanoimagingpack-2.0.0.dev2-py37_0.tar.bz2
 anaconda upload ~/outputdir/win-64/nanoimagingpack-2.0.0.dev2-py37_0.tar.bz2
 
+
+
+build/ignore_run_exports

@@ -189,14 +189,20 @@ def readim(path=None, which=None, pixelsize=None):
                 alltags = mytif.pages[0].tags
                 imagej_metadata = mytif.imagej_metadata
             img = img.view(image)
-            img.unit = alltags['ResolutionUnit'].value.name
-            img.colormodel = alltags['PhotometricInterpretation'].value.name
+            try:
+                img.unit = alltags['ResolutionUnit'].value.name;
+            except KeyError:
+                img.unit = None;
+            try:
+                img.colormodel = alltags['PhotometricInterpretation'].value.name;
+            except KeyError:
+                img.colormodel = None;
             if imagej_metadata is None and pixelsize is None:
                 try:
                     psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
                     psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
                     pixelsize = [psY, psX]
-                except ValueError:
+                except:
                     pass
 #                psZ = alltags['ZResolution'].value[0]
             elif imagej_metadata is not None:
@@ -209,12 +215,15 @@ def readim(path=None, which=None, pixelsize=None):
                     img.unit = imagej_metadata['unit']
                 except:
                     pass
-                psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                psZ = imagej_metadata['spacing']
-                pixelsize = [psZ, psY, psX]
-                if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
-                    img.colormodel = "RGB"
+                try:
+                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                    psZ = imagej_metadata['spacing']
+                    pixelsize = [psZ, psY, psX]
+                    if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
+                        img.colormodel = "RGB"
+                except:
+                    pass;
             # if which is None:
             #     img = (tif.imread(path))
             # else:
@@ -410,37 +419,72 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     mysum = util.zeros(img.shape)
     sz = img.shape
     den = -2 * len(set(axes))  # use only the counting dimensions
-    for i in range(len(img.shape)):
+     
+     
+    axes = tuple([len(img.shape)+ax if ax <0 else ax for ax in axes])  # make the axes positive!
+    
+    for i, ax in enumerate(axes):
+        line = np.arange(0, img.shape[ax], 1)
+        myramp = util.make_damp_ramp(width[i], func)
+        if method == "zero":
+            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
+            goal = 0.0  # dim down to zero
+        elif method == "moisan":
+            top = util.subslice(img, ax, 0)
+            bottom = util.subslice(img, ax, -1)
+            mysum = util.subsliceAsg(mysum, ax, 0, bottom - top + util.subslice(mysum, ax, 0))
+            mysum = util.subsliceAsg(mysum, ax, -1, top - bottom + util.subslice(mysum, ax, -1))
+            den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(ax, sz[ax], len(sz)), ax, freq='ftfreq'))
+        elif method == "damp":
+            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+            top = util.subslice(img, ax, 0)
+            bottom = util.subslice(img, ax, -1)
+            goal = (top + bottom) / 2.0
+            goal = gaussf(goal, sigma)
+        else:
+            raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
+        if method != "moisan":
+            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
+            try:
+                res = res * line + (1.0 - line) * goal
+            except ValueError:
+                print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+                res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
+     
+#    for i in range(len(img.shape)):
+#
+#        if i in axes:
+#            line = np.arange(0, img.shape[i], 1)
+#            myramp = util.make_damp_ramp(width[i], func)
+#            if method == "zero":
+#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i]), myramp), -1)
+#                goal = 0.0  # dim down to zero
+#            elif method == "moisan":
+#                top = util.subslice(img, i, 0)
+#                bottom = util.subslice(img, i, -1)
+#                mysum = util.subsliceAsg(mysum, i, 0, bottom - top + util.subslice(mysum, i, 0))
+#                mysum = util.subsliceAsg(mysum, i, -1, top - bottom + util.subslice(mysum, i, -1))
+#                den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(i, sz[i], len(sz)), i, freq='ftfreq'))
+#            elif method == "damp":
+#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+#                top = util.subslice(img, i, 0)
+#                bottom = util.subslice(img, i, -1)
+#                goal = (top + bottom) / 2.0
+#                goal = gaussf(goal, sigma)
+#            else:
+#                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
+#            # res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
+#            #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
+#            if method != "moisan":
+#                line = util.castdim(line, img.ndim, i)  # The broadcasting works only for Python versions >3.5
+#                try:
+#                    res = res * line + (1.0 - line) * goal
+#                except ValueError:
+#                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
+#                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
 
-        if i in axes:
-            line = np.arange(0, img.shape[i], 1)
-            myramp = util.make_damp_ramp(width[i], func)
-            if method == "zero":
-                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i]), myramp), -1)
-                goal = 0.0  # dim down to zero
-            elif method == "moisan":
-                top = util.subslice(img, i, 0)
-                bottom = util.subslice(img, i, -1)
-                mysum = util.subsliceAsg(mysum, i, 0, bottom - top + util.subslice(mysum, i, 0))
-                mysum = util.subsliceAsg(mysum, i, -1, top - bottom + util.subslice(mysum, i, -1))
-                den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(i, sz[i], len(sz)), i, freq='ftfreq'))
-            elif method == "damp":
-                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
-                top = util.subslice(img, i, 0)
-                bottom = util.subslice(img, i, -1)
-                goal = (top + bottom) / 2.0
-                goal = gaussf(goal, sigma)
-            else:
-                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
-            # res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-            #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
-            if method != "moisan":
-                line = util.castdim(line, img.ndim, i)  # The broadcasting works only for Python versions >3.5
-                try:
-                    res = res * line + (1.0 - line) * goal
-                except ValueError:
-                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
+
+
     if method == "moisan":
         den = util.midValAsg(image(den), 1)  # to avoid the division by zero error
         den = ft(mysum) / den

@@ -8,7 +8,7 @@ source:
 
 requirements:
   build:
-    #- python
+    - python
     - setuptools
     - tifffile
     - scipy 
@@ -22,7 +22,7 @@ requirements:
     - scipy
     - imageio
     - matplotlib
-    - IPython
+    #- IPython
 test:
   imports:
     - NanoImagingPack
