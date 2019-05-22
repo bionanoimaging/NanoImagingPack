@@ -206,6 +206,24 @@ def zernike(r, m, n, radial = False):
             zer += c*r**(n-2*k_el)
     return zer*fact
 
+def random(asize=(256,256), pixelsize=None, phase=False, seed=None):
+    """
+    generates an image full of random numbers chosen from[0.0,1.0)
+    :param asize: size of the image to generate
+    :param pixelsize: pixelsizes, if given
+    :param phase: if True, complex-valued random numbers with amplitude 1.0 and phase between 0 and 2pi will be chosen
+    :param seed: if not None, this value is used as a seed
+    :return: the image with random numbers
+    """
+    if not seed is None:
+        np.random.seed(seed)
+
+    if phase:
+        return image.image(np.exp(1j*2*np.pi*np.random.random(asize)), pixelsize)
+    else:
+        return image.image(np.random.random(asize), pixelsize)
+
+
 def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0, pixelsize=None):
     img = zeros(np.prod(sz))
     if not seed is None:

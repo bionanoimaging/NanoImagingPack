@@ -204,6 +204,9 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     else:
         axial_pxs = None
 
+    if axial_pxs is None:
+        raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize().")
+
     if len(shape)>2:
         cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
         defocus = axial_pxs * ramp1D(shape[-3], -3) # a series of defocus factors
@@ -429,19 +432,20 @@ def simLens(im, psf_params = None):
     plane = aberratedPupil(im, psf_params)  # scalar aberrated (potentially defocussed) pupil
 #    shape = shapevec(im)[-2:]   # works also for tensorflow objects
 
-    # expand to 4 Dims, the 4th will contain the electric fields
-    plane = plane.cat([plane, plane], -4)
-    plane.dim_description = ['Ex', 'Ey', 'Ez'] # {'d3': ['Ex', 'Ey', 'Ez']}
 
-    # Apply vectorized distortions
-    polx, poly = __setPol__(im, psf_params= psf_params)
     if psf_params.n_embedding is None:
         n_embedding = psf_params.n
     else:
         n_embedding = psf_params.n_embedding
 
-
     if psf_params.vectorized:
+        # expand to 4 Dims, the 4th will contain the electric fields
+        plane = plane.cat([plane, plane], -4)
+        plane.dim_description = ['Ex', 'Ey', 'Ez']  # {'d3': ['Ex', 'Ey', 'Ez']}
+
+        # Apply vectorized distortions
+        polx, poly = __setPol__(im, psf_params= psf_params)
+
         cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
         cos_theta, sin_theta = cosSinTheta(im)
         E_radial     = cos_theta * polx - sin_theta * poly
@@ -457,9 +461,11 @@ def simLens(im, psf_params = None):
         plane[1] *= -sin_theta * E_radial + cos_theta * E_tangential
         plane[2] *= E_z
     else:
-        plane[0] *= polx
-        plane[1] *= poly
-        plane[2] *= 0
+        # plane[0] *= polx
+        # plane[1] *= poly
+        # plane[2] *= 0
+        pass # remain scalar
+
     plane.name = "simLens pupil"
     return plane # *aperture  # hard edge aperture at ?
 
@@ -487,13 +493,15 @@ def __make_transfer__(im, psf_params = None, mode = 'ctf', dimension = 2):
     elif mode == 'psf':                  # psf: like apsf and then abs square of field components
         ret = ret.ift2d()
         ret *= ret.conjugate()
-        ret = ret.sum(axis=0)            # add all the electric field component intensities
+        if ret.ndim > 3:
+            ret = ret.sum(axis=-4)            # add all the electric field component intensities
         ret = np.real(ret)
         ret /= np.sum(ret)
     elif mode == 'otf':                  # otf: ft (over whole space) of psf
         ret = ret.ift2d()
         ret *= ret.conjugate()
-        ret = ret.sum(axis=0)            # add all the electric field component intensities
+        if ret.ndim > 3:
+            ret = ret.sum(axis=-4)            # add all the electric field component intensities
         ret = np.real(ret)
         ret /= np.sum(ret)
         ret = ret.ft2d(norm=None)
@@ -780,7 +788,7 @@ def apsf(im, psf_params = None):
             para.pol = [polx, poly]
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
-    return(__make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = None))
+    return __make_transfer__(im, psf_params = psf_params, mode = 'apsf', dimension = None)
 
 
 def psf(im, psf_params = None):
