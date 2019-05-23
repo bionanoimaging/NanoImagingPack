@@ -931,44 +931,6 @@ def adjust_dims(imlist, maxdim=None):
     return imlist
 
 
-def toClipboard(im, separator='\t', decimal_delimiter='.', transpose=False):
-    import win32clipboard as clipboard
-    '''
-        Save image to clipboard
-        only works with 1D or 2D images
-    '''
-
-    # save to clipboard
-
-    # TODO: nD darstellung
-    # Put string into clipboard (open, clear, set, close)
-    if transpose:
-        im = im.transpose
-    s = np.array2string(im)
-    s = s.replace(']\n ', '\n')
-    s = s.replace('\n ', '')
-    s = s.replace('[', '')
-    s = s.replace(']', '')
-    s = s.replace('.', decimal_delimiter)
-    pos = 0
-    while pos >= 0:
-        pos = s.find(' ')
-        if pos != len(s) - 1:
-            if s[pos + 1] == ' ':
-                s = s[:pos] + s[1 + pos:]
-            else:
-                s = s[:pos] + separator + s[1 + pos:]
-        else:
-            s = s[:pos]
-
-    #    for i in im:
-    #        s+= str(i)+separator;
-    clipboard.OpenClipboard()
-    clipboard.EmptyClipboard()
-    clipboard.SetClipboardText(s)
-    clipboard.CloseClipboard()
-
-
 def catE(*argv, matchsizes = False):
     """
         A shorthand for concatenating along the 4th (element dimension).
