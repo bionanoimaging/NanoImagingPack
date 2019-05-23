@@ -2533,53 +2533,7 @@ class image(np.ndarray):
 
     def __array_finalize__(self, obj):
         if obj is None: return;   # is true for explicit creation of array
-        # This stuff is important in case that the "__new__" method isn't called
-        # e.g.: z is ndarray and a view of z as image class is created (imz = z.view(image))
-        
-        # THIS CODE SERVES TO DETECT WHICH AXIS HAVE BEEN ELIMINATED OR CHANGED IN THE CASTNG PROCESS 
-        # E.G. DUE TO INDEXING OR SWAPPING!
-        
-#        if  len(self.shape) != len(obj.shape):
-#            if obj.__array_interface__['strides'] is None:
-#                s = (np.cumprod(obj.shape[::-1]))[::-1];
-#                s = list(np.append(s[1:],1)*obj.dtype.itemsize);
-#            else:
-#                s = list(obj.__array_interface__['strides']);
-#            if self.__array_interface__['strides'] is None:
-#                s1 = (np.cumprod(self.shape[::-1]))[::-1];
-#                s1 = list(np.append(s1[1:],1)*self.dtype.itemsize);
-#            else:
-#                s1 = list(self.__array_interface__['strides']);
-#            new_axes = [s.index(el) for el in s1 if el in s];
-#        else:
-#            new_axes = [s for s in range(self.ndim)];
 
-#           TODO: DEPRICATE THIS PART!!!
-#           TODO: Handle what happens in case of transposing and ax swapping
-#
-#           Some problems:
-#               1) the matplotlib widgets creates a lot of views which alway cause problemse (thats the reason for the try below)
-#               2) for ax swaping (also rolling, transposing changes in strides can't be identified in __array_finalize__)
-        
-        # p = __DEFAULTS__['IMG_PIXELSIZES']
-        # if type(obj) == type(self):
-        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-        #     for i in range(len(self.shape)):
-        #         try:
-        #             pxs[-i-1] = obj.pixelsize[-i-1]  # new_axes[-i-1]
-        #         except:
-        #             if i >= len(p):
-        #                 pxs[-i-1] = p[0]
-        #             else:
-        #                 pxs[-i-1] = p[-i-1]
-        # else:
-        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-        #     for i in range(len(self.shape)):
-        #         if i >= len(p):
-        #             pxs[-i-1] = p[0]
-        #         else:
-        #             pxs[-i-1] = p[-i-1]
-        # self.pixelsize = pxs
         self.set_pixelsize(getattr(obj, 'pixelsize', None))
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
         self.dim_description = getattr(obj, 'dim_description', None)
