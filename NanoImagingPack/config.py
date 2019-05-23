@@ -156,7 +156,7 @@ __DEFAULTS__ ={
         'IMG_VIEWER': 'VIEW5D',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!
-
+        'IMG_SIZE_IGNORE_INCH': True,   #if True: ignores pixelsize if pixelunit is 'INCH'
         'EXTRACT_EXTEND':True,           # should an extracted image be padded with zeros or not?
 
         #PSF_OTF_DEFAULTS  -> also Defaults for the Transfer class

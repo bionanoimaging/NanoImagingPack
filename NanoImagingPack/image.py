@@ -219,12 +219,17 @@ def readim(path=None, which=None, pixelsize=None):
                 img.colormodel = None;
             if imagej_metadata is None and pixelsize is None:
                 try:
-                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                    pixelsize = [psY, psX]
+                    if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
+                        img.unit = None;
+                        pixelsize = None;
+                    else:
+                        psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                        psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                        pixelsize = [psY, psX]
+                        psZ = alltags['ZResolution'].value[0]
                 except:
                     pass
-#                psZ = alltags['ZResolution'].value[0]
+#
             elif imagej_metadata is not None:
                 try:
                     img.dim_description = imagej_metadata['Labels']
@@ -233,13 +238,15 @@ def readim(path=None, which=None, pixelsize=None):
                 try:
                     img.info = imagej_metadata['Info']
                     img.unit = imagej_metadata['unit']
-                except:
-                    pass
-                try:
-                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                    psZ = imagej_metadata['spacing']
-                    pixelsize = [psZ, psY, psX]
+
+                    if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
+                        img.unit = None;
+                        pixelsize = None;
+                    else:
+                        psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                        psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                        psZ = imagej_metadata['spacing']
+                        pixelsize = [psZ, psY, psX]
                     if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
                         img.colormodel = "RGB"
                 except:
