@@ -204,8 +204,6 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     else:
         axial_pxs = None
 
-    if axial_pxs is None:
-        raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize().")
 
     if len(shape)>2:
         cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
@@ -1303,7 +1301,6 @@ def PSF2ROTF(psf):
     """
         Transforms a real-valued PSF to a half-complex RFT, at the same time precompensating for the fftshift
     """
-    # TODO: CHECK HERE IF FULL_SHIFT MIGTH BE NEEDED!!!
     o = image(rft(psf, shift_before=True))  # accounts for the PSF to be placed correctly
     o = o/np.max(o)
     o.name = "rotf"
