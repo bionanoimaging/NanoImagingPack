@@ -27,7 +27,7 @@ from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext
 from os import mkdir, listdir
 import imageio
 import scipy
-from scipy.ndimage import rotate, zoom
+from scipy.ndimage import rotate
 from scipy.ndimage.measurements import center_of_mass as cm
 
 from .functions import gaussian, coshalf
@@ -2526,17 +2526,19 @@ def shiftby(img, avec):
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
 
-def zoom(img, zoomfactors=None):
-    """
-    zooms by interpolation using the SciPy command interpolation.zoom.
-    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
-    :param img: image to zoom
-    :param zoomfactors: factors as a list of zoom factors, one for each direction
-    :return: zoomed image
-    see also:
-    resample
-    """
-    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
+
+#def zoom(img, zoomfactors=None):
+#    """
+#    zooms by interpolation using the SciPy command interpolation.zoom.
+#    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
+#    :param img: image to zoom
+#    :param zoomfactors: factors as a list of zoom factors, one for each direction
+#    :return: zoomed image
+#    see also:
+#    resample
+#    """
+#    print('zoom depricated ... s')
+#    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
 
 def resize(img, newsize):
     """
