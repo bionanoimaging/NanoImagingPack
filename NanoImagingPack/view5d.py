@@ -44,6 +44,11 @@ def v5ProcessKeys(out,KeyList):
 #        time.sleep(0.1)
         out.UpdatePanels()
         out.repaint()
+def vv(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, fontSize=18, linkElements = None):
+    if config.__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':
+        return v5(data, SX=SX, SY=SY, multicol=multicol, gamma=gamma, showPhases=showPhases, fontSize=fontSize, linkElements = linkElements)
+    else:
+        return data._repr_pretty_([], cycle=False)
 
 def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, fontSize=18, linkElements = None):
     """

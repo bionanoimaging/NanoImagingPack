@@ -1058,11 +1058,18 @@ def shift(im, delta, axes=0, pixelwise=False):
         ---------------------------------------------------------------------------------------------------
         Examples:
 
+            import NanoImagingPack as nip
+            img = nip.readim()
+            shfited=nip.shift(img,[13.5,17.8])
+            nip.vv(nip.catE(shfited,img))
+
             import NanoImagingPack as nip;
             im = nip.readim('MITO_SIM');
-            im1 = nip.shift(im, [3.5,32.4,-56.2]);                  # shift the matrix im for 3.5 pixels in direction 0 (z), 32.4 pixels in direction 1(y) and -56.2 pixels in direction 2 (x)
+            im1 = nip.shift(im, [3.5,32.4,-56.2]);              # shift the matrix im for 3.5 pixels in direction 0 (z), 32.4 pixels in direction 1(y) and -56.2 pixels in direction 2 (x)
             im2 = nip.shift(im, 30, 2, pixelwise = True);      # shifts the matrix imfor 30 pixels in direction 2 (mostly z) for full pixel width (not using fts)
 
+        See also:
+            shiftx, shifty, shiftz, extractFT
     """
     M = im
     old_arr = M
