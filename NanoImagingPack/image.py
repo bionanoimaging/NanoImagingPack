@@ -59,9 +59,7 @@ def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     flist = get_sorted_file_list(directory, file_prototype, sort, key)
     print(flist)
     img = np.asarray([readim(join(directory, file)) for file in flist])
-    img = np.swapaxes(img, 0, 1)
-    img = np.swapaxes(img, 1, 2)
-    imsave(img, join(directory, save_name))
+    imsave(img, join(directory, save_name), rgb_tif = False);
 
 
 '''
@@ -88,7 +86,7 @@ def saveall(imgs, path, form='tif', rescale=True, BitDepth=16, Floating=False, t
         imsave(imgs[d,:,:,:],filename, form=form, rescale=rescale, BitDepth=BitDepth, Floating=Floating, truncate=truncate)
 
 
-def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, truncate=True):
+def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, truncate=True, rgb_tif = False):
     """
         Save images
 
@@ -152,7 +150,10 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
                     img = np.int64(img)
 
     if form in __DEFAULTS__['IMG_TIFF_FORMATS']:
-        tif.imsave(path, img, metadata=metadata)  # RH 2.2.19 deleted: np.transpose
+        if rgb_tif:
+            tif.imsave(path, img, metadata=metadata, photometric = 'rgb')  # RH 2.2.19 deleted: np.transpose
+        else:
+            tif.imsave(path, img, metadata=metadata, photometric = 'minisblack');
     else:
         import PIL
         # img = np;   # RH 2.2.19 deleted: np.transpose   CK commented line
