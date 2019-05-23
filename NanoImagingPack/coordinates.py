@@ -7,8 +7,8 @@ Created on Wed Mar 21 15:27:02 2018
 import numpy as np
 from scipy.interpolate import interp1d
 from . import util
-from .image import image
-
+from .image import image, weights1D
+from .functions import coshalf, cossqr
 
 def unifysize(mysize):
     if isinstance(mysize, list) or isinstance(mysize, tuple) or (
@@ -413,13 +413,19 @@ def freq_ramp(im, pxs=50, shift=True, real=False, axis=0):
         pxs is the pixelsize in the given direction
             Note: the unit of the frequency ramp is 1/unit of pxs
 
-            Example:
-                if you have an image with a pixelsize of 80 nm, which is 100 pixel along the axis you wanna create the ramp
-                you will get a ramp runnig up to 0.006125 1/nm in steps of 0.0001251  1/nm
+    :param im: image to generate the frequency ramp for
+    :param pxs: pixelsize
+    :param shift: use true if the ft is shifted (default setup)
+    :param real: use true if it is a real ft (default is false)
+    :param axis: is the axis in which the ramp points
+    :return: frequency ramp
 
-        axis is the axis in which the ramp points
-        shift: use true if the ft is shifted (default setup)
-        real: use true if it is a real ft (default is false)
+    Example:
+        if you have an image with a pixelsize of 80 nm, which is 100 pixel along the axis you wanna create the ramp
+        you will get a ramp runnig up to 0.006125 1/nm in steps of 0.0001251  1/nm
+
+    See also:
+        applyPhaseRamp()
     """
     if isinstance(im, np.ndarray):
         im = im.shape
@@ -431,18 +437,20 @@ def freq_ramp(im, pxs=50, shift=True, real=False, axis=0):
     return (res)
 
 
-def applyPhaseRamp(img, shiftvec):
+def applyPhaseRamp(img, shiftvec, smooth=False, relwidth=0.1):
     """
         applies a frequency ramp as a phase factor according to the shiftvec to a Fourier transform to shift the image
 
         img: input Fourier transform
         shiftvec: real-space shift(s).  If multiple vectors are provided (stacked as a list), different shifts are applied to each outermost dimension [0]
-
+        relwidth:  relative width to use for transition regions (only of smooth=True).
         Example:
             import NanoImagingPack as nip
-            nip.shiftby(nip.readim(),[100.2,120.4])
+            a = nip.applyPhaseRamp(nip.ones([200, 200]), [30.5,22.3], smooth=True)
+            b = nip.applyPhaseRamp(nip.ones([200, 200]), [30.5,22.3], smooth=False)
+            nip.vv(np.real(nip.catE(nip.repmat(b,[2,2]),nip.repmat(a,[2,2]))))
     """
-    res = np.copy(img)
+    res = img.copy().astype(np.complex)
     shiftvec = np.array(shiftvec)
     ShiftDims = shiftvec.shape[-1]
     for d in range(1, ShiftDims + 1):
@@ -450,9 +458,32 @@ def applyPhaseRamp(img, shiftvec):
             myshifts = util.castdim(shiftvec[:, -d], img.ndim)  # apply different shifts to outermost dimension
         else:
             myshifts = shiftvec[-d]
-        res *= np.exp((1j * 2 * np.pi * myshifts) * ramp1D(img.shape[-d], ramp_dim=-d, freq='ftfreq'))
+        if smooth:
+            width = int(img.shape[-d] * relwidth)
+            res *= smooth1DFreqRamp(img.shape[-d], width, myshifts, -d)
+        else:
+            res *= np.exp((1j * 2 * np.pi * myshifts) * ramp1D(img.shape[-d], ramp_dim=-d, freq='ftfreq'))
     return res
 
+def smooth1DFreqRamp(length, width, k, d, func = coshalf):  # cossqr is not better
+    """
+    creates a one-dimensiona frequency ramp oriented along direction d. It will be softerend at the transition region  to the nearest full pixel frequency to yield a smooth transition.
+    :param length: lengthof the image to generate
+    :param width: width of the transition region
+    :param k: k-vector along this dimension
+    :param d: dimension to orient it in
+    :param func: transition function
+    :return: the complex valued frequency ramp
+
+    Example:
+    import NanoImagingPack as nip
+    a = nip.smooth1DFreqRamp(100, 10, 12.3, -1)
+    """
+    weights = weights1D(length, width, d, func = func)
+    kRounded = np.round(k)
+
+    res = k * weights + kRounded * (1.0-weights)
+    return np.exp(1j * 2 * np.pi * res * ramp1D(length, ramp_dim = d, freq='ftfreq'))
 
 def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pixelsize=None):
     """

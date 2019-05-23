@@ -451,13 +451,18 @@ def castdimvec(mysize, ndims, wanteddim=0):
         expands a shape tuple to the necessary number of dimension casting the dimension to a wanted one
         ----------
         img: input image to expand
-        ndims: number of dimensions to expand to
+        ndims: number of dimensions to expand to. If None, wanteddim is used to determine the maximal size of dims
         wanteddim: number that the one-D axis should end up in (default:0)
 
         see also:
         expanddimvec
     """
     mysize = tuple(mysize)
+    if ndims is None:
+        if wanteddim >= 0:
+            ndims = wanteddim + 1
+        else:
+            ndims = - wanteddim
     if wanteddim<0:
         wanteddim = ndims+wanteddim
     if wanteddim+len(mysize) > ndims:
@@ -522,14 +527,23 @@ def expandPixelsize(img, trailing=False):
     img.set_pixelsize(img.pixelsize)  # set_pixelsize now takes care to expand the pixelsizes, if necessary
     return img
 
-def expanddim(img, ndims, trailing=False):
+def expanddim(img, ndims, trailing=None):
     """
         expands an nd image to the necessary number of dimension by inserting leading dimensions
         ----------
         img: input image to expand
-        ndims: number of dimensions to expand to
+        ndims: number of dimensions to expand to. If negative, this will be interpreted to expand to abs(ndims) with trailing=True, if trailing is None.
         trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
+
+        Example:
+            import NanoImagingPack as nip
+            expanddim(nip.readim(),-3)
     """
+    if trailing is None:
+        trailing = ndims < 0
+
+    if ndims < 0:
+        ndims = -ndims
     res = np.reshape(img, expanddimvec(img.shape, ndims, None, trailing))
     if isinstance(res, image.image):
         res = expandPixelsize(res)
@@ -692,7 +706,7 @@ def make_damp_ramp(length, function):
                         Make sure that first element is x and second element is characteristica lengths of the function
     """
     x = np.arange(0, length,1)
-    return(function(x, length-1))
+    return function(x, length-1)
 
 def isarray(image):
     return isinstance(image, np.ndarray)

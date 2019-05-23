@@ -386,6 +386,23 @@ def findBg(img, kernelSigma=3.0):
     """
     return np.min(gaussf(img, kernelSigma))
 
+def weights1D(imgWidth, dampWidth, d, func = coshalf):
+    """
+    generates a 1D ramp with weights according to func
+    :param imgWidth: Total integer length of ramp
+    :param dampWidth: length of the transition region on either side
+    :param d: dimension into which to orient the ramp
+    :param func: function to apply in the ramp region
+    :return: the 1D weighting function oriented to the correct direction. Use negative numbers for -1 mean x, -2 means y, -3 menas z
+
+    Example:
+    import NanoImagingPack as nip
+    myramp=nip.weights1D(100,30, -3)  # a ramp oriented along Z
+    """
+    myramp = util.make_damp_ramp(dampWidth, func)
+    myramp = cat((myramp[::-1], np.ones(imgWidth - 2 * dampWidth + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+    myramp = util.expanddim(myramp, d)
+    return myramp
 
 def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp", sigma=4.0):
     """
@@ -416,11 +433,11 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
 
         Example:
             import NanoImagingPack as nip
-            nip.DampEdge(nip.readim()[400:,200:])
+            a=nip.DampEdge(nip.readim()[110:,395:])
+            nip.vv(nip.repmat(a,[2,2]))
         TODO in FUTURE: padding of the image before damping
     """
     img = img.astype(defaultDataType)
-    res = np.ones(img.shape)
     if width == None:
         width = tuple(np.round(np.array(img.shape) * np.array(rwidth)).astype("int"))
 
@@ -438,15 +455,13 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     mysum = util.zeros(img.shape)
     sz = img.shape
     den = -2 * len(set(axes))  # use only the counting dimensions
-     
-     
+
     axes = tuple([len(img.shape)+ax if ax <0 else ax for ax in axes])  # make the axes positive!
     
     for i, ax in enumerate(axes):
-        line = np.arange(0, img.shape[ax], 1)
-        myramp = util.make_damp_ramp(width[i], func)
         if method == "zero":
-            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
+            line = weights1D(img.shape[ax], width[i], ax, func=func)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
             goal = 0.0  # dim down to zero
         elif method == "moisan":
             top = util.subslice(img, ax, 0)
@@ -455,7 +470,8 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
             mysum = util.subsliceAsg(mysum, ax, -1, top - bottom + util.subslice(mysum, ax, -1))
             den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(ax, sz[ax], len(sz)), ax, freq='ftfreq'))
         elif method == "damp":
-            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+            line = weights1D(img.shape[ax], width[i], ax, func=func)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
             top = util.subslice(img, ax, 0)
             bottom = util.subslice(img, ax, -1)
             goal = (top + bottom) / 2.0
@@ -469,50 +485,16 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
             except ValueError:
                 print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
                 res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
-     
-#    for i in range(len(img.shape)):
-#
-#        if i in axes:
-#            line = np.arange(0, img.shape[i], 1)
-#            myramp = util.make_damp_ramp(width[i], func)
-#            if method == "zero":
-#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i]), myramp), -1)
-#                goal = 0.0  # dim down to zero
-#            elif method == "moisan":
-#                top = util.subslice(img, i, 0)
-#                bottom = util.subslice(img, i, -1)
-#                mysum = util.subsliceAsg(mysum, i, 0, bottom - top + util.subslice(mysum, i, 0))
-#                mysum = util.subsliceAsg(mysum, i, -1, top - bottom + util.subslice(mysum, i, -1))
-#                den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(i, sz[i], len(sz)), i, freq='ftfreq'))
-#            elif method == "damp":
-#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
-#                top = util.subslice(img, i, 0)
-#                bottom = util.subslice(img, i, -1)
-#                goal = (top + bottom) / 2.0
-#                goal = gaussf(goal, sigma)
-#            else:
-#                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
-#            # res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-#            #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
-#            if method != "moisan":
-#                line = util.castdim(line, img.ndim, i)  # The broadcasting works only for Python versions >3.5
-#                try:
-#                    res = res * line + (1.0 - line) * goal
-#                except ValueError:
-#                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-#                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
-
-
 
     if method == "moisan":
+        line = np.arange(0, img.shape[ax], 1)
         den = util.midValAsg(image(den), 1)  # to avoid the division by zero error
         den = ft(mysum) / den
         den = util.midValAsg(den, 0)  # kill the zero frequency
         den = np.real(ift(den))
         res = img - den
 
-    # return(res)
-    return res  # CK: (__cast__(img*res.view(image),img));  What is this?? It should return res and not img*res
+    return res
 
 
 def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelpower=3):
@@ -2603,8 +2585,14 @@ class image(np.ndarray):
         # self.name = None # 'Img Nr'+str(max_im_number)
 
 
-def shiftby(img, avec):
-    return np.real(ift(coordinates.applyPhaseRamp(ft(img), avec)))
+def shiftby(img, avec, smooth=False):
+    """
+    shifts an image by a vector
+    :param img:
+    :param avec:
+    :return:
+    """
+    return np.real(ift(coordinates.applyPhaseRamp(ft(img), avec, smooth=smooth)))
 
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
