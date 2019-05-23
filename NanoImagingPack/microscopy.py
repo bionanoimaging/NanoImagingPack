@@ -479,6 +479,8 @@ def __make_transfer__(im, psf_params = None, mode = 'ctf', dimension = 2):
     :param mode:                'ctf', 'otf', 'psf', 'apsf'
     :param dimension:           if 2-> only 2D, if None like input image
     :return:                    returns the transfer function (dimension x,y, potentially z and field components for ctf and apsf
+
+    ToDo: Examples
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
 
