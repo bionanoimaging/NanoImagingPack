@@ -2,13 +2,37 @@ Log Test for function      DampEdge
 ==================================================
 
 DEFAULT VALUES:
-	 width = None
 	 rwidth = 0.1
-	 func = <function coshalf at 0x0000026192CA86A8>
-	 sigma = 4.0
 
 RESULTS:
 ========
-	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x0000026192CA86A8> 	 method = zero 	 sigma = 4.0    SUCCESSFUL 
-	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x0000026192CA86A8> 	 method = moisan 	 sigma = 4.0    SUCCESSFUL 
-	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x0000026192CA86A8> 	 method = damp 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = None 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = None 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = None 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -2 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -2 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = -2 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = 0 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = 0 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = 0 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = tuple of size 1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = tuple of size 1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = None 	 rwidth = 0.1 	 axes = tuple of size 1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = None 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = None 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = None 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = -1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = -2 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = -2 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = -2 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = 0 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = 0 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = 0 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0   object of type 'int' has no len()
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = tuple of size 1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = zero 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = tuple of size 1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = moisan 	 sigma = 4.0    SUCCESSFUL 
+	 img = array of shape (256, 256) 	 width = 10 	 rwidth = 0.1 	 axes = tuple of size 1 	 func = <function coshalf at 0x000001EFDF7560D0> 	 method = damp 	 sigma = 4.0    SUCCESSFUL 
