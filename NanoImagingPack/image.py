@@ -2611,6 +2611,7 @@ def shiftby(img, avec, **kwargs):
         :param avec:            Shift vector  (array of float, int -> shifts the image in each direction, must have dimension of the image)
         :param kwargs:          possible kwargs:
                                     :param DampOutside:         should the image be damped outside before shifting? default is True
+                                    :param smooth:              smooth!!! default is False
                                     :param kwargs of DampOutside
         :return: an image shifted along the direction of avec
 
@@ -2635,6 +2636,13 @@ def shiftby(img, avec, **kwargs):
             damp = True
     else:
             damp = True
+    if 'smooth' in kwargs:
+        smooth = kwargs.pop('smooth')
+        if not isinstance(smooth, bool):
+            warnings.warn('smooth should be boolean.')
+            smooth = False
+    else:
+            smooth = False
     # choose standard damping
     if not 'rwidth' in kwargs and not 'width' in kwargs:
         kwargs['rwidth'] = 0.01
@@ -2647,7 +2655,7 @@ def shiftby(img, avec, **kwargs):
 
     # shifting and change direction of avec
     avec = - np.array(avec)
-    img = np.real(ift(coordinates.applyPhaseRamp(ft(img), avec)))
+    img = np.real(ift(coordinates.applyPhaseRamp(ft(img), avec, smooth = smooth)))
 
     # remove padding
     if damp == True:
