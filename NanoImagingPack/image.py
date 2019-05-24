@@ -2645,7 +2645,7 @@ def shiftby(img, avec, **kwargs):
             smooth = False
     # choose standard damping
     if not 'rwidth' in kwargs and not 'width' in kwargs:
-        kwargs['rwidth'] = 0.01
+        kwargs['rwidth'] = 0.1
 
     size = np.array(img.shape)
 
