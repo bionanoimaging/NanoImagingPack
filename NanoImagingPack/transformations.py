@@ -353,7 +353,7 @@ def stack(arrays, axis=0, out=None):
     return res
 
 
-def fft(a, n=None, axes=None, norm=None):
+def fft(a, n=None, axes=-1, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
     :param a:
@@ -363,7 +363,7 @@ def fft(a, n=None, axes=None, norm=None):
     return image.image(np.fft.fft(a, n, axes, norm), pixelsize=a.pixelsize)
 
 
-def ifft(a, n=None, axes=None, norm=None):
+def ifft(a, n=None, axes=-1, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
     :param a:
@@ -413,7 +413,7 @@ def ifftn(a, s=None, axes=None, norm=None):
     return image.image(np.fft.ifftn(a, s, axes, norm), pixelsize=a.pixelsize)
 
 
-def rfft(a, n=None, axes=None, norm=None):
+def rfft(a, n=None, axes=-1, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
     :param a:
@@ -423,7 +423,7 @@ def rfft(a, n=None, axes=None, norm=None):
     return image.image(np.fft.rfft(a, n, axes, norm), pixelsize=a.pixelsize)
 
 
-def irfft(a, n=None, axes=None, norm=None):
+def irfft(a, n=None, axes=-1, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
     :param a:
