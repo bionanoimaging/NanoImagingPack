@@ -2585,14 +2585,69 @@ class image(np.ndarray):
         # self.name = None # 'Img Nr'+str(max_im_number)
 
 
-def shiftby(img, avec, smooth=False):
+def shiftby(img, avec, **kwargs):
     """
-    shifts an image by a vector
-    :param img:
-    :param avec:
-    :return:
+    Shifts an image in direction of avec pixels using the FT shift theorem.
+
+        :param im:              Image to be shifted
+        :param avec:            Shift vector  (array of float, int -> shifts the image in each direction, must have dimension of the image)
+        :param kwargs:          possible kwargs:
+                                    :param DampOutside:         should the image be damped outside before shifting? default is True
+                                    :param smooth:              smooth!!! default is False
+                                    :param kwargs of DampOutside
+        :return: an image shifted along the direction of avec
+
+        ---------------------------------------------------------------------------------------------------
+        Examples:
+
+            import NanoImagingPack as nip
+            img = nip.readim()
+
+            s1=nip.shiftby(img,[13.5,17.8])
+            s2=nip.shiftby(img,[13.5,17.8], DampOutside = False)
+            s3=nip.shiftby(img,[-23.11,2.4], rwidth = 0.5)
+
+        See also:
+            shift2Dby, extract, applyPhaseRamp
+
     """
-    return np.real(ift(coordinates.applyPhaseRamp(ft(img), avec, smooth=smooth)))
+    if 'DampOutside' in kwargs:
+        damp = kwargs.pop('DampOutside')
+        if not isinstance(damp, bool):
+            warnings.warn('DampOutside should be boolean.')
+            damp = True
+    else:
+            damp = True
+    if 'smooth' in kwargs:
+        smooth = kwargs.pop('smooth')
+        if not isinstance(smooth, bool):
+            warnings.warn('smooth should be boolean.')
+            smooth = False
+    else:
+            smooth = False
+    # choose standard damping
+    if not 'rwidth' in kwargs and not 'width' in kwargs:
+        kwargs['rwidth'] = 0.1
+
+    size = np.array(img.shape)
+
+    # do the damping
+    if damp == True:
+        img = DampOutside(img, **kwargs)
+
+    # shifting and change direction of avec
+    avec = - np.array(avec)
+    img = np.real(ift(coordinates.applyPhaseRamp(ft(img), avec, smooth = smooth)))
+
+    # remove padding
+    if damp == True:
+        img = extract(img, size)
+    # extract the shifted image
+
+    center = size//2 - (np.sign(avec)*np.ceil(np.abs(avec))).astype(int)
+    img = extract(img, size, center)
+
+    return img
 
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
