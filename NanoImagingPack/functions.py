@@ -13,16 +13,25 @@ import numpy as np
 from . import util
 from . import coordinates
 
+def sigmaFromFWHM(fwhm):
+    return fwhm/(2*np.sqrt(2 * np.log(2)))
 
-def gauss(x, tau=1, a=1, x0=0, y0=0):
+def FWHMFromSigma(fwhm):
+    return (2*np.sqrt(2 * np.log(2))) * fwhm
+
+def gauss(x, sigma = None, fwhm=10, maxVal=1.0, x0=0.0, offsetVal=0.0):
     """
-        1 Dimensional gaussian function
-        A         Amplitude
-        tau       FWHM
+        1-Dimensional gaussian function
+        maxval    maximal value (not including the offsetVal below)
+        sigma     if stated, this dominates over the fwhm, otherwise it is calculated form the FWHM
+        fwhm      FWHM
         x0        x-shift
-        y0        y-shift
+        offsetVal        y-shift
     """
-    return a * np.exp(-4 * np.log(2) * (x - x0) ** 2 / tau ** 2) + y0
+    if sigma is None:
+        sigma = sigmaFromFWHM(fwhm)
+    return maxVal * np.exp(- (x - x0) ** 2 / sigma ** 2 / 2.0) + offsetVal
+#    return a * np.exp(-4 * np.log(2) * (x - x0) ** 2 / fwhm ** 2) + y0
 
 
 def cossqr(x, length=10, x0=0):

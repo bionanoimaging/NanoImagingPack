@@ -951,6 +951,8 @@ def zeros(s, dtype=None, order='C', pixelsize=None):
         s = s.shape
     return image.image(np.zeros(s, dtype, order), pixelsize=pixelsize)
 
+def arange(*args, dtype = None, pixelsize=None):
+    return image.image(np.arange(*args, dtype=dtype), pixelsize = pixelsize)
 
 def __cast__(arr, orig_arr=None):
     """
