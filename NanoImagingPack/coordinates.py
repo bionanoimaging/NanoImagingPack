@@ -10,14 +10,6 @@ from . import util
 from .image import image, weights1D
 from .functions import coshalf, cossqr
 
-def unifysize(mysize):
-    if isinstance(mysize, list) or isinstance(mysize, tuple) or (
-            isinstance(mysize, np.ndarray) and not isinstance(mysize, image)):
-        return mysize
-    else:
-        return mysize.shape
-
-
 def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pixelsize=None):
     """
     creates a ramp in the given direction direction
@@ -32,7 +24,7 @@ def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=Fa
         freq : if "freq" is given, the Fourier-space frequency scale (roughly -0.5 to 0.5) is used.
         int number: is the index where the center is!
     """
-    mysize = list(unifysize(mysize))
+    mysize = util.unifysize(mysize)
 
     ndims = len(mysize)
     if ramp_dim >= ndims:
@@ -131,7 +123,7 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     import numbers
     if pixelsize is None and isinstance(mysize, image):
         pixelsize = mysize.pixelsize
-    mysize = list(unifysize(mysize))
+    mysize = util.unifysize(mysize)
     if offset is None:
         offset = len(mysize) * [0]  # RH 3.2.19
     elif isinstance(offset, numbers.Number):

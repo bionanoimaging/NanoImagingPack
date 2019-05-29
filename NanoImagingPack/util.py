@@ -116,6 +116,13 @@ def ftimer(func):
         return value
     return(wrap_tmr)
 
+def unifysize(mysize):
+    if isinstance(mysize, list) or isinstance(mysize, tuple) or (
+            isinstance(mysize, np.ndarray) and not isinstance(mysize, image.image)):
+        return list(mysize)
+    else:
+        return list(mysize.shape)
+
 def isIterable(avar):
     return isinstance(avar, Iterable)
 
@@ -215,6 +222,7 @@ def random(asize=(256,256), pixelsize=None, phase=False, seed=None):
     :param seed: if not None, this value is used as a seed
     :return: the image with random numbers
     """
+    asize = unifysize(asize)
     if not seed is None:
         np.random.seed(seed)
 
@@ -225,6 +233,7 @@ def random(asize=(256,256), pixelsize=None, phase=False, seed=None):
 
 
 def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0, pixelsize=None):
+    sz = unifysize(sz)
     img = zeros(np.prod(sz))
     if not seed is None:
         np.random.seed(seed)
