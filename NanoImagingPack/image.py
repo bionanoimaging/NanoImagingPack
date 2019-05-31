@@ -113,7 +113,13 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         path += '.' + form
 
     if util.get_type(img)[1] == 'image':
-        metadata = {'name': img.name, 'pixelsize': str(img.pixelsize), 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
+        metadata = {'name': img.name, 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
+        if img.pixelsize is not None:
+            metadata['XResolution'] = img.pixelsize[-1]
+            metadata['YResolution'] = img.pixelsize[-2]
+            metadata['pixelsize'] = str(img.pixelsize)
+        if img.dim_description is not None:
+            metadata['Labels'] = img.dim_description
     elif util.get_type(img)[1] == 'ndarray':
         metadata = {}
     else:
@@ -151,11 +157,20 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
                 else:
                     img = np.int64(img)
 
+    if img.pixelsize is None:
+        pxs = [1.0, 1.0, None]
+    else:
+        pxs = [1.0/pxs for pxs in img.pixelsize]
+        pxs = pxs.append(None)
+    # if img.unit is None:
+    #     myunit = 'pixels'
+    # else:
+    #     myunit = img.unit
+
     if form in __DEFAULTS__['IMG_TIFF_FORMATS']:
-        tif.imsave(path, img, metadata=metadata)  # RH 2.2.19 deleted: np.transpose
+        tif.imsave(path, img, imagej=True, resolution = pxs, metadata= metadata, ijmetadata=metadata)
     else:
         import PIL
-        # img = np;   # RH 2.2.19 deleted: np.transpose   CK commented line
         img = PIL.Image.fromarray(img)
         if BitDepth == 1:
             img = img.convert("1")
@@ -211,7 +226,7 @@ def readim(path=None, which=None, pixelsize=None):
             try:
                 img.unit = alltags['ResolutionUnit'].value.name;
             except KeyError:
-                img.unit = None;
+                pass
             try:
                 img.colormodel = alltags['PhotometricInterpretation'].value.name;
             except KeyError:
@@ -226,18 +241,32 @@ def readim(path=None, which=None, pixelsize=None):
 #                psZ = alltags['ZResolution'].value[0]
             elif imagej_metadata is not None:
                 try:
-                    img.dim_description = imagej_metadata['Labels']
+                    img.dim_description = imagej_metadata['labels']
                 except:
                     pass
                 try:
-                    img.info = imagej_metadata['Info']
+                    img.info = imagej_metadata['info']
                     img.unit = imagej_metadata['unit']
                 except:
+                    try:
+                        img.unit = imagej_metadata['units']
+                    except:
+                        pass
+                psX=None;psY=None;psZ=None;
+                try:
+                    psX = imagej_metadata['xresolution']
+                    psY = imagej_metadata['yresolution']
+                    psZ = imagej_metadata['spacing']
+                except:
                     pass
+                pixelsize = [psZ, psY, psX]
                 try:
                     psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
                     psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                    psZ = imagej_metadata['spacing']
+                    try:
+                        psZ = imagej_metadata['spacing']
+                    except:
+                        pass
                     pixelsize = [psZ, psY, psX]
                     if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
                         img.colormodel = "RGB"

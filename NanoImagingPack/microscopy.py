@@ -11,7 +11,7 @@ Also SIM stuff
 """
 
 import numpy as np
-from .util import zernike, expanddim, midValAsg, zeros, shapevec, nollIdx2NM
+from .util import zernike, expanddim, midValAsg, zeros, shapevec, nollIdx2NM, abssqr
 from .transformations import rft,irft,ft2d
 from .coordinates import rr, phiphi, px_freq_step, ramp1D, cosSinTheta
 from .config import PSF_PARAMS, __DEFAULTS__
@@ -1317,3 +1317,17 @@ def convROTF(img,otf): # should go into nip
     res = irft(rft(img, shift_before=False, shift_after=False) * expanddim(otf, img.ndim),shift_before=False, shift_after=False, s = img.shape)
     res.name = "convolved"
     return res
+
+def removePhaseInt(pulse):
+    """
+    normalizes the phase slope to zero. Useful to visually compare results
+    :param pulse: input pulse to normalize
+    :return: curve with phase slope at the max intensity set to zero
+    """
+    pulse = np.squeeze(pulse)
+    Intensity = abssqr(pulse)
+    idx = np.argmax(Intensity)
+    # pulse = pulse / np.sqrt(np.max(Intensity))
+    phase0 = np.angle(pulse[idx % pulse.size])
+    deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
+    return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))

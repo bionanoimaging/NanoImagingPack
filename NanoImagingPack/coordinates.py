@@ -450,14 +450,10 @@ def applyPhaseRamp(img, shiftvec, smooth=False, relwidth=0.1):
             myshifts = util.castdim(shiftvec[:, -d], img.ndim)  # apply different shifts to outermost dimension
         else:
             myshifts = shiftvec[-d]
-        if smooth:
-            width = int(img.shape[-d] * relwidth)
-            res *= smooth1DFreqRamp(img.shape[-d], width, myshifts, -d)
-        else:
-            res *= np.exp((1j * 2 * np.pi * myshifts) * ramp1D(img.shape[-d], ramp_dim=-d, freq='ftfreq'))
+        res *= FreqRamp1D(img.shape[-d], myshifts, -d, relwidth, smooth=smooth)
     return res
 
-def smooth1DFreqRamp(length, width, k, d, func = coshalf):  # cossqr is not better
+def FreqRamp1D(length,  k, d, relwidth=0.1, smooth=False, func = coshalf, cornerFourier=False):  # cossqr is not better
     """
     creates a one-dimensiona frequency ramp oriented along direction d. It will be softerend at the transition region  to the nearest full pixel frequency to yield a smooth transition.
     :param length: lengthof the image to generate
@@ -465,17 +461,25 @@ def smooth1DFreqRamp(length, width, k, d, func = coshalf):  # cossqr is not bett
     :param k: k-vector along this dimension
     :param d: dimension to orient it in
     :param func: transition function
+    :param cornerFourier: If True, the phase ramp will be computed for a Fourier-layout in the corner. This is important when applying it to unshifted Fourier-space
     :return: the complex valued frequency ramp
 
     Example:
     import NanoImagingPack as nip
-    a = nip.smooth1DFreqRamp(100, 10, 12.3, -1)
+    a = nip.FreqRamp1D(100, 10, 12.3, -1)
     """
-    weights = weights1D(length, width, d, func = func)
-    kRounded = np.round(k)
-
-    res = k * weights + kRounded * (1.0-weights)
-    return np.exp(1j * 2 * np.pi * res * ramp1D(length, ramp_dim = d, freq='ftfreq'))
+    if smooth:
+        width = int(length * relwidth)
+        weights = weights1D(length, width, d, func = func)
+        myK = np.round(k)
+        res = k * weights + myK * (1.0 - weights)
+    else:
+        res = k
+    if cornerFourier:
+        myramp = ramp1D(length, ramp_dim = d, freq='fftfreq')
+    else:
+        myramp = ramp1D(length, ramp_dim=d, freq='ftfreq')
+    return np.exp(1j * 2 * np.pi * res * myramp)
 
 def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pixelsize=None):
     """
@@ -523,13 +527,13 @@ def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pixelsize=Non
     elif freq == "ftradfreq":
         miniramp = miniramp * 2.0 * np.pi / mysize
     elif freq == "fftfreq":
-        miniramp = np.fft.fftfreq(mysize, pixelsize)
+        miniramp = np.fft.fftfreq(mysize) # , pixelsize
     elif freq == "rfftfreq":
-        miniramp = np.fft.rfftfreq(mysize, pixelsize)
+        miniramp = np.fft.rfftfreq(mysize) # , pixelsize
     elif freq == "fftradfreq":
-        miniramp = np.fft.fftfreq(mysize, pixelsize / 2.0 / np.pi)
+        miniramp = np.fft.fftfreq(mysize,1.0 / 2.0 / np.pi) # pixelsize
     elif freq == "rfftradfreq":
-        miniramp = np.fft.rfftfreq(mysize, pixelsize / 2.0 / np.pi)
+        miniramp = np.fft.rfftfreq(mysize, 1.0 / 2.0 / np.pi) # pixelsize
     elif not freq == None:
         raise ValueError(
             "unknown option for freq. Valid options are ftfreq, ftradfreq, fftfreq, rfftfreq, fftradfreq and rfftradfreq.")
