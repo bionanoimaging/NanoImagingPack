@@ -252,26 +252,30 @@ def readim(path=None, which=None, pixelsize=None):
                         img.unit = imagej_metadata['units']
                     except:
                         pass
-                psX=None;psY=None;psZ=None;
-                try:
-                    psX = imagej_metadata['xresolution']
-                    psY = imagej_metadata['yresolution']
-                    psZ = imagej_metadata['spacing']
-                except:
-                    pass
-                pixelsize = [psZ, psY, psX]
-                try:
-                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                if pixelsize is None:
+                    psX=None;psY=None;psZ=None;
                     try:
+                        psX = imagej_metadata['xresolution']
+                        psY = imagej_metadata['yresolution']
                         psZ = imagej_metadata['spacing']
                     except:
                         pass
                     pixelsize = [psZ, psY, psX]
-                    if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
+                    try:
+                        psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                        psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                        try:
+                            psZ = imagej_metadata['spacing']
+                        except:
+                            pass
+                        pixelsize = [psZ, psY, psX]
+                    except:
+                        pass;
+                if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
+                    try:
                         img.colormodel = "RGB"
-                except:
-                    pass;
+                    except:
+                        pass
             # if which is None:
             #     img = (tif.imread(path))
             # else:

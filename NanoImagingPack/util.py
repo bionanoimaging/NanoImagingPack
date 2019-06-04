@@ -455,7 +455,7 @@ def expand(vector, size, transpose = False):
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
-def castdimvec(mysize, ndims, wanteddim=0):
+def castdimvec(mysize, ndims=None, wanteddim=0):
     """
         expands a shape tuple to the necessary number of dimension casting the dimension to a wanted one
         ----------
@@ -482,7 +482,7 @@ def castdimvec(mysize, ndims, wanteddim=0):
 def clip(img,minval=0.0,maxval=None):
     return np.clip(img,minval,maxval)
 
-def castdim(img, ndims, wanteddim=0):
+def castdim(img, ndims=None, wanteddim=0):
     """
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
         ----------
@@ -946,22 +946,29 @@ def isnp(animg):
 def iseven(anumber):
     return np.mod(anumber,2)==0
 
-
 from . import config
 
-
-def ones(s, dtype=None, order='C', pixelsize=None):
+def ones(s, dtype=None, order='C', pixelsize=None, ax=None):
     if isnp(s):
         s=s.shape
-    return image.image(np.ones(s,dtype,order), pixelsize=pixelsize)
+    res = image.image(np.ones(s,dtype,order), pixelsize=pixelsize)
+    if ax is not None:
+        res = castdim(res, wanteddim=ax)
+    return res
 
-def zeros(s, dtype=None, order='C', pixelsize=None):
+def zeros(s, dtype=None, order='C', pixelsize=None, ax=None):
     if isnp(s):
         s = s.shape
-    return image.image(np.zeros(s, dtype, order), pixelsize=pixelsize)
+    res = image.image(np.zeros(s, dtype, order), pixelsize=pixelsize)
+    if ax is not None:
+        res = castdim(res, wanteddim=ax)
+    return res
 
-def arange(*args, dtype = None, pixelsize=None):
-    return image.image(np.arange(*args, dtype=dtype), pixelsize = pixelsize)
+def arange(*args, dtype = None, pixelsize=None, ax=None):
+    res = image.image(np.arange(*args, dtype=dtype), pixelsize = pixelsize)
+    if ax is not None:
+        res = castdim(res, wanteddim=ax)
+    return res
 
 def __cast__(arr, orig_arr=None):
     """

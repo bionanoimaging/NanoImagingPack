@@ -204,10 +204,9 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     else:
         axial_pxs = None
 
-    if axial_pxs is None:
-        raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize().")
-
     if len(shape)>2:
+        if axial_pxs is None:
+            raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize().")
         cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
         defocus = axial_pxs * ramp1D(shape[-3], -3) # a series of defocus factors
         PhaseMap = defocusPhase(cos_alpha, defocus, psf_params)
