@@ -75,8 +75,9 @@ def resampleRFT(img, newrftsize, oldfullsize, newfullsize, maxdim=3, ModifyInput
         res = util.subsliceAsg(res, -1, -1, aslice * 2.0)  # distribute it evenly, also to keep parseval happy and real arrays real
 
     mindim = min(len(list(oldfullsize)),len(list(newfullsize)))
-    if img.pixelsize is not None:
-        res.set_pixelsize(img.pixelsize, factors=np.array(oldfullsize[-mindim:]) / np.array(newfullsize[-mindim:]))
+    mypixelsize = image.getPixelsize(img)
+    if mypixelsize is not None:
+        res.set_pixelsize(mypixelsize, factors=np.array(oldfullsize[-mindim:]) / np.array(newfullsize[-mindim:]))
     else:
         res.pixelsize = None
 
@@ -122,8 +123,9 @@ def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
     newfullsz = res.shape[:-len(newfullsize)] + tuple(newfullsize)
     newfullsz = np.array(newfullsz)
     res = irft(res * rotf, newfullsz, axes=axes)
-    if img.pixelsize is not None:
-        res.set_pixelsize(img.pixelsize, factors=np.array(img.shape) / np.array(res.shape))
+    mypixelsize = image.getPixelsize(img)
+    if mypixelsize is not None:
+        res.set_pixelsize(mypixelsize, factors=np.array(img.shape) / np.array(res.shape))
     else:
         res.pixelsize = None
     return res
@@ -342,7 +344,7 @@ def __check_type__(im, ft_axes, orig, name, real_axis=0, shift_axes=[]):
 
 # overwrite a couple of functions, which unfortunately are not using any wrappers like ufunc or finalize
 def pad(array, pad_width, mode, **kwargs):
-    return image.image(np.pad(array, pad_width, mode, **kwargs), pixelsize=array.pixelsize)
+    return image.image(np.pad(array, pad_width, mode, **kwargs), pixelsize=image.getPixelsize(array))
 
 
 def stack(arrays, axis=0, out=None):
@@ -352,7 +354,6 @@ def stack(arrays, axis=0, out=None):
         res.pixelsize = [None] + res.pixelsize
     return res
 
-
 def fft(a, n=None, axes=-1, norm=None):
     """
     shadows the np.fft.  routine but propagates pixelsize and converts to image. See there for details
@@ -360,7 +361,7 @@ def fft(a, n=None, axes=-1, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.fft(a, n, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.fft(a, n, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def ifft(a, n=None, axes=-1, norm=None):
@@ -370,7 +371,7 @@ def ifft(a, n=None, axes=-1, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.ifft(a, n, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.ifft(a, n, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def fft2(a, s=None, axes=(-2, -1), norm=None):
@@ -380,7 +381,7 @@ def fft2(a, s=None, axes=(-2, -1), norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.fft2(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.fft2(a, s, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def ifft2(a, s=None, axes=(-2, -1), norm=None):
@@ -390,7 +391,7 @@ def ifft2(a, s=None, axes=(-2, -1), norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.ifft2(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.ifft2(a, s, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def fftn(a, s=None, axes=None, norm=None):
@@ -400,7 +401,7 @@ def fftn(a, s=None, axes=None, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.fftn(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.fftn(a, s, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def ifftn(a, s=None, axes=None, norm=None):
@@ -410,7 +411,7 @@ def ifftn(a, s=None, axes=None, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.ifftn(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.ifftn(a, s, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def rfft(a, n=None, axes=-1, norm=None):
@@ -420,7 +421,7 @@ def rfft(a, n=None, axes=-1, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.rfft(a, n, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.rfft(a, n, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def irfft(a, n=None, axes=-1, norm=None):
@@ -430,7 +431,7 @@ def irfft(a, n=None, axes=-1, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.irfft(a, n, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.irfft(a, n, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def rfft2(a, s=None, axes=(-2, -1), norm=None):
@@ -440,7 +441,7 @@ def rfft2(a, s=None, axes=(-2, -1), norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.rfft2(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.rfft2(a, s, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def irfft2(a, s=None, axes=(-2, -1), norm=None):
@@ -450,7 +451,7 @@ def irfft2(a, s=None, axes=(-2, -1), norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.irfft2(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.irfft2(a, s, axes, norm), pixelsize=image.getPixelsize(a))
 
 
 def rfftn(a, s=None, axes=None, norm=None):
@@ -460,7 +461,7 @@ def rfftn(a, s=None, axes=None, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.rfftn(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.rfftn(a, s, axes, norm), pixelsize = image.getPixelsize(a))
 
 
 def irfftn(a, s=None, axes=None, norm=None):
@@ -470,7 +471,7 @@ def irfftn(a, s=None, axes=None, norm=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.irfftn(a, s, axes, norm), pixelsize=a.pixelsize)
+    return image.image(np.fft.irfftn(a, s, axes, norm), pixelsize = image.getPixelsize(a))
 
 
 def fftshift(a, axes=None):
@@ -480,7 +481,7 @@ def fftshift(a, axes=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.fftshift(a, axes), pixelsize=a.pixelsize)
+    return image.image(np.fft.fftshift(a, axes), pixelsize = image.getPixelsize(a))
 
 
 def ifftshift(a, axes=None):
@@ -490,7 +491,7 @@ def ifftshift(a, axes=None):
     :param axes:
     :return:
     """
-    return image.image(np.fft.ifftshift(a, axes), pixelsize=a.pixelsize)
+    return image.image(np.fft.ifftshift(a, axes), pixelsize = image.getPixelsize(a))
 
 
 # introduce a couple of already shifted fts (similar to DipImage) for convenience

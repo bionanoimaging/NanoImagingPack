@@ -45,6 +45,12 @@ import warnings
 defaultDataType=np.float32
 defaultCpxDataType=np.complex64
 
+def getPixelsize(img):
+    if isinstance(img,image):
+        return img.pixelsize
+    else:
+        return None
+
 def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     """
         load a stack of 2D images and save it as 3D Stack
@@ -419,7 +425,7 @@ def findBg(img, kernelSigma=3.0):
     """
     return np.min(gaussf(img, kernelSigma))
 
-def weights1D(imgWidth, dampWidth, d, func = coshalf):
+def weights1D(imgWidth, dampWidth, d, func = coshalf, ndims=None):
     """
     generates a 1D ramp with weights according to func
     :param imgWidth: Total integer length of ramp
@@ -434,7 +440,7 @@ def weights1D(imgWidth, dampWidth, d, func = coshalf):
     """
     myramp = util.make_damp_ramp(dampWidth, func)
     myramp = cat((myramp[::-1], np.ones(imgWidth - 2 * dampWidth + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
-    myramp = util.expanddim(myramp, d)
+    myramp = util.castdim(myramp, ndims=ndims, wanteddim=d)
     return myramp
 
 def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp", sigma=4.0):
@@ -493,7 +499,7 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     
     for i, ax in enumerate(axes):
         if method == "zero":
-            line = weights1D(img.shape[ax], width[i], ax, func=func)  # creates the weights
+            line = weights1D(img.shape[ax], width[i], ax, func=func, ndims=img.ndim)  # creates the weights
 #            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
             goal = 0.0  # dim down to zero
         elif method == "moisan":
@@ -503,7 +509,7 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
             mysum = util.subsliceAsg(mysum, ax, -1, top - bottom + util.subslice(mysum, ax, -1))
             den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(ax, sz[ax], len(sz)), ax, freq='ftfreq'))
         elif method == "damp":
-            line = weights1D(img.shape[ax], width[i], ax, func=func)  # creates the weights
+            line = weights1D(img.shape[ax], width[i], ax, func=func, ndims=img.ndim)  # creates the weights
 #            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
             top = util.subslice(img, ax, 0)
             bottom = util.subslice(img, ax, -1)
@@ -512,7 +518,7 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
         else:
             raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
         if method != "moisan":
-            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
+#            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
             try:
                 res = res * line + (1.0 - line) * goal
             except ValueError:
@@ -2483,6 +2489,7 @@ class image(np.ndarray):
                         for result, output in zip(results, outputs))
 
         if method == 'reduce' and isinstance(inputs[0], image) and inputs[0].pixelsize is not None:
+            util.expandPixelsize(inputs[0])  # ensure that pixelsize corresponds to shape
             keepdims = kwargs['keepdims']
             for i, output_ in enumerate(results):
                 if isinstance(output_, image):
@@ -2503,6 +2510,7 @@ class image(np.ndarray):
                 if isinstance(output_, image):
                     output_.__array_finalize__(inputs[0]) # use the first input for new result. ToDo: should be changed to a smarter joining of information
                     output_.pixelsize = util.joinAllPixelsizes(inputs)
+                    output_ = util.expandPixelsize(output_)  # ensure that pixelsize corresponds to shape. If one of the inputs is None, one does otherwise not get a correct pixelsize
 
         # if results and isinstance(results[0], image):
         #     results[0].info = info

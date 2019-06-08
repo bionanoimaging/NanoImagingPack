@@ -1076,7 +1076,22 @@ def cutToClosingBracket(astring):
                 return astring[:i]
     return astring
 
-def caller_args(findString='('):
+def removeOuterBrackets(astring):
+    oldlen = len(astring)+1
+    while len(astring) < oldlen:
+        oldlen = len(astring)
+        astring = astring.strip()
+        if len(astring) < 2:
+            break
+        if astring[0] == '(' and astring[-1] == ')':
+            astring = astring[1:-1]
+        if astring[0] == '[' and astring[-1] == ']':
+            astring = astring[1:-1]
+        if astring[0] == '{' and astring[-1] == '}':
+            astring = astring[1:-1]
+    return astring
+
+def caller_args(findString='(', stripOuterBrackets = True):
     frame = inspect.currentframe()
     #    if fktname==None:
     #        fktname="caller_argname"
@@ -1092,6 +1107,8 @@ def caller_args(findString='('):
         #            caller_lines = m.group(1)
         caller_lines = caller_lines.replace(" ", "")
         myargs = caller_lines[caller_lines.find(findString) + len(findString):-1]
+        if stripOuterBrackets:
+            myargs = removeOuterBrackets(myargs)
         myargs = cutToClosingBracket(myargs)
         # if myargs[0]=='(':
         #     myargs=myargs[1:]
