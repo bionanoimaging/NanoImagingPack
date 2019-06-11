@@ -129,7 +129,6 @@ def downsampleConvolveROTF(img, rotf, newfullsize, maxdim=3):
     return res
 
 
-# TODO: After Rainers newest version shift and shift_before True for both, ift and ft -> is this ok???
 def ft2d(im, shift_after=True, shift_before=True, ret='complex', s=None, norm="ortho"):
     """
         Perform a 2D Fourier transform of the first two dimensions only of an arbitrary stack
@@ -360,6 +359,7 @@ def fft(a, n=None, axes=None, norm=None):
     :param axes:
     :return:
     """
+
     return image.image(np.fft.fft(a, n, axes, norm), pixelsize=a.pixelsize)
 
 
