@@ -1835,10 +1835,11 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
     else:
         ROIsize = util.expanddimvec(ROIsize, len(mysize), mysize)
 
+    mycenter = [sd // 2 for sd in mysize]
     if centerpos is None:
-        centerpos = [sd // 2 for sd in mysize]
+        centerpos = mycenter
     else:
-        centerpos = util.coordsToPos(centerpos, mysize)
+        centerpos = util.coordsToPos(util.expanddimvec(centerpos, img.ndim, othersizes=mycenter), mysize)
 
     #    print(ROIcoords(centerpos,ROIsize,img.ndim))
     res = img[util.ROIcoords(centerpos, ROIsize, img.ndim)]

@@ -231,6 +231,19 @@ def random(asize=(256,256), pixelsize=None, phase=False, seed=None):
     else:
         return image.image(np.random.random(asize), pixelsize)
 
+def randn(asize=(256,256), pixelsize=None, seed=None):
+    """
+    generates an image full of random numbers drawn from a Gaussian distribution. See randn for details.
+    Since a Gaussian scales with sigma, simply multiply by sigma, if you need to change the width
+    :param asize: size of the image to generate
+    :param pixelsize: pixelsizes, if given
+    :param seed: if not None, this value is used as a seed
+    :return: the image with random numbers
+    """
+    asize = unifysize(asize)
+    if not seed is None:
+        np.random.seed(seed)
+    return image.image(np.random.randn(*asize), pixelsize)
 
 def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0, pixelsize=None):
     sz = unifysize(sz)
