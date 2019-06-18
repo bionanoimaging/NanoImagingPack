@@ -277,11 +277,11 @@ def readim(path=None, which=None, pixelsize=None):
                         pixelsize = [psZ, psY, psX]
                     except:
                         pass;
-                if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
-                    try:
+                try:
+                    if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
                         img.colormodel = "RGB"
-                    except:
-                        pass
+                except:
+                    pass
             # if which is None:
             #     img = (tif.imread(path))
             # else:
