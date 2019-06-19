@@ -45,6 +45,12 @@ import warnings
 defaultDataType=np.float32
 defaultCpxDataType=np.complex64
 
+def getPixelsize(img):
+    if isinstance(img,image):
+        return img.pixelsize
+    else:
+        return None
+
 def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     """
         load a stack of 2D images and save it as 3D Stack
@@ -111,7 +117,13 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         path += '.' + form
 
     if util.get_type(img)[1] == 'image':
-        metadata = {'name': img.name, 'pixelsize': str(img.pixelsize), 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
+        metadata = {'name': img.name, 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
+        if img.pixelsize is not None:
+            metadata['XResolution'] = img.pixelsize[-1]
+            metadata['YResolution'] = img.pixelsize[-2]
+            metadata['pixelsize'] = str(img.pixelsize)
+        if img.dim_description is not None:
+            metadata['Labels'] = img.dim_description
     elif util.get_type(img)[1] == 'ndarray':
         metadata = {}
     else:
@@ -149,6 +161,16 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
                 else:
                     img = np.int64(img)
 
+    if img.pixelsize is None:
+        pxs = [1.0, 1.0, None]
+    else:
+        pxs = [1.0/pxs for pxs in img.pixelsize]
+        pxs = pxs.append(None)
+    # if img.unit is None:
+    #     myunit = 'pixels'
+    # else:
+    #     myunit = img.unit
+
     if form in __DEFAULTS__['IMG_TIFF_FORMATS']:
         if rgb_tif:
             tif.imsave(path, img, metadata=metadata, photometric = 'rgb')  # RH 2.2.19 deleted: np.transpose
@@ -156,7 +178,6 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
             tif.imsave(path, img, metadata=metadata, photometric = 'minisblack');
     else:
         import PIL
-        # img = np;   # RH 2.2.19 deleted: np.transpose   CK commented line
         img = PIL.Image.fromarray(img)
         if BitDepth == 1:
             img = img.convert("1")
@@ -212,7 +233,7 @@ def readim(path=None, which=None, pixelsize=None):
             try:
                 img.unit = alltags['ResolutionUnit'].value.name;
             except KeyError:
-                img.unit = None;
+                pass
             try:
                 img.colormodel = alltags['PhotometricInterpretation'].value.name;
             except KeyError:
@@ -232,11 +253,11 @@ def readim(path=None, which=None, pixelsize=None):
 #
             elif imagej_metadata is not None:
                 try:
-                    img.dim_description = imagej_metadata['Labels']
+                    img.dim_description = imagej_metadata['labels']
                 except:
                     pass
                 try:
-                    img.info = imagej_metadata['Info']
+                    img.info = imagej_metadata['info']
                     img.unit = imagej_metadata['unit']
 
                     if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
@@ -250,7 +271,7 @@ def readim(path=None, which=None, pixelsize=None):
                     if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
                         img.colormodel = "RGB"
                 except:
-                    pass;
+                    pass
             # if which is None:
             #     img = (tif.imread(path))
             # else:
@@ -394,6 +415,23 @@ def findBg(img, kernelSigma=3.0):
     """
     return np.min(gaussf(img, kernelSigma))
 
+def weights1D(imgWidth, dampWidth, d, func = coshalf, ndims=None):
+    """
+    generates a 1D ramp with weights according to func
+    :param imgWidth: Total integer length of ramp
+    :param dampWidth: length of the transition region on either side
+    :param d: dimension into which to orient the ramp
+    :param func: function to apply in the ramp region
+    :return: the 1D weighting function oriented to the correct direction. Use negative numbers for -1 mean x, -2 means y, -3 menas z
+
+    Example:
+    import NanoImagingPack as nip
+    myramp=nip.weights1D(100,30, -3)  # a ramp oriented along Z
+    """
+    myramp = util.make_damp_ramp(dampWidth, func)
+    myramp = cat((myramp[::-1], np.ones(imgWidth - 2 * dampWidth + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+    myramp = util.castdim(myramp, ndims=ndims, wanteddim=d)
+    return myramp
 
 def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp", sigma=4.0):
     """
@@ -424,11 +462,11 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
 
         Example:
             import NanoImagingPack as nip
-            nip.DampEdge(nip.readim()[400:,200:])
+            a=nip.DampEdge(nip.readim()[110:,395:])
+            nip.vv(nip.repmat(a,[2,2]))
         TODO in FUTURE: padding of the image before damping
     """
     img = img.astype(defaultDataType)
-    res = np.ones(img.shape)
     if width == None:
         width = tuple(np.round(np.array(img.shape) * np.array(rwidth)).astype("int"))
 
@@ -446,15 +484,13 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     mysum = util.zeros(img.shape)
     sz = img.shape
     den = -2 * len(set(axes))  # use only the counting dimensions
-     
-     
+
     axes = tuple([len(img.shape)+ax if ax <0 else ax for ax in axes])  # make the axes positive!
     
     for i, ax in enumerate(axes):
-        line = np.arange(0, img.shape[ax], 1)
-        myramp = util.make_damp_ramp(width[i], func)
         if method == "zero":
-            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
+            line = weights1D(img.shape[ax], width[i], ax, func=func, ndims=img.ndim)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
             goal = 0.0  # dim down to zero
         elif method == "moisan":
             top = util.subslice(img, ax, 0)
@@ -463,7 +499,8 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
             mysum = util.subsliceAsg(mysum, ax, -1, top - bottom + util.subslice(mysum, ax, -1))
             den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(ax, sz[ax], len(sz)), ax, freq='ftfreq'))
         elif method == "damp":
-            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+            line = weights1D(img.shape[ax], width[i], ax, func=func, ndims=img.ndim)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
             top = util.subslice(img, ax, 0)
             bottom = util.subslice(img, ax, -1)
             goal = (top + bottom) / 2.0
@@ -471,56 +508,22 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
         else:
             raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
         if method != "moisan":
-            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
+#            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
             try:
                 res = res * line + (1.0 - line) * goal
             except ValueError:
                 print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
                 res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
-     
-#    for i in range(len(img.shape)):
-#
-#        if i in axes:
-#            line = np.arange(0, img.shape[i], 1)
-#            myramp = util.make_damp_ramp(width[i], func)
-#            if method == "zero":
-#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i]), myramp), -1)
-#                goal = 0.0  # dim down to zero
-#            elif method == "moisan":
-#                top = util.subslice(img, i, 0)
-#                bottom = util.subslice(img, i, -1)
-#                mysum = util.subsliceAsg(mysum, i, 0, bottom - top + util.subslice(mysum, i, 0))
-#                mysum = util.subsliceAsg(mysum, i, -1, top - bottom + util.subslice(mysum, i, -1))
-#                den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(i, sz[i], len(sz)), i, freq='ftfreq'))
-#            elif method == "damp":
-#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
-#                top = util.subslice(img, i, 0)
-#                bottom = util.subslice(img, i, -1)
-#                goal = (top + bottom) / 2.0
-#                goal = gaussf(goal, sigma)
-#            else:
-#                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
-#            # res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-#            #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
-#            if method != "moisan":
-#                line = util.castdim(line, img.ndim, i)  # The broadcasting works only for Python versions >3.5
-#                try:
-#                    res = res * line + (1.0 - line) * goal
-#                except ValueError:
-#                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-#                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
-
-
 
     if method == "moisan":
+        line = np.arange(0, img.shape[ax], 1)
         den = util.midValAsg(image(den), 1)  # to avoid the division by zero error
         den = ft(mysum) / den
         den = util.midValAsg(den, 0)  # kill the zero frequency
         den = np.real(ift(den))
         res = img - den
 
-    # return(res)
-    return res  # CK: (__cast__(img*res.view(image),img));  What is this?? It should return res and not img*res
+    return res
 
 
 def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelpower=3):
@@ -1784,10 +1787,11 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
     else:
         ROIsize = util.expanddimvec(ROIsize, len(mysize), mysize)
 
+    mycenter = [sd // 2 for sd in mysize]
     if centerpos is None:
-        centerpos = [sd // 2 for sd in mysize]
+        centerpos = mycenter
     else:
-        centerpos = util.coordsToPos(centerpos, mysize)
+        centerpos = util.coordsToPos(util.expanddimvec(centerpos, img.ndim, othersizes=mycenter), mysize)
 
     #    print(ROIcoords(centerpos,ROIsize,img.ndim))
     res = img[util.ROIcoords(centerpos, ROIsize, img.ndim)]
@@ -2438,6 +2442,7 @@ class image(np.ndarray):
                         for result, output in zip(results, outputs))
 
         if method == 'reduce' and isinstance(inputs[0], image) and inputs[0].pixelsize is not None:
+            util.expandPixelsize(inputs[0])  # ensure that pixelsize corresponds to shape
             keepdims = kwargs['keepdims']
             for i, output_ in enumerate(results):
                 if isinstance(output_, image):
@@ -2458,6 +2463,7 @@ class image(np.ndarray):
                 if isinstance(output_, image):
                     output_.__array_finalize__(inputs[0]) # use the first input for new result. ToDo: should be changed to a smarter joining of information
                     output_.pixelsize = util.joinAllPixelsizes(inputs)
+                    output_ = util.expandPixelsize(output_)  # ensure that pixelsize corresponds to shape. If one of the inputs is None, one does otherwise not get a correct pixelsize
 
         # if results and isinstance(results[0], image):
         #     results[0].info = info
@@ -2527,8 +2533,69 @@ class image(np.ndarray):
         # self.name = None # 'Img Nr'+str(max_im_number)
 
 
-def shiftby(img, avec):
-    return np.real(ift(coordinates.applyPhaseRamp(ft(img), avec)))
+def shiftby(img, avec, **kwargs):
+    """
+    Shifts an image in direction of avec pixels using the FT shift theorem.
+
+        :param im:              Image to be shifted
+        :param avec:            Shift vector  (array of float, int -> shifts the image in each direction, must have dimension of the image)
+        :param kwargs:          possible kwargs:
+                                    :param DampOutside:         should the image be damped outside before shifting? default is True
+                                    :param smooth:              smooth!!! default is False
+                                    :param kwargs of DampOutside
+        :return: an image shifted along the direction of avec
+
+        ---------------------------------------------------------------------------------------------------
+        Examples:
+
+            import NanoImagingPack as nip
+            img = nip.readim()
+
+            s1=nip.shiftby(img,[13.5,17.8])
+            s2=nip.shiftby(img,[13.5,17.8], DampOutside = False)
+            s3=nip.shiftby(img,[-23.11,2.4], rwidth = 0.5)
+
+        See also:
+            shift2Dby, extract, applyPhaseRamp
+
+    """
+    if 'DampOutside' in kwargs:
+        damp = kwargs.pop('DampOutside')
+        if not isinstance(damp, bool):
+            warnings.warn('DampOutside should be boolean.')
+            damp = True
+    else:
+            damp = True
+    if 'smooth' in kwargs:
+        smooth = kwargs.pop('smooth')
+        if not isinstance(smooth, bool):
+            warnings.warn('smooth should be boolean.')
+            smooth = False
+    else:
+            smooth = False
+    # choose standard damping
+    if not 'rwidth' in kwargs and not 'width' in kwargs:
+        kwargs['rwidth'] = 0.1
+
+    size = np.array(img.shape)
+
+    # do the damping
+    if damp == True:
+        img = DampOutside(img, **kwargs)
+
+    # shifting and change direction of avec
+    avec = - np.array(avec)
+    img = np.real(ift(coordinates.applyPhaseRamp(ft(img), avec, smooth = smooth)))
+
+    # remove padding
+    if damp == True:
+        img = extract(img, size)
+    # extract the shifted image
+
+    center = size//2 - (np.sign(avec)*np.ceil(np.abs(avec))).astype(int)
+    img = extract(img, size, center)
+
+    return img
 
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))

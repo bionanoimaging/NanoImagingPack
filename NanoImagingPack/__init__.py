@@ -24,6 +24,7 @@ from .config import *
 from .DeviceControll import *
 from .functions import *
 from .simulations import *
+from .separables import *
 from .view5d import * # rainer's java viewer
 from .__NIP_META__ import __version__, __title__,__author__
 from .config import __DEFAULTS__

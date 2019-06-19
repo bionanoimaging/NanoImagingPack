@@ -67,7 +67,12 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         v=nip.v5(np.random.rand(10,10,10,4),multicol=True)
     """
 #    data=np.transpose(data) # force a cast to np.array
-    import jnius as jn
+    try:
+        import jnius as jn
+    except:
+        print("unable to import pyjnius. Setting default viewer to a non-java viewer.")
+        config.setDefault('IMG_VIEWER', 'NIP_VIEW')
+        return vv(data)
 
     print("Lauching View5D: with datatype: "+str(data.dtype))
     VD = jn.autoclass('view5d.View5D')
