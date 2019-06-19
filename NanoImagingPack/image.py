@@ -27,7 +27,7 @@ from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext
 from os import mkdir, listdir
 import imageio
 import scipy
-from scipy.ndimage import rotate, zoom
+from scipy.ndimage import rotate
 from scipy.ndimage.measurements import center_of_mass as cm
 
 from .functions import gaussian, coshalf
@@ -65,9 +65,7 @@ def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     flist = get_sorted_file_list(directory, file_prototype, sort, key)
     print(flist)
     img = np.asarray([readim(join(directory, file)) for file in flist])
-    img = np.swapaxes(img, 0, 1)
-    img = np.swapaxes(img, 1, 2)
-    imsave(img, join(directory, save_name))
+    imsave(img, join(directory, save_name), rgb_tif = False);
 
 
 '''
@@ -94,7 +92,7 @@ def saveall(imgs, path, form='tif', rescale=True, BitDepth=16, Floating=False, t
         imsave(imgs[d,:,:,:],filename, form=form, rescale=rescale, BitDepth=BitDepth, Floating=Floating, truncate=truncate)
 
 
-def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, truncate=True):
+def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, truncate=True, rgb_tif = False):
     """
         Save images
 
@@ -174,7 +172,10 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
     #     myunit = img.unit
 
     if form in __DEFAULTS__['IMG_TIFF_FORMATS']:
-        tif.imsave(path, img, imagej=True, resolution = pxs, metadata= metadata, ijmetadata=metadata)
+        if rgb_tif:
+            tif.imsave(path, img, metadata=metadata, photometric = 'rgb')  # RH 2.2.19 deleted: np.transpose
+        else:
+            tif.imsave(path, img, metadata=metadata, photometric = 'minisblack');
     else:
         import PIL
         img = PIL.Image.fromarray(img)
@@ -239,12 +240,17 @@ def readim(path=None, which=None, pixelsize=None):
                 img.colormodel = None;
             if imagej_metadata is None and pixelsize is None:
                 try:
-                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                    pixelsize = [psY, psX]
+                    if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
+                        img.unit = None;
+                        pixelsize = None;
+                    else:
+                        psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                        psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                        pixelsize = [psY, psX]
+                        psZ = alltags['ZResolution'].value[0]
                 except:
                     pass
-#                psZ = alltags['ZResolution'].value[0]
+#
             elif imagej_metadata is not None:
                 try:
                     img.dim_description = imagej_metadata['labels']
@@ -253,31 +259,15 @@ def readim(path=None, which=None, pixelsize=None):
                 try:
                     img.info = imagej_metadata['info']
                     img.unit = imagej_metadata['unit']
-                except:
-                    try:
-                        img.unit = imagej_metadata['units']
-                    except:
-                        pass
-                if pixelsize is None:
-                    psX=None;psY=None;psZ=None;
-                    try:
-                        psX = imagej_metadata['xresolution']
-                        psY = imagej_metadata['yresolution']
-                        psZ = imagej_metadata['spacing']
-                    except:
-                        pass
-                    pixelsize = [psZ, psY, psX]
-                    try:
+
+                    if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
+                        img.unit = None;
+                        pixelsize = None;
+                    else:
                         psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
                         psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                        try:
-                            psZ = imagej_metadata['spacing']
-                        except:
-                            pass
+                        psZ = imagej_metadata['spacing']
                         pixelsize = [psZ, psY, psX]
-                    except:
-                        pass;
-                try:
                     if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
                         img.colormodel = "RGB"
                 except:
@@ -949,44 +939,6 @@ def adjust_dims(imlist, maxdim=None):
     else:
         raise TypeError('Wrong data input')
     return imlist
-
-
-def toClipboard(im, separator='\t', decimal_delimiter='.', transpose=False):
-    import win32clipboard as clipboard
-    '''
-        Save image to clipboard
-        only works with 1D or 2D images
-    '''
-
-    # save to clipboard
-
-    # TODO: nD darstellung
-    # Put string into clipboard (open, clear, set, close)
-    if transpose:
-        im = im.transpose
-    s = np.array2string(im)
-    s = s.replace(']\n ', '\n')
-    s = s.replace('\n ', '')
-    s = s.replace('[', '')
-    s = s.replace(']', '')
-    s = s.replace('.', decimal_delimiter)
-    pos = 0
-    while pos >= 0:
-        pos = s.find(' ')
-        if pos != len(s) - 1:
-            if s[pos + 1] == ' ':
-                s = s[:pos] + s[1 + pos:]
-            else:
-                s = s[:pos] + separator + s[1 + pos:]
-        else:
-            s = s[:pos]
-
-    #    for i in im:
-    #        s+= str(i)+separator;
-    clipboard.OpenClipboard()
-    clipboard.EmptyClipboard()
-    clipboard.SetClipboardText(s)
-    clipboard.CloseClipboard()
 
 
 def catE(*argv, matchsizes = False):
@@ -2557,53 +2509,7 @@ class image(np.ndarray):
 
     def __array_finalize__(self, obj):
         if obj is None: return;   # is true for explicit creation of array
-        # This stuff is important in case that the "__new__" method isn't called
-        # e.g.: z is ndarray and a view of z as image class is created (imz = z.view(image))
-        
-        # THIS CODE SERVES TO DETECT WHICH AXIS HAVE BEEN ELIMINATED OR CHANGED IN THE CASTNG PROCESS 
-        # E.G. DUE TO INDEXING OR SWAPPING!
-        
-#        if  len(self.shape) != len(obj.shape):
-#            if obj.__array_interface__['strides'] is None:
-#                s = (np.cumprod(obj.shape[::-1]))[::-1];
-#                s = list(np.append(s[1:],1)*obj.dtype.itemsize);
-#            else:
-#                s = list(obj.__array_interface__['strides']);
-#            if self.__array_interface__['strides'] is None:
-#                s1 = (np.cumprod(self.shape[::-1]))[::-1];
-#                s1 = list(np.append(s1[1:],1)*self.dtype.itemsize);
-#            else:
-#                s1 = list(self.__array_interface__['strides']);
-#            new_axes = [s.index(el) for el in s1 if el in s];
-#        else:
-#            new_axes = [s for s in range(self.ndim)];
 
-#           TODO: DEPRICATE THIS PART!!!
-#           TODO: Handle what happens in case of transposing and ax swapping
-#
-#           Some problems:
-#               1) the matplotlib widgets creates a lot of views which alway cause problemse (thats the reason for the try below)
-#               2) for ax swaping (also rolling, transposing changes in strides can't be identified in __array_finalize__)
-        
-        # p = __DEFAULTS__['IMG_PIXELSIZES']
-        # if type(obj) == type(self):
-        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-        #     for i in range(len(self.shape)):
-        #         try:
-        #             pxs[-i-1] = obj.pixelsize[-i-1]  # new_axes[-i-1]
-        #         except:
-        #             if i >= len(p):
-        #                 pxs[-i-1] = p[0]
-        #             else:
-        #                 pxs[-i-1] = p[-i-1]
-        # else:
-        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-        #     for i in range(len(self.shape)):
-        #         if i >= len(p):
-        #             pxs[-i-1] = p[0]
-        #         else:
-        #             pxs[-i-1] = p[-i-1]
-        # self.pixelsize = pxs
         self.set_pixelsize(getattr(obj, 'pixelsize', None))
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
         self.dim_description = getattr(obj, 'dim_description', None)
@@ -2694,17 +2600,19 @@ def shiftby(img, avec, **kwargs):
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
 
-def zoom(img, zoomfactors=None):
-    """
-    zooms by interpolation using the SciPy command interpolation.zoom.
-    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
-    :param img: image to zoom
-    :param zoomfactors: factors as a list of zoom factors, one for each direction
-    :return: zoomed image
-    see also:
-    resample
-    """
-    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
+
+#def zoom(img, zoomfactors=None):
+#    """
+#    zooms by interpolation using the SciPy command interpolation.zoom.
+#    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
+#    :param img: image to zoom
+#    :param zoomfactors: factors as a list of zoom factors, one for each direction
+#    :return: zoomed image
+#    see also:
+#    resample
+#    """
+#    print('zoom depricated ... s')
+#    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
 
 def resize(img, newsize):
     """
