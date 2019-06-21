@@ -50,12 +50,23 @@ class timer():
                     comm is optionally a string with a commetn
 
             get timepoints:
-                t.get(mode = 'mutual', comm= False)
+                t.get(mode = 'mut', comm= False)
                     get timepoints with respect to the time when timer was initialized:
 
                 mode:  'abs' -> absolute (e.g. distance to time when timer was initialized)
                        'mut' -> mutually (e.g. pairwise distance between times)
                 comm:   show comments
+
+        Example:
+        import NanoImagingPack as nip
+        t = nip.timer()
+        q1 = [[]]
+        for n in range(100000):
+            q.append(n)
+        t.add('for loops')
+        q2 = [n for n in range(100000)]
+        t.add('comprehension')
+        t.get('mut')
     """
     
     def __init__(self, units = 's'):

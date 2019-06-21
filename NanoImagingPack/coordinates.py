@@ -630,7 +630,7 @@ def get_freq_of_pixel(im=(256, 256), coord=(0., 0.), pxs=62.5, shift=True, real=
 
 def ftpos2grating(im, coords):
     """
-     Converts a coordinate vectorin fourier-space (pixel coordinates) into a real-space grating vector
+     Converts a coordinate vector in Fourier-space (pixel coordinates) into a real-space grating vector
 
          im: image or Tuple of size
          coords: position in the ft

@@ -9,15 +9,11 @@ Created on Tue Sep 18 23:38:28 2018
 import setuptools
 from NanoImagingPack.__NIP_META__ import __author__, __author_email__, __description__, __License__, __Operating_system__, __Programming_language__,__title__, __url__, __version__
 
-
-
-
 # If you want to incorporate c-files
 # For the structure of an c-file -> Check resource files
 #from distutils.core import  Extension
 # define the extension module
 # cos_module = Extension('cos_module', sources=['External_code/cos_module.c'])
-
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -34,7 +30,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     
-    install_requires=['tifffile', ],
+    install_requires=['tifffile', 'sktensor'],
     #dependency_links=['https://github.com/blink1073/tifffile'],
     #url="https://test.pypi.org/legacy/",   # <- Add gitHubLink here!
     include_package_data=True,

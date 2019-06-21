@@ -1992,6 +1992,8 @@ class image(np.ndarray):
         if MyArray is None:
             MyArray = util.zeros((128,128))
         if isinstance(MyArray, image):  # this is an empty cast! Just return the input image
+            if pixelsize is not None:
+                MyArray.set_pixelsize(pixelsize)
             return MyArray
         if type(MyArray) is list or type(MyArray) is tuple:
             res = 1
