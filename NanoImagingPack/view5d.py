@@ -105,6 +105,14 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         if gamma is None:
             gamma = 0.15
 
+        # if type(data.unit) is str:
+        #     data.unit = [data.unit]
+        #
+        # if data.unit is None:
+        #     data.unit = ["a.u."]
+        # if sz[3] > len(data.unit):
+        #     data.unit = data.unit + (int(sz[3]) - len(data.unit)) * ["a.u."]
+
         out.UpdatePanels()
         if showPhases:
             for E in range(int(sz[3])):
@@ -112,8 +120,12 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
                     anElem = util.subslice(data, -4, E)
                 else:
                     anElem=data
-                phases = (np.angle(anElem)+np.pi)/np.pi*128
+                phases = (np.angle(anElem)+np.pi)/np.pi*180  # in degrees
+                # data.unit.append("deg")  # dirty trick
                 out.AddElement(phases.flatten().tolist(),sz[0],sz[1],sz[2],sz[3],sz[4])   # add phase information to data
+                out.setName(sz[3]+E, "phase")
+                out.setUnit(sz[3]+E, "deg")
+                out.setMinMaxThresh(sz[3]+E, 0.0, 360.0) # to set the color to the correct values
                 v5ProcessKeys(out,'E') # advance to next element to the just added phase-only channel
                 v5ProcessKeys(out,12*'c') # toggle color mode 12x to reach the cyclic colormap
                 v5ProcessKeys(out,'vVe') # Toggle from additive into multiplicative display
@@ -174,17 +186,21 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         out.setFontSize(fontSize)
 
     if data.pixelsize is not None:
-        pxs = util.expanddimvec(data.pixelsize, 5, trailing=False)
-        Names = ['X', 'Y', 'Z', 'E', 'T']
-        if (not data.unit is None) and (type(data.unit) == list) and len(data.unit)>4:
-            Units = data.unit[0:5]
-        else:
-            Units = [data.unit,data.unit,data.unit,'ns','s']
-        SV = 1.0  # value scale
-        NameV = 'intensity'
-        UnitV = 'photons'
-        pxs = [0.0 if listelem is None else listelem for listelem in pxs]  # replace None values with zero for display
-        out.SetAxisScalesAndUnits(0, SV, pxs[-1], pxs[-2], pxs[-3], pxs[-4], pxs[-5], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
+        pixelsize = data.pixelsize
+    else:
+        pixelsize = 1.0
+
+    pxs = util.expanddimvec(pixelsize, 5, trailing=False)
+    pxs = [0.0 if listelem is None else listelem for listelem in pxs]  # replace None values with zero for display
+    Names = ['X', 'Y', 'Z', 'E', 'T']
+    if (not data.unit is None) and (type(data.unit) == list) and len(data.unit)>4:
+        Units = data.unit[0:5]
+    else:
+        Units = [data.unit,data.unit,data.unit,'ns','s']
+    SV = 1.0  # value scale
+    NameV = 'intensity'
+    UnitV = 'photons'
+    out.SetAxisScalesAndUnits(0, SV, pxs[-1], pxs[-2], pxs[-3], pxs[-4], pxs[-5], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
 
     if data.dim_description is not None:
         if type(data.dim_description) == str:

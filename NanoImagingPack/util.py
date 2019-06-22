@@ -739,7 +739,7 @@ def make_damp_ramp(length, function):
                         Make sure that first element is x and second element is characteristica lengths of the function
     """
     x = np.arange(0, length,1)
-    return function(x, length-1)
+    return function(x, max(length-1,1)) # the max is necessary to avoid any division my zero
 
 def isarray(image):
     return isinstance(image, np.ndarray)
