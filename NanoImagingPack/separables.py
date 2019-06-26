@@ -36,12 +36,12 @@ class separable():
         # self.dimStart.append(totallength)
 
         # self.kernels = np.zeros((maxorders, totallength)) # the kernels have maxorders x alldims   as shape. alldims stack the 1d shapes
-        if self.ndims == 2 and animg.ndim == 2:  # here we can use the "standard" SVD representation
+        if False: # self.ndims == 2 and animg.ndim == 2:  # here we can use the "standard" SVD representation
             U, D, V = np.linalg.svd(animg)
             # for order in range(maxorders):
             #     self.kernels[order, self.dimStart[0]:self.dimStart[1]] = np.squeeze(U[:, order:order+1])
             #     self.kernels[order, self.dimStart[1]:] = np.squeeze(D[order] * V[order:order+1, :])
-            self.kernels = [image(U[:maxorders,:]),image(D[:maxorders]*V[:maxorders,:])]
+            self.kernels = [image(U[:maxorders,:]),image(D[:maxorders,np.newaxis]*V[:maxorders,:])]
         else:
 #            loss = lambda mykernelVec: GaussianLoss(joinFromVec(mykernelVec, kernellength, maxorders), animg)
 #             if False :
