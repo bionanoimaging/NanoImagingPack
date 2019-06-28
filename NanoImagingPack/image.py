@@ -189,11 +189,16 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
 
 
 # def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif"), which = None, pixelsize = None):
-def readim(path=None, which=None, pixelsize=None):
+def readim(path=None, which=None, pixelsize=None, MatVar=None):
     """
              reads an image
+        :param path: filename to read
+        :param which:
+        :param pixelsize: optional argument stating the pixelsize(s). This can be a number or a vector
+        :param MatVar: The name of the matlab variable to read from the file (in case it is a .mat file)
+        :return: the image
 
-             if nothing given reads todesstern.tif
+             if nothing given reads the default image
              path -> path of image
                          if nothing: optens death star image
                          'lena'  - image of lena
@@ -278,14 +283,12 @@ def readim(path=None, which=None, pixelsize=None):
             #     img = (tif.imread(path, key=which))
             if img.ndim == 3 and img.colormodel == "RGB":
                 img = img[:, np.newaxis, :, :]
-            img.set_pixelsize(pixelsize)
         elif ext.lower() in __DEFAULTS__['IMG_IMG_FORMATS']:
                 img = (imageio.imread(path))
                 img = img.view(image)
                 if img.ndim == 3:
                     img = np.moveaxis(img[:, :, :, np.newaxis], [0, 1, 2, 3], [2, 3, 0, 1])
                     img.colormodel = "RGB"
-                img.set_pixelsize(pixelsize)
         elif ext.lower() in __DEFAULTS__['IMG_ZEISS_FORMATS']:
             # TODO HERE: READ ONLY SELECTED SLICES OF THE IMAGE
             from .EXTERNAL.Gohlke_czi_reader import imread as cziread
@@ -294,15 +297,22 @@ def readim(path=None, which=None, pixelsize=None):
                 img = img.squeeze().view(image)
             else:
                 img, meta = cziread(path)
-                img = img.view(image)
-            img = img.view(image, pixelsize)
+            img = img.view(image)
             img.metadata = meta
+            # pixelsize=img.metadata['ImageScaling']
             # TODO: Pixelsizes aus Metadaten fischen
-            img.set_pixelsize(pixelsize)
-        elif ext.lower == 'dcimg':
+        elif ext.lower() == 'dcimg':
             from .FileUtils import read_dcimg;
             img = read_dcimg(filepath = path, framelist=which, ret_times=False, high_contrast=False, view=None)
-            img.set_pixelsize(pixelsize)
+        elif ext.lower() == 'mat':
+            import scipy.io as sio
+            mat = sio.loadmat(path)
+            if MatVar is not None:
+                img = image(mat[MatVar])
+            else:
+                q = mat.popitem()
+                print("Found and read Matlab variable: "+q[0])
+                img = image(q[1])
         else:
             try:
                 import PIL.Image as IM
@@ -312,9 +322,9 @@ def readim(path=None, which=None, pixelsize=None):
                 img.colormodel = myImg.mode # may be RGB
                 if img.ndim == 3 and img.colormodel == "RGB":
                     img = np.moveaxis(img[:,:,:,np.newaxis], [0,1,2,3], [2,3,0,1])
-                img.set_pixelsize(pixelsize)
             except OSError:
                 raise ValueError('No valid image file')
+        img.set_pixelsize(pixelsize)
         img.name = splitext(basename(path))[0]
         return img
     else:  # try to load this as an URL with the PIL Toolbox
