@@ -30,12 +30,12 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     
-    install_requires=['tifffile', 'sktensor'],
+    install_requires=['tifffile', 'scikit-tensor-py3'],  # scikit-tensor-py3 for sktensor
     #dependency_links=['https://github.com/blink1073/tifffile'],
     #url="https://test.pypi.org/legacy/",   # <- Add gitHubLink here!
     include_package_data=True,
     #package_dir = {'':'NanoImagingPack'},
-    package_data={'NanoImagingPack':['resources/*']},
+    package_data={'NanoImagingPack':['resources/*', 'examples/*', 'sim/*']},
     packages=setuptools.find_packages(),
     classifiers=[
         __Programming_language__,
