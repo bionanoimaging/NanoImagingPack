@@ -30,7 +30,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     
-    install_requires=['tifffile', 'scikit-tensor-py3'],  # scikit-tensor-py3 for sktensor
+    install_requires=['tifffile', 'scikit-tensor-py3>0.2.1'],  # scikit-tensor-py3 for sktensor
     #dependency_links=['https://github.com/blink1073/tifffile'],
     #url="https://test.pypi.org/legacy/",   # <- Add gitHubLink here!
     include_package_data=True,

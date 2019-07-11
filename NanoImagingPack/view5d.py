@@ -50,7 +50,7 @@ def vv(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
     else:
         return data._repr_pretty_([], cycle=False)
 
-def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, fontSize=18, linkElements = None):
+def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, fontSize=18, linkElements = None, viewer=None):
     """
         lauches a java-based viewer view5d
         Since the viewer is based on calling java via the pyjnius Java bridge, it runs in its own thread each time. This causes overhead and may be not advisable for large
@@ -77,12 +77,15 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         config.setDefault('IMG_VIEWER', 'NIP_VIEW')
         return vv(data)
 
-    print("Lauching View5D: with datatype: "+str(data.dtype))
-    VD = jn.autoclass('view5d.View5D')
+    if viewer is None:
+        print("Lauching View5D: with datatype: "+str(data.dtype))
+        VD = jn.autoclass('view5d.View5D')
+    else:
+        VD=viewer  # just replace the data
 #    data=expanddim(data,5) # casts all arrays to 5D
     #    data=np.transpose(data) # reverts all axes to common display direction
 #    data=np.moveaxis(data,(4,3,2,1,0),(0,1,2,3,4)) # reverts axes to common display direction
-    if not isinstance(data,np.ndarray):
+    if not isinstance(data, np.ndarray):
         try:
             import tensorflow as tf
             with tf.Session() as session:
