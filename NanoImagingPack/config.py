@@ -228,10 +228,11 @@ def set_cfg():
         __FFTW__ = False
     if (__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D'):
         try:
-            import jnius_config
-            import jnius as jn
+            import javabridge
+            # import jnius_config
+            # import jnius as jn
         except ImportError:
-            print("WARNING! Image viewer View5D could not be used as a default, since pyjnius is not properly installed. Reverting to NIP_VIEW as the default.")
+            print("WARNING! Image viewer View5D could not be used as a default, since javabridge is not properly installed. Reverting to NIP_VIEW as the default.")
             __DEFAULTS__['IMG_VIEWER'] ='NIP_VIEW'
 
     # if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:

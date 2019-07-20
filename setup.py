@@ -19,7 +19,6 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 
-
 setuptools.setup(
     # ext_mdoules = [External_code/cos_module],        <- for incorporating c-files
     name=__title__,
@@ -30,7 +29,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     
-    install_requires=['tifffile', 'scikit-tensor-py3>0.2.1'],  # scikit-tensor-py3 for sktensor
+    install_requires=['tifffile', 'scikit-tensor-py3>0.2.1','bioformats','javabridge'],  # scikit-tensor-py3 for sktensor
     #dependency_links=['https://github.com/blink1073/tifffile'],
     #url="https://test.pypi.org/legacy/",   # <- Add gitHubLink here!
     include_package_data=True,

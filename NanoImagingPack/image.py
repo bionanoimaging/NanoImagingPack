@@ -35,7 +35,7 @@ from .config import DBG_MSG, __DEFAULTS__
 from .noise import poisson
 from . import coordinates
 from .view import graph, view
-from .view5d import v5, JNIUS_RUNNING # for debugging
+from .view5d import v5, JVM_RUNNING # for debugging
 from . import util
 import warnings
 
@@ -187,9 +187,21 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         img.save(path, form)
     return img
 
+def toRange(z,zmax):
+    zrange = range(0, zmax)
+    if z is not None:
+        if isinstance(z, int):
+            zrange = range(z, z + 1)
+            if z >= zmax:
+                raise ValueError("Index outside range.")
+            zmax = 1
+        else:
+            zrange = range(z[0], z[2])
+            zmax = z[1] - z[0]
+    return (zrange,zmax)
 
 # def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif"), which = None, pixelsize = None):
-def readim(path=None, which=None, pixelsize=None, MatVar=None):
+def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=None,channel_names=None):
     """
              reads an image
         :param path: filename to read
@@ -224,6 +236,54 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None):
     default_names = [splitext(split(el)[1])[0] for el in l]
     if path in default_names: # check again without the endings
         path = l[default_names.index(path)]
+
+    # here we branch into Bioformats
+    try:
+        import bioformats
+        # import javabridge
+        # try:
+        #     javabridge.detach()
+        # except:
+        #     pass
+
+#        img = bioformats.load_image(path,c=c,z=z,t=t,channel_names=channel_names)
+        planes =[]
+        # import javabridge
+        # rdrClass = javabridge.JClassWrapper('loci.formats.in.OMETiffReader')()
+        # rdrClass.setOriginalMetadataPopulated(True)
+        # clsOMEXMLService = javabridge.JClassWrapper('loci.formats.services.OMEXMLService')
+        # serviceFactory = javabridge.JClassWrapper('loci.common.services.ServiceFactory')()
+        # service = serviceFactory.getInstance(clsOMEXMLService.klass)
+        # metadata = service.createOMEXMLMetadata()
+        with bioformats.ImageReader(path) as rdr:
+            # rdr.rdr.setMetadataStore(metadata)
+            zmax = rdr.rdr.getSizeZ()
+            cmax = rdr.rdr.getSizeC()
+            tmax = rdr.rdr.getSizeT()
+            (zrange,zmax) = toRange(z,zmax)
+            (crange,cmax) = toRange(c,cmax)
+            (trange,tmax) = toRange(t,tmax)
+            for t in trange:
+                for c in crange:
+                    for z in zrange:
+                        plane = rdr.read(c=c,z=z,t=t,rescale=False)
+                        if plane.dtype.str == ">u2":
+                            plane = plane.astype(np.uint16)
+                        planes.append(plane)
+
+            img = np.reshape(cat(planes),[tmax,cmax,zmax,planes[0].shape[-2],planes[0].shape[-1]])
+            img = image(img)
+            if  img.shape[-4] == 2 or img.shape[-4] == 3:  # rdr.rdr.isRGB()
+                img.colormodel = "RGB"
+            # rdr.rdr.getMetadataValue("Information")
+            rdr.close()
+            return img
+    except:
+        try:
+            img = bioformats.load_image_url(path)
+            return image(img)
+        except:
+            print("WARNING: Bioformats failed. Reverting to other methods to load data.")
 
     if isfile(path):
         ext = splitext(path)[-1][1:]
@@ -628,6 +688,7 @@ def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelp
         r = rr(newsize)
         r[r == 0] = np.inf
         mykernel = (1 / r) - 1 / np.linalg.norm(np.sum(width, axis=1) * np.sqrt(2))
+        # mykernel = (1 / r)
         mykernel[mykernel < 0] = 0
         mykernel = mykernel ** kernelpower
 
@@ -654,6 +715,7 @@ def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelp
     flag = mask != 0
 
     nimg[flag] = nimg2[flag] / wimg2[flag]
+#    nimg = nimg2 / wimg2
     nimg[tuple(grid)] = img
 
     return util.__cast__(nimg, img)
