@@ -57,6 +57,7 @@ class View5D:
     SetGamma = javabridge.make_method("SetGamma","(ID)V")
     setMinMaxThresh = javabridge.make_method("setMinMaxThresh","(IFF)V")
     ProcessKeyMainWindow = javabridge.make_method("ProcessKeyMainWindow","(C)V")
+    ProcessKeyElementWindow = javabridge.make_method("ProcessKeyElementWindow","(C)V")
     UpdatePanels = javabridge.make_method("UpdatePanels","()V")
     repaint = javabridge.make_method("repaint","()V")
     hide = javabridge.make_method("hide","()V")
@@ -65,6 +66,7 @@ class View5D:
     closeAll = javabridge.make_method("closeAll","()V")
     ExportMarkers= javabridge.make_method("ExportMarkers","(I)[[D")
     AddElem = javabridge.make_method("AddElement","([FIIIII)Lview5d/View5D")
+    ReplaceDataB = javabridge.make_method("ReplaceDataB","(I,I[B)V")
     setMinMaxThresh = javabridge.make_method("setMinMaxThresh","(IDD)V")
     SetAxisScalesAndUnits = javabridge.make_method("SetAxisScalesAndUnits","(IDDDDDDDDDDDDLjava/lang/String;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V")
 
@@ -139,10 +141,28 @@ class View5D:
         (sig,typ,dc,sz) = self.convertDataAndSignature(data)
         javabridge.call(self.o, "AddElement", sig, dc, sz[0], sz[1], sz[2], sz[3], sz[4]);
 
+    def ReplaceData(self, data, e=0,t=0,title=None):
+        (sig,typ,dc,sz) = self.convertDataAndSignature(data)
+        javabridge.call(self.o, "ReplaceData"+typ, "(II"+sig[1:3]+")V",e,t,dc);
+        if title is not None:
+            if not isinstance(title,str):
+                title = str(title)
+            self.NameWindow(title)
+        self.ProcessKeys("vviZ")
+        # self.repaint()
+        self.toFront()
+
+
     def __init__(self, data):
 #        javabridge.attach()
         (sig,typ,dc,sz) = self.convertDataAndSignature(data)
         self.o = javabridge.static_call("view5d/View5D", "Start5DViewer"+typ, sig, dc, sz[0], sz[1], sz[2], sz[3], sz[4]);
+        self.ProcessKeyMainWindow('i')
+        self.ProcessKeys("vv")
+        self.toFront()
+
+
+# self.toFront()
 
 def v5ProcessKeys(out,KeyList):
     out.ProcessKeys(KeyList)
