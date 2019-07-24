@@ -22,7 +22,8 @@ requirements:
     - scipy
     - imageio
     - matplotlib
-    - sktensor
+    - scikit-tensor-py3
+    - python-bioformats
     #- IPython
 test:
   imports:

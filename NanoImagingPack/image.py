@@ -280,7 +280,13 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             # get some metadata:
             metaXML = bioformats.get_omexml_metadata(path=path)
             meta = bioformats.OMEXML(metaXML)
-            pixelsize = meta.image().Pixels.get_PhysicalSizeX()
+            pxl=meta.image().Pixels;
+            pixelsize = [pxl.get_PhysicalSizeZ(),pxl.get_PhysicalSizeY(),pxl.get_PhysicalSizeX()]
+            # info =
+            img.unit = [pxl.get_PhysicalSizeZUnit(),pxl.get_PhysicalSizeYUnit(),pxl.get_PhysicalSizeXUnit()]
+            img.name = meta.image().get_Name() # splitext(basename(path))[0]
+            img.set_pixelsize(pixelsize)
+            # img.info = info  # probably not so useful
             return img
     except:
         try:

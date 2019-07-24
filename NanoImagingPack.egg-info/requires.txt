@@ -1,1 +1,4 @@
 tifffile
+scikit-tensor-py3
+python-bioformats
+javabridge

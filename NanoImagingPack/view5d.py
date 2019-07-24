@@ -68,7 +68,7 @@ class View5D:
     AddElem = javabridge.make_method("AddElement","([FIIIII)Lview5d/View5D")
     ReplaceDataB = javabridge.make_method("ReplaceDataB","(I,I[B)V")
     setMinMaxThresh = javabridge.make_method("setMinMaxThresh","(IDD)V")
-    SetAxisScalesAndUnits = javabridge.make_method("SetAxisScalesAndUnits","(IDDDDDDDDDDDDLjava/lang/String;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V")
+    SetAxisScalesAndUnits = javabridge.make_method("SetAxisScalesAndUnits","(DDDDDDDDDDDDLjava/lang/String;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V")
 
     def ProcessKeys(self, KeyList):
         for k in KeyList:
@@ -150,7 +150,7 @@ class View5D:
             self.NameWindow(title)
         self.ProcessKeys("vviZ")
         # self.repaint()
-        self.toFront()
+        # self.toFront()
 
 
     def __init__(self, data):
@@ -288,16 +288,22 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         pixelsize = 1.0
 
     pxs = util.expanddimvec(pixelsize, 5, trailing=False)
-    pxs = [0.0 if listelem is None else listelem for listelem in pxs]  # replace None values with zero for display
+    pxs = [1.0 if listelem is None else listelem for listelem in pxs]  # replace None values with zero for display
     Names = ['X', 'Y', 'Z', 'E', 'T']
-    if (not data.unit is None) and (type(data.unit) == list) and len(data.unit)>4:
-        Units = data.unit[0:5]
+    if (not data.unit is None) and (type(data.unit) == list):
+        Units=['a.u.','a.u.','a.u.','a.u.','a.u.']
+        if len(data.unit)>4:
+            Units = data.unit[-5:]
+        else:
+            Units[-len(data.unit):] = data.unit[-1:-len(data.unit)-1:-1]
+        Units = ['a.u.' if listelem is None else listelem for listelem in Units]  # replace None values with zero for display
     else:
         Units = [data.unit,data.unit,data.unit,'ns','s']
     SV = 1.0  # value scale
     NameV = 'intensity'
     UnitV = 'photons'
-    out.SetAxisScalesAndUnits(0, SV, pxs[-1], pxs[-2], pxs[-3], pxs[-4], pxs[-5], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
+    # the line below set this for all elements and times
+    out.SetAxisScalesAndUnits(SV, pxs[-1], pxs[-2], pxs[-3], pxs[-4], pxs[-5], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units)
     # javabridge.static_call("view5d/View5D", "Start5DViewerS", "(IDDDDDDDDDDDDS[SS[S)V", 0, SV, pxs[-1], pxs[-2], pxs[-3], pxs[-4], pxs[-5], 0, 0, 0, 0, 0, 0, NameV, Names, UnitV, Units);
 
     if data.dim_description is not None:
