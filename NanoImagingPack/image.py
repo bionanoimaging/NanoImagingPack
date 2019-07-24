@@ -277,6 +277,10 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
                 img.colormodel = "RGB"
             # rdr.rdr.getMetadataValue("Information")
             rdr.close()
+            # get some metadata:
+            metaXML = bioformats.get_omexml_metadata(path=path)
+            meta = bioformats.OMEXML(metaXML)
+            pixelsize = meta.image().Pixels.get_PhysicalSizeX()
             return img
     except:
         try:

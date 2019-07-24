@@ -61,6 +61,7 @@ def PSF_PARAMS():
     __PSF_PARAMS.explanation+=' n_cs                  refractive index of the coveslip (default: None, meaning that the reflections at the coverslip are not accounted for). Set to 1.52 for typical coverslips.\n'
     #PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
     __PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
+    __PSF_PARAMS.explanation+=' lambdaEx              Wavelength Excitation [nm] (default: 488. excitation wavelength in nanometers) \n'
     __PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
     __PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n'
     __PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
@@ -83,7 +84,8 @@ def PSF_PARAMS():
     __PSF_PARAMS.n_embedding = None
     __PSF_PARAMS.n_cs = None
     #PSF_PARAMS.dimension = 2;
-    __PSF_PARAMS.wavelength = 520
+    __PSF_PARAMS.wavelength = 520  # means emissin wavelength
+    __PSF_PARAMS.lambdaEx = 488
     __PSF_PARAMS.pols = __pols__
     __PSF_PARAMS.pol = __PSF_PARAMS.pols.circular
     __PSF_PARAMS.pol_xy_phase_shift =0
@@ -115,6 +117,7 @@ __DEFAULTS__ ={
         'DEBUG':6,                         # Debugmessage level (0-10): use it with config.DBG_MSG(value) for controll, when which message should be displayed
         'DIRECTORY': os.getcwd(),          # Default data directory
         'JAVA': False,                     # Java support
+        'KHOROS_PATH': r'Y:\MATLAB\Toolboxes\khoros\khorosBin',
         'LOOKFOR_RATIO' : 0.9,#0.5,              # How is the lookfor function behaving? -> between 0 and 1 -> higher numbers indicate that a higher agreement between input and output is required
         'ARRAY_RETURN_TYPE': 'image',    # return type of arrays in functions -> 'image' -> returns image, properties might be adapted from input image, 'ndarray' -> numpy array, 'asInput' -> like input
         'TEST_LOG_FILE': os.path.join(os.path.split(__file__)[0], 'test_log.txt'),
