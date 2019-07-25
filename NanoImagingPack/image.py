@@ -270,8 +270,15 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
                         if plane.dtype.str == ">u2":
                             plane = plane.astype(np.uint16)
                         planes.append(plane)
-
-            img = np.reshape(cat(planes),[tmax,cmax,zmax,planes[0].shape[-2],planes[0].shape[-1]])
+            newshape = [tmax,cmax,zmax,planes[0].shape[-2],planes[0].shape[-1]]
+            fdim = -3
+            for dim in range(len(newshape)):
+                if newshape[dim]>1.0:
+                    fdim = dim; break;
+            if fdim > 3:
+                fdim = 3
+            newshape = newshape[fdim:]
+            img = np.reshape(cat(planes),newshape)
             img = image(img)
             if  img.shape[-4] == 2 or img.shape[-4] == 3:  # rdr.rdr.isRGB()
                 img.colormodel = "RGB"
