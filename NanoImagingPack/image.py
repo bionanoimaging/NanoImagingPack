@@ -280,7 +280,7 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             newshape = newshape[fdim:]
             img = np.reshape(cat(planes),newshape)
             img = image(img)
-            if  img.shape[-4] == 2 or img.shape[-4] == 3:  # rdr.rdr.isRGB()
+            if len(img.shape)> 3 and (img.shape[-4] == 2 or img.shape[-4] == 3):  # rdr.rdr.isRGB()
                 img.colormodel = "RGB"
             # rdr.rdr.getMetadataValue("Information")
             rdr.close()

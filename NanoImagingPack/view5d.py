@@ -295,7 +295,7 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         if len(data.unit)>4:
             Units = data.unit[-5:]
         else:
-            Units[-len(data.unit):] = data.unit[-1:-len(data.unit)-1:-1]
+            Units[0:len(data.unit)] = data.unit[-1:-len(data.unit)-1:-1]
         Units = ['a.u.' if listelem is None else listelem for listelem in Units]  # replace None values with zero for display
     else:
         Units = [data.unit,data.unit,data.unit,'ns','s']
