@@ -515,8 +515,11 @@ def weights1D(imgWidth, dampWidth, d, func = coshalf, ndims=None):
     import NanoImagingPack as nip
     myramp=nip.weights1D(100,30, -3)  # a ramp oriented along Z
     """
-    myramp = util.make_damp_ramp(dampWidth, func)
-    myramp = cat((myramp[::-1], np.ones(imgWidth - 2 * dampWidth + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+    if dampWidth == 0:
+        myramp = np.ones(imgWidth)
+    else:
+        myramp = util.make_damp_ramp(dampWidth, func)
+        myramp = cat((myramp[::-1], np.ones(imgWidth - 2 * dampWidth + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
     myramp = util.castdim(myramp, ndims=ndims, wanteddim=d)
     return myramp
 
@@ -576,7 +579,7 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     
     for i, ax in enumerate(axes):
         if method == "zero":
-            line = weights1D(img.shape[ax], width[i], ax, func=func, ndims=img.ndim)  # creates the weights
+            line = weights1D(img.shape[ax], width[ax], ax, func=func, ndims=img.ndim)  # creates the weights
 #            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
             goal = 0.0  # dim down to zero
         elif method == "moisan":
@@ -586,8 +589,8 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
             mysum = util.subsliceAsg(mysum, ax, -1, top - bottom + util.subslice(mysum, ax, -1))
             den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(ax, sz[ax], len(sz)), ax, freq='ftfreq'))
         elif method == "damp":
-            line = weights1D(img.shape[ax], width[i], ax, func=func, ndims=img.ndim)  # creates the weights
-#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+            line = weights1D(img.shape[ax], width[ax], ax, func=func, ndims=img.ndim)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[ax] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
             top = util.subslice(img, ax, 0)
             bottom = util.subslice(img, ax, -1)
             goal = (top + bottom) / 2.0
