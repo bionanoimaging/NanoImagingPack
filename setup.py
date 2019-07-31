@@ -7,7 +7,7 @@ Created on Tue Sep 18 23:38:28 2018
 """
 
 import setuptools
-from NanoImagingPack.__NIP_META__ import __author__, __author_email__, __description__, __License__, __Operating_system__, __Programming_language__,__title__, __url__, __version__
+from __NIP_META__ import __author__, __author_email__, __description__, __License__, __Operating_system__, __Programming_language__,__title__, __url__, __version__
 
 # If you want to incorporate c-files
 # For the structure of an c-file -> Check resource files
@@ -17,7 +17,6 @@ from NanoImagingPack.__NIP_META__ import __author__, __author_email__, __descrip
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
-
 
 setuptools.setup(
     # ext_mdoules = [External_code/cos_module],        <- for incorporating c-files
@@ -29,7 +28,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     
-    install_requires=['tifffile', 'scikit-tensor-py3>0.2.1','python-bioformats','javabridge'],  # scikit-tensor-py3 for sktensor
+    install_requires=['numpy','scipy','tifffile', 'imageio', 'matplotlib', 'scikit-tensor-py3>0.2.1','python-bioformats','javabridge'],  # scikit-tensor-py3 for sktensor
     #dependency_links=['https://github.com/blink1073/tifffile'],
     #url="https://test.pypi.org/legacy/",   # <- Add gitHubLink here!
     include_package_data=True,

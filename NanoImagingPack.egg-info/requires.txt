@@ -1,4 +1,8 @@
+numpy
+scipy
 tifffile
-scikit-tensor-py3
+imageio
+matplotlib
+scikit-tensor-py3>0.2.1
 python-bioformats
 javabridge

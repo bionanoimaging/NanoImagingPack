@@ -9,6 +9,7 @@ Created on Thu Apr 27 00:03:21 2017
 # externals
 import numpy as np;
 # modules
+# from .. import __NIP_META__
 from .coordinates import *
 from .image import *
 from .mask import *
@@ -26,7 +27,6 @@ from .functions import *
 from .simulations import *
 from .separables import *
 from .view5d import * # rainer's java viewer
-from .__NIP_META__ import __version__, __title__,__author__
 from .config import __DEFAULTS__
 from .image import image as image
 from .test import *
@@ -40,7 +40,7 @@ from . import EXTERNAL
 from .EXTERNAL.contrib import *
 set_cfg()
 
-name = __title__   # to be depreciated
+# name = __NIP_META__.__title__   # to be depreciated
 
 
 """
