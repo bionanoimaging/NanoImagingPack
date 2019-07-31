@@ -224,6 +224,9 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
              which is which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
 
              you also can read in hamamatsu dcimg files if dcamapi is installed (maybe you have to set the path in nip.__DEFAULTS__['ORCA_TMCAMCON_DLL_Path']!
+    Example:
+    import NanoImagingPack as nip
+    nip.readim('https://imagej.nih.gov/ij/images/FluorescentCells.jpg')
     """
     l = []
     if path is None:
@@ -255,8 +258,15 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
         # serviceFactory = javabridge.JClassWrapper('loci.common.services.ServiceFactory')()
         # service = serviceFactory.getInstance(clsOMEXMLService.klass)
         # metadata = service.createOMEXMLMetadata()
-        with bioformats.ImageReader(path) as rdr:
+        if len(path)>6 and (path[:5] == "http:" or path[:6] == "https:"):
+            url=path
+            path=None
+        else:
+            url=None
+        with bioformats.ImageReader(path, url=url) as rdr:
             # rdr.rdr.setMetadataStore(metadata)
+            xmax = rdr.rdr.getSizeX()
+            ymax = rdr.rdr.getSizeY()
             zmax = rdr.rdr.getSizeZ()
             cmax = rdr.rdr.getSizeC()
             tmax = rdr.rdr.getSizeT()
@@ -267,10 +277,12 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
                 for c in crange:
                     for z in zrange:
                         plane = rdr.read(c=c,z=z,t=t,rescale=False)
+                        if cmax == 3 and len(plane.shape) == 3 and plane.shape[-1]==3:
+                            plane = plane[:,:,c]
                         if plane.dtype.str == ">u2":
                             plane = plane.astype(np.uint16)
                         planes.append(plane)
-            newshape = [tmax,cmax,zmax,planes[0].shape[-2],planes[0].shape[-1]]
+            newshape = [tmax,cmax,zmax,ymax,xmax]
             fdim = -3
             for dim in range(len(newshape)):
                 if newshape[dim]>1.0:
@@ -285,7 +297,7 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             # rdr.rdr.getMetadataValue("Information")
             rdr.close()
             # get some metadata:
-            metaXML = bioformats.get_omexml_metadata(path=path)
+            metaXML = bioformats.get_omexml_metadata(path=path,url=url)
             meta = bioformats.OMEXML(metaXML)
             pxl=meta.image().Pixels;
             pixelsize = [pxl.get_PhysicalSizeZ(),pxl.get_PhysicalSizeY(),pxl.get_PhysicalSizeX()]
@@ -296,11 +308,7 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             # img.info = info  # probably not so useful
             return img
     except:
-        try:
-            img = bioformats.load_image_url(path)
-            return image(img)
-        except:
-            print("WARNING: Bioformats failed. Reverting to other methods to load data.")
+        print("WARNING: Bioformats failed. Reverting to other methods to load data.")
 
     if isfile(path):
         ext = splitext(path)[-1][1:]
