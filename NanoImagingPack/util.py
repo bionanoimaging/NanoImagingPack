@@ -1120,8 +1120,8 @@ def caller_args(findString='(', stripOuterBrackets = True):
     #    if fktname==None:
     #        fktname="caller_argname"
     #    else:
-    frame = frame.f_back
     try:
+        frame = frame.f_back
         context = inspect.getframeinfo(frame.f_back).code_context
         caller_lines = ''.join([line.strip() for line in context])
         #        caller_lines = caller_lines[caller_lines.find(fktname):]
@@ -1142,6 +1142,8 @@ def caller_args(findString='(', stripOuterBrackets = True):
         myargs = re.split(r',\s*(?![^()]*\))', myargs)  # regular expression from: https://stackoverflow.com/questions/26633452/how-to-split-by-commas-that-are-not-within-parentheses
         myargs = [arg.strip() for arg in myargs]
         return myargs
+    except:
+        return ["unknown"]
     finally:
         del frame
 
