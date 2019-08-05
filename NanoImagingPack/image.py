@@ -300,7 +300,8 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             metaXML = bioformats.get_omexml_metadata(path=path,url=url)
             meta = bioformats.OMEXML(metaXML)
             pxl=meta.image().Pixels;
-            pixelsize = [pxl.get_PhysicalSizeZ(),pxl.get_PhysicalSizeY(),pxl.get_PhysicalSizeX()]
+            if pixelsize is None: # otherwise the user pixelsize takes precedence.
+                pixelsize = [pxl.get_PhysicalSizeZ(),pxl.get_PhysicalSizeY(),pxl.get_PhysicalSizeX()]
             # info =
             img.unit = [pxl.get_PhysicalSizeZUnit(),pxl.get_PhysicalSizeYUnit(),pxl.get_PhysicalSizeXUnit()]
             img.name = meta.image().get_Name() # splitext(basename(path))[0]

@@ -3,8 +3,8 @@ import NanoImagingPack as nip
 # nip.v5(obj)
 
 # obj1 = nip.readim('MITO_SIM.tif',z=0)
-obj2 = nip.readim('MITO_SIM.tif',z=0)
-v1=nip.v5(obj2)
+# obj2 = nip.readim('MITO_SIM.tif',z=0)
+# v1=nip.v5(obj2)
 
 obj = nip.readim()
 v1=nip.v5(obj)

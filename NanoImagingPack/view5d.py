@@ -64,8 +64,13 @@ class View5D:
     toFront = javabridge.make_method("toFront","()V")
     SetElementsLinked = javabridge.make_method("SetElementsLinked","(Z)V") # Z means Boolean
     closeAll = javabridge.make_method("closeAll","()V")
-    ExportMarkers= javabridge.make_method("ExportMarkers","(I)[[D")
-    AddElem = javabridge.make_method("AddElement","([FIIIII)Lview5d/View5D")
+    DeleteAllMarkerLists = javabridge.make_method("DeleteAllMarkerLists","()V")
+    ExportMarkers = javabridge.make_method("ExportMarkers","(I)[[D")
+    ExportMarkerLists = javabridge.make_method("ExportMarkerLists","()[[D")
+    ExportMarkers = javabridge.make_method("ExportMarkers","()Ljava/lang/String;")
+    ImportMarkers = javabridge.make_method("ImportMarkers","([[F)V")
+    ImportMarkerLists = javabridge.make_method("ImportMarkerLists","([[F)V")
+    AddElem = javabridge.make_method("AddElement","([FIIIII)Lview5d/View5D;")
     ReplaceDataB = javabridge.make_method("ReplaceDataB","(I,I[B)V")
     setMinMaxThresh = javabridge.make_method("setMinMaxThresh","(IDD)V")
     SetAxisScalesAndUnits = javabridge.make_method("SetAxisScalesAndUnits","(DDDDDDDDDDDDLjava/lang/String;[Ljava/lang/String;Ljava/lang/String;[Ljava/lang/String;)V")
@@ -149,9 +154,8 @@ class View5D:
                 title = str(title)
             self.NameWindow(title)
         self.ProcessKeys("vviZ")
-        # self.repaint()
-        # self.toFront()
-
+        self.repaint()
+        self.toFront()
 
     def __init__(self, data):
 #        javabridge.attach()
@@ -161,6 +165,115 @@ class View5D:
         self.ProcessKeys("vv")
         self.toFront()
 
+    def getMarkers(self, ListNo=0, OnlyPos=True):
+        env = javabridge.get_env()
+        if self != None:
+            mJ = self.ExportMarkers(ListNo)
+            markerList = env.get_object_array_elements(mJ)
+            for n in range(len(markerList)):
+                markers = env.get_double_array_elements(markerList[n])
+                if OnlyPos:
+                    if len(markers) > 0:
+                        markers = markers[4::-1]  # extract only position information and orient if for numpy standard
+                markerList[n]=markers
+        return markerList
+
+    def getMarkerLists(self):
+        env = javabridge.get_env()
+        if self != None:
+            mJ = self.ExportMarkerLists()
+            markerList = env.get_object_array_elements(mJ)
+            for n in range(len(markerList)):
+                markers = env.get_double_array_elements(markerList[n])
+                markerList[n]=markers
+        return markerList
+
+    def setMarkerLists(self, markers, deleteAll=False):
+        env = javabridge.get_env()
+        if self != None and len(markers)>0:
+            klass = env.find_class('[F')
+            jarr = env.make_object_array(len(markers), klass)
+            n=0
+            for amarker in markers:
+                Jm = env.make_float_array(amarker.astype(np.float32))
+                env.set_object_array_element(jarr,n,Jm)
+                n += 1
+            if deleteAll:
+                self.DeleteAllMarkerLists()
+            self.ImportMarkerLists(jarr)
+            self.toFront()
+            self.ProcessKeys("jj")
+
+    def setMarkers(self, markers, ListNo=0, OnlyPos=None, scale=1.0, offset=0.0, TagIt=None):
+        env = javabridge.get_env()
+        if not isinstance(markers,list):
+            if not np.isreal(markers):
+                markers = np.stack((np.imag(markers),np.real(markers)),0)
+
+            if markers.ndim > 1:
+                markers = list(markers)
+            else:
+                markers = [markers]
+        if self != None and len(markers)>0:
+            klass = env.find_class('[F')
+            jarr = env.make_object_array(len(markers), klass)
+            n=0
+            for amarker in markers:
+                if OnlyPos is None:
+                    if amarker.shape[-1] > 5:
+                        OnlyPos=False
+                    else:
+                        OnlyPos=True
+                if OnlyPos:
+                        mymarker = np.zeros(20,dtype=np.float32)
+                        mymarker[0:amarker.shape[-1]] = (amarker * scale + offset)[::-1]
+                if TagIt is not None and TagIt is True:
+                    mymarker[14]=1.0  # Tags this one
+                Jm = env.make_float_array(mymarker)
+                env.set_object_array_element(jarr,n,Jm)
+                n += 1
+            self.ImportMarkers(jarr)
+            self.toFront()
+
+    def addMarker(self, pos, listNo=None, markerNo=None, scale=1.0, offset=0.0, TagIt=False, color=None):
+        pos = np.array(pos)
+        if np.prod(pos.shape) == 1 and not isinstance(pos,np.complex):
+            pos = np.stack((np.imag(pos),np.real(pos)),0)
+        ML = self.getMarkerLists()
+        maxList=0
+        for n in range(len(ML)):
+            ML[n] = ML[n].astype(np.float32)
+            maxList = max(maxList,ML[n][0])
+        if listNo is None:
+            listNo = maxList
+        maxMarker=-1
+        for n in range(len(ML)):
+            if ML[n][0] == listNo:
+                maxMarker = max(maxMarker,ML[n][1])
+        if markerNo is None:
+            markerNo = maxMarker+1
+        # List Nr.,	Marker Nr,	PosX [pixels],	Y [pixels],
+        # Z [pixels],	Elements [element],	Time [time], Integral (no BG sub) [Units],
+        # Max (no BG sub) [Units],	X [nm],	Y [nm],	Z [nm],
+        # E [ns],	T [s],	Integral probMap (no BG sub)[photons],	Max probMap (no BG sub)[photons]
+        # TagText 	TagInteger 	Parent1 	Parent2
+        # Child1 	 Child2 	ListColor 	ListName
+        mymarker = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,-1,-1,-1,-1,0],dtype=np.float32) # np.zeros(22, dtype=np.float32)
+        mymarker[2:2+pos.shape[-1]] = (pos * scale + offset)[::-1]
+        mymarker[0] = listNo
+        mymarker[1] = markerNo
+        mymarker[16] = TagIt+0.0
+        if color is None:
+            color = 0xf0f0f0
+        mymarker[21] = (color & ((1 << 31) - 1)) - (color & (1 << 31))  # to compute a color
+        ML.append(mymarker)
+        # self.setMarkerLists([mymarker]) # res = v.getMarkerLists()
+        self.setMarkerLists(ML, deleteAll=True)
+        # self.setMarkerLists(ML, deleteAll=True)  # this needs to be done twice for some odd numbering reason
+
+    def getMarkerString(self):
+        env = javabridge.get_env()
+        return self.ExportMarkers()
 
 # self.toFront()
 
@@ -354,14 +467,7 @@ def getMarkers(myviewer=None,ListNo=0, OnlyPos=True):
     markers=[]
     if myviewer == None:
         myviewer = lastviewer
-        
-    if myviewer != None:
-        markers = myviewer.ExportMarkers(ListNo)
-        markers = np.array(markers)
-        if OnlyPos:
-            if len(markers)>0:
-                markers=markers[:,4::-1] # extract only position information and orient if for numpy standard
-    return markers
+    return myviewer.getMarkers(ListNo,OnlyPos)
 
 # if __name__ == '__main__':  # executes the test, when running this file directly
 #     import NanoImagingPack as nip

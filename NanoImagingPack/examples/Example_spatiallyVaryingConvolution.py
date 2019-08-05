@@ -43,3 +43,4 @@ blended = k.convolve(obj2, coefficientMap)
 nip.v5(nip.catE(k.convolve(obj2),blended))
 
 # nip.v5(k.subSlice().convolve(obj2))
+nip.catE()
