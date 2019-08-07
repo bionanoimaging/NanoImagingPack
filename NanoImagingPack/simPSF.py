@@ -10,6 +10,7 @@ import numpy as np
 import NanoImagingPack as nip
 from .config import DBG_MSG, __DEFAULTS__
 from . import image
+import uuid
 
 def SimPSF(im, psf_params = None, confocal = 0, pinhole = 1, Pi4Em =0, Pi4Ex = 0,nonorm = 0, circPol = 0, twophoton = 0, scalarTheory=0):
     """
@@ -40,7 +41,6 @@ nip.v5(h)
     else:
         print(r"'SimPSF.exe' doesn't exist, please set __DEFAULTS__['KHOROS_PATH'] appropriately so that 'SimPSF.exe' is in it.")
         raise ValueError("Unknown path for __DEFAULTS__['KHOROS_PATH']")
-
     sX=im.shape[-1]
     sY=im.shape[-2]
     sZ=im.shape[-3]
@@ -51,9 +51,13 @@ nip.v5(h)
     psf_params = nip.getDefaultPSF_PARAMS(psf_params)
     na = psf_params.NA
     ri = psf_params.n
-    lambdaEm = psf_params.wavelength  
+    lambdaEm = psf_params.wavelength 
     
-    comm = [__DEFAULTS__['KHOROS_PATH']+os.sep+r'SimPSF.exe','-o', __DEFAULTS__['KHOROS_PATH']+os.sep+r'myfile',
+    unique_filename = str(uuid.uuid4())
+    
+#    comm = [__DEFAULTS__['KHOROS_PATH']+os.sep+r'SimPSF.exe','-o', __DEFAULTS__['KHOROS_PATH']+os.sep+r'myfile',
+    #comm = [__DEFAULTS__['KHOROS_PATH']+os.sep+r'SimPSF.exe','-o', r'myfile',  
+    comm = [__DEFAULTS__['KHOROS_PATH']+os.sep+r'SimPSF.exe','-o', str(unique_filename),  
                 '-lambdaEm',     str(lambdaEm),
                 '-na',           str(na) ,
                 '-ri',           str(ri),
@@ -81,9 +85,11 @@ nip.v5(h)
     ''' excute SimPSF '''
     subprocess.run(comm)
     ''' read the created bit-file '''
-    bin_bytes = open(__DEFAULTS__['KHOROS_PATH']+os.sep+r'myfile', "rb").read()
+#    bin_bytes = open(__DEFAULTS__['KHOROS_PATH']+os.sep+r'myfile', "rb").read()
+    bin_bytes = open(str(unique_filename), "rb").read()
     ''' delete the bit-file '''
-    os.remove(__DEFAULTS__['KHOROS_PATH']+os.sep+r"myfile")
+    os.remove(str(unique_filename))
+     #os.remove(__DEFAULTS__['KHOROS_PATH']+os.sep+r"myfile")
     h = np.frombuffer(bin_bytes, dtype=np.dtype('<f'))
     h = np.reshape(h,(sZ,sY,sX))
     return image(h)
