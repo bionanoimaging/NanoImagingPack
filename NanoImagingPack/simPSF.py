@@ -11,6 +11,7 @@ import NanoImagingPack as nip
 from .config import DBG_MSG, __DEFAULTS__
 from . import image
 import uuid
+import tempfile
 
 def SimPSF(im, psf_params = None, confocal = 0, pinhole = 1, Pi4Em =0, Pi4Ex = 0,nonorm = 0, circPol = 0, twophoton = 0, scalarTheory=0):
     """
@@ -53,7 +54,7 @@ nip.v5(h)
     ri = psf_params.n
     lambdaEm = psf_params.wavelength 
     
-    unique_filename = str(uuid.uuid4())
+    unique_filename = tempfile.gettempdir() + os.sep + str(uuid.uuid4())
     
 #    comm = [__DEFAULTS__['KHOROS_PATH']+os.sep+r'SimPSF.exe','-o', __DEFAULTS__['KHOROS_PATH']+os.sep+r'myfile',
     #comm = [__DEFAULTS__['KHOROS_PATH']+os.sep+r'SimPSF.exe','-o', r'myfile',  
