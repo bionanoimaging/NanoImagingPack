@@ -42,12 +42,25 @@ nip.v5(h)
     else:
         print(r"'SimPSF.exe' doesn't exist, please set __DEFAULTS__['KHOROS_PATH'] appropriately so that 'SimPSF.exe' is in it.")
         raise ValueError("Unknown path for __DEFAULTS__['KHOROS_PATH']")
-    sX=im.shape[-1]
-    sY=im.shape[-2]
-    sZ=im.shape[-3]
-    scaleX=im.pixelsize[-1]
-    scaleY=im.pixelsize[-2]
-    scaleZ=im.pixelsize[-3]
+# image shape
+    sX = im.shape[-1]
+    sY = im.shape[-2]
+    if im.ndim == 2:
+        sZ = 1
+    else:
+        sZ = im.shape[-3]
+# pixel size 
+    scaleX = im.pixelsize[-1]
+    scaleY = im.pixelsize[-2]
+    if sZ == 1: 
+        scaleZ = 1
+    else:
+        if im.pixelsize[-3] == None:
+            print (r'please give the pixel size in z direction')
+            raise ValueError("Unknown pixel size in'z'")
+        else:
+            scaleZ = im.pixelsize[-3]
+        
     '''parameters from psf_params'''
     psf_params = nip.getDefaultPSF_PARAMS(psf_params)
     na = psf_params.NA
