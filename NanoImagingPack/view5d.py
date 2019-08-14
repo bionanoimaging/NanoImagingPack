@@ -326,7 +326,7 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
             import tensorflow as tf
             with tf.Session() as session:
                 session.run(tf.global_variables_initializer())
-                data=image.image(data.eval())
+                data = image(data.eval())
             if not isinstance(data,np.ndarray):
                 raise ValueError("v5: cannot evaluate tensor.")
         except ImportError:
