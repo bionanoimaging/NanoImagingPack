@@ -65,7 +65,8 @@ def PSF_PARAMS():
     __PSF_PARAMS.explanation+=' n_embedding           refractive index of the embedding medium (default: None, meaning the same as the immersion medium.\n'
     __PSF_PARAMS.explanation+=' n_cs                  refractive index of the coveslip (default: None, meaning that the reflections at the coverslip are not accounted for). Set to 1.52 for typical coverslips.\n'
     #PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
-    __PSF_PARAMS.explanation+=' wavelength            wavelength in units of the image pixel size \n'
+    __PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
+    __PSF_PARAMS.explanation+=' lambdaEx              Wavelength Excitation [nm] (default: 488. excitation wavelength in nanometers) \n'
     __PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
     __PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n'
     __PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
@@ -88,7 +89,8 @@ def PSF_PARAMS():
     __PSF_PARAMS.n_embedding = None
     __PSF_PARAMS.n_cs = None
     #PSF_PARAMS.dimension = 2;
-    __PSF_PARAMS.wavelength = 520
+    __PSF_PARAMS.wavelength = 520  # means emissin wavelength
+    __PSF_PARAMS.lambdaEx = 488
     __PSF_PARAMS.pols = __pols__
     __PSF_PARAMS.pol = __PSF_PARAMS.pols.circular
     __PSF_PARAMS.pol_xy_phase_shift =0
@@ -120,6 +122,7 @@ __DEFAULTS__ ={
         'DEBUG':6,                         # Debugmessage level (0-10): use it with config.DBG_MSG(value) for controll, when which message should be displayed
         'DIRECTORY': os.getcwd(),          # Default data directory
         'JAVA': False,                     # Java support
+        'KHOROS_PATH': r'Y:\MATLAB\Toolboxes\khoros\khorosBin',
         'LOOKFOR_RATIO' : 0.9,#0.5,              # How is the lookfor function behaving? -> between 0 and 1 -> higher numbers indicate that a higher agreement between input and output is required
         'ARRAY_RETURN_TYPE': 'image',    # return type of arrays in functions -> 'image' -> returns image, properties might be adapted from input image, 'ndarray' -> numpy array, 'asInput' -> like input
         'TEST_LOG_FILE': os.path.join(os.path.split(__file__)[0], 'test_log.txt'),
@@ -161,7 +164,7 @@ __DEFAULTS__ ={
         'IMG_VIEWER': 'VIEW5D',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!
-
+        'IMG_SIZE_IGNORE_INCH': True,   #if True: ignores pixelsize if pixelunit is 'INCH'
         'EXTRACT_EXTEND':True,           # should an extracted image be padded with zeros or not?
 
         #PSF_OTF_DEFAULTS  -> also Defaults for the Transfer class
@@ -233,10 +236,11 @@ def set_cfg():
         __FFTW__ = False
     if (__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D'):
         try:
-            import jnius_config
-            import jnius as jn
+            import javabridge
+            # import jnius_config
+            # import jnius as jn
         except ImportError:
-            print("WARNING! Image viewer View5D could not be used as a default, since pyjnius is not properly installed. Reverting to NIP_VIEW as the default.")
+            print("WARNING! Image viewer View5D could not be used as a default, since javabridge is not properly installed. Reverting to NIP_VIEW as the default.")
             __DEFAULTS__['IMG_VIEWER'] ='NIP_VIEW'
 
     # if len(__DEFAULTS__['IMG_PIXELSIZES']) <3:

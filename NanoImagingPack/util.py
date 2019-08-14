@@ -50,12 +50,23 @@ class timer():
                     comm is optionally a string with a commetn
 
             get timepoints:
-                t.get(mode = 'mutual', comm= False)
+                t.get(mode = 'mut', comm= False)
                     get timepoints with respect to the time when timer was initialized:
 
                 mode:  'abs' -> absolute (e.g. distance to time when timer was initialized)
                        'mut' -> mutually (e.g. pairwise distance between times)
                 comm:   show comments
+
+        Example:
+        import NanoImagingPack as nip
+        t = nip.timer()
+        q1 = [[]]
+        for n in range(100000):
+            q.append(n)
+        t.add('for loops')
+        q2 = [n for n in range(100000)]
+        t.add('comprehension')
+        t.get('mut')
     """
     
     def __init__(self, units = 's'):
@@ -115,6 +126,13 @@ def ftimer(func):
         print(f'Runtime of {func.__name__!r} is {rt:.3f} secs ')
         return value
     return(wrap_tmr)
+
+def unifysize(mysize):
+    if isinstance(mysize, list) or isinstance(mysize, tuple) or (
+            isinstance(mysize, np.ndarray) and not isinstance(mysize, image.image)):
+        return list(mysize)
+    else:
+        return list(mysize.shape)
 
 def isIterable(avar):
     return isinstance(avar, Iterable)
@@ -223,6 +241,7 @@ def random(asize=(256,256), pixelsize=None, phase=False, seed=None):
     :param seed: if not None, this value is used as a seed
     :return: the image with random numbers
     """
+    asize = unifysize(asize)
     if not seed is None:
         np.random.seed(seed)
 
@@ -231,8 +250,22 @@ def random(asize=(256,256), pixelsize=None, phase=False, seed=None):
     else:
         return image.image(np.random.random(asize), pixelsize)
 
+def randn(asize=(256,256), pixelsize=None, seed=None):
+    """
+    generates an image full of random numbers drawn from a Gaussian distribution. See randn for details.
+    Since a Gaussian scales with sigma, simply multiply by sigma, if you need to change the width
+    :param asize: size of the image to generate
+    :param pixelsize: pixelsizes, if given
+    :param seed: if not None, this value is used as a seed
+    :return: the image with random numbers
+    """
+    asize = unifysize(asize)
+    if not seed is None:
+        np.random.seed(seed)
+    return image.image(np.random.randn(*asize), pixelsize)
 
 def randomDots(sz=(256,256),NDots=10, ObjRadius=None, doAdd=False, seed=0, pixelsize=None):
+    sz = unifysize(sz)
     img = zeros(np.prod(sz))
     if not seed is None:
         np.random.seed(seed)
@@ -454,18 +487,23 @@ def expand(vector, size, transpose = False):
     else:
         return(np.reshape(np.repeat(vector,size,axis=0),(np.size(vector),size) ))
 
-def castdimvec(mysize, ndims, wanteddim=0):
+def castdimvec(mysize, ndims=None, wanteddim=0):
     """
         expands a shape tuple to the necessary number of dimension casting the dimension to a wanted one
         ----------
         img: input image to expand
-        ndims: number of dimensions to expand to
+        ndims: number of dimensions to expand to. If None, wanteddim is used to determine the maximal size of dims
         wanteddim: number that the one-D axis should end up in (default:0)
 
         see also:
         expanddimvec
     """
     mysize = tuple(mysize)
+    if ndims is None:
+        if wanteddim >= 0:
+            ndims = wanteddim + 1
+        else:
+            ndims = - wanteddim
     if wanteddim<0:
         wanteddim = ndims+wanteddim
     if wanteddim+len(mysize) > ndims:
@@ -476,7 +514,7 @@ def castdimvec(mysize, ndims, wanteddim=0):
 def clip(img,minval=0.0,maxval=None):
     return np.clip(img,minval,maxval)
 
-def castdim(img, ndims, wanteddim=0):
+def castdim(img, ndims=None, wanteddim=0):
     """
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
         ----------
@@ -530,14 +568,23 @@ def expandPixelsize(img, trailing=False):
     img.set_pixelsize(img.pixelsize)  # set_pixelsize now takes care to expand the pixelsizes, if necessary
     return img
 
-def expanddim(img, ndims, trailing=False):
+def expanddim(img, ndims, trailing=None):
     """
         expands an nd image to the necessary number of dimension by inserting leading dimensions
         ----------
         img: input image to expand
-        ndims: number of dimensions to expand to
+        ndims: number of dimensions to expand to. If negative, this will be interpreted to expand to abs(ndims) with trailing=True, if trailing is None.
         trailing (default:False) : append trailing dimensions rather than dimensions at the front of the size vector
+
+        Example:
+            import NanoImagingPack as nip
+            expanddim(nip.readim(),-3)
     """
+    if trailing is None:
+        trailing = ndims < 0
+
+    if ndims < 0:
+        ndims = -ndims
     res = np.reshape(img, expanddimvec(img.shape, ndims, None, trailing))
     if isinstance(res, image.image):
         res = expandPixelsize(res)
@@ -700,7 +747,7 @@ def make_damp_ramp(length, function):
                         Make sure that first element is x and second element is characteristica lengths of the function
     """
     x = np.arange(0, length,1)
-    return(function(x, length-1))
+    return function(x, max(length-1,1)) # the max is necessary to avoid any division my zero
 
 def isarray(image):
     return isinstance(image, np.ndarray)
@@ -931,20 +978,29 @@ def isnp(animg):
 def iseven(anumber):
     return np.mod(anumber,2)==0
 
-
 from . import config
 
-
-def ones(s, dtype=None, order='C', pixelsize=None):
+def ones(s, dtype=None, order='C', pixelsize=None, ax=None):
     if isnp(s):
         s=s.shape
-    return image.image(np.ones(s,dtype,order), pixelsize=pixelsize)
+    res = image.image(np.ones(s,dtype,order), pixelsize=pixelsize)
+    if ax is not None:
+        res = castdim(res, wanteddim=ax)
+    return res
 
-def zeros(s, dtype=None, order='C', pixelsize=None):
+def zeros(s, dtype=None, order='C', pixelsize=None, ax=None):
     if isnp(s):
         s = s.shape
-    return image.image(np.zeros(s, dtype, order), pixelsize=pixelsize)
+    res = image.image(np.zeros(s, dtype, order), pixelsize=pixelsize)
+    if ax is not None:
+        res = castdim(res, wanteddim=ax)
+    return res
 
+def arange(*args, dtype = None, pixelsize=None, ax=None):
+    res = image.image(np.arange(*args, dtype=dtype), pixelsize = pixelsize)
+    if ax is not None:
+        res = castdim(res, wanteddim=ax)
+    return res
 
 def __cast__(arr, orig_arr=None):
     """
@@ -1052,13 +1108,28 @@ def cutToClosingBracket(astring):
                 return astring[:i]
     return astring
 
-def caller_args(findString='('):
+def removeOuterBrackets(astring):
+    oldlen = len(astring)+1
+    while len(astring) < oldlen:
+        oldlen = len(astring)
+        astring = astring.strip()
+        if len(astring) < 2:
+            break
+        if astring[0] == '(' and astring[-1] == ')':
+            astring = astring[1:-1]
+        if astring[0] == '[' and astring[-1] == ']':
+            astring = astring[1:-1]
+        if astring[0] == '{' and astring[-1] == '}':
+            astring = astring[1:-1]
+    return astring
+
+def caller_args(findString='(', stripOuterBrackets = True):
     frame = inspect.currentframe()
     #    if fktname==None:
     #        fktname="caller_argname"
     #    else:
-    frame = frame.f_back
     try:
+        frame = frame.f_back
         context = inspect.getframeinfo(frame.f_back).code_context
         caller_lines = ''.join([line.strip() for line in context])
         #        caller_lines = caller_lines[caller_lines.find(fktname):]
@@ -1068,6 +1139,8 @@ def caller_args(findString='('):
         #            caller_lines = m.group(1)
         caller_lines = caller_lines.replace(" ", "")
         myargs = caller_lines[caller_lines.find(findString) + len(findString):-1]
+        if stripOuterBrackets:
+            myargs = removeOuterBrackets(myargs)
         myargs = cutToClosingBracket(myargs)
         # if myargs[0]=='(':
         #     myargs=myargs[1:]
@@ -1077,6 +1150,8 @@ def caller_args(findString='('):
         myargs = re.split(r',\s*(?![^()]*\))', myargs)  # regular expression from: https://stackoverflow.com/questions/26633452/how-to-split-by-commas-that-are-not-within-parentheses
         myargs = [arg.strip() for arg in myargs]
         return myargs
+    except:
+        return ["unknown"]
     finally:
         del frame
 

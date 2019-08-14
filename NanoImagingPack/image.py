@@ -27,7 +27,7 @@ from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext
 from os import mkdir, listdir
 import imageio
 import scipy
-from scipy.ndimage import rotate, zoom
+from scipy.ndimage import rotate
 from scipy.ndimage.measurements import center_of_mass as cm
 
 from .functions import gaussian, coshalf
@@ -35,7 +35,6 @@ from .config import DBG_MSG, __DEFAULTS__
 from .noise import poisson
 from . import coordinates
 from .view import graph, view
-from .view5d import v5, JNIUS_RUNNING # for debugging
 from . import util
 import warnings
 
@@ -44,6 +43,12 @@ import warnings
 
 defaultDataType=np.float32
 defaultCpxDataType=np.complex64
+
+def getPixelsize(img):
+    if isinstance(img,image):
+        return img.pixelsize
+    else:
+        return None
 
 def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     """
@@ -59,9 +64,7 @@ def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     flist = get_sorted_file_list(directory, file_prototype, sort, key)
     print(flist)
     img = np.asarray([readim(join(directory, file)) for file in flist])
-    img = np.swapaxes(img, 0, 1)
-    img = np.swapaxes(img, 1, 2)
-    imsave(img, join(directory, save_name))
+    imsave(img, join(directory, save_name), rgb_tif = False);
 
 
 '''
@@ -88,7 +91,7 @@ def saveall(imgs, path, form='tif', rescale=True, BitDepth=16, Floating=False, t
         imsave(imgs[d,:,:,:],filename, form=form, rescale=rescale, BitDepth=BitDepth, Floating=Floating, truncate=truncate)
 
 
-def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, truncate=True):
+def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, truncate=True, rgb_tif = False):
     """
         Save images
 
@@ -113,7 +116,13 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         path += '.' + form
 
     if util.get_type(img)[1] == 'image':
-        metadata = {'name': img.name, 'pixelsize': str(img.pixelsize), 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
+        metadata = {'name': img.name, 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
+        if img.pixelsize is not None:
+            metadata['XResolution'] = img.pixelsize[-1]
+            metadata['YResolution'] = img.pixelsize[-2]
+            metadata['pixelsize'] = str(img.pixelsize)
+        if img.dim_description is not None:
+            metadata['Labels'] = img.dim_description
     elif util.get_type(img)[1] == 'ndarray':
         metadata = {}
     else:
@@ -151,11 +160,23 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
                 else:
                     img = np.int64(img)
 
+    if img.pixelsize is None:
+        pxs = [1.0, 1.0, None]
+    else:
+        pxs = [1.0/pxs for pxs in img.pixelsize]
+        pxs = pxs.append(None)
+    # if img.unit is None:
+    #     myunit = 'pixels'
+    # else:
+    #     myunit = img.unit
+
     if form in __DEFAULTS__['IMG_TIFF_FORMATS']:
-        tif.imsave(path, img, metadata=metadata)  # RH 2.2.19 deleted: np.transpose
+        if rgb_tif:
+            tif.imsave(path, img, metadata=metadata, photometric = 'rgb')  # RH 2.2.19 deleted: np.transpose
+        else:
+            tif.imsave(path, img, metadata=metadata, photometric = 'minisblack');
     else:
         import PIL
-        # img = np;   # RH 2.2.19 deleted: np.transpose   CK commented line
         img = PIL.Image.fromarray(img)
         if BitDepth == 1:
             img = img.convert("1")
@@ -165,13 +186,30 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         img.save(path, form)
     return img
 
+def toRange(z,zmax):
+    zrange = range(0, zmax)
+    if z is not None:
+        if isinstance(z, int):
+            zrange = range(z, z + 1)
+            if z >= zmax:
+                raise ValueError("Index outside range.")
+            zmax = 1
+        else:
+            zrange = range(z[0], z[2])
+            zmax = z[1] - z[0]
+    return (zrange,zmax)
 
 # def readim(path =resource_filename("NanoImagingPack","resources/todesstern.tif"), which = None, pixelsize = None):
-def readim(path=None, which=None, pixelsize=None):
+def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=None,channel_names=None):
     """
              reads an image
+        :param path: filename to read
+        :param which:
+        :param pixelsize: optional argument stating the pixelsize(s). This can be a number or a vector
+        :param MatVar: The name of the matlab variable to read from the file (in case it is a .mat file)
+        :return: the image
 
-             if nothing given reads todesstern.tif
+             if nothing given reads the default image
              path -> path of image
                          if nothing: optens death star image
                          'lena'  - image of lena
@@ -185,6 +223,9 @@ def readim(path=None, which=None, pixelsize=None):
              which is which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
 
              you also can read in hamamatsu dcimg files if dcamapi is installed (maybe you have to set the path in nip.__DEFAULTS__['ORCA_TMCAMCON_DLL_Path']!
+    Example:
+    import NanoImagingPack as nip
+    nip.readim('https://imagej.nih.gov/ij/images/FluorescentCells.jpg')
     """
     l = []
     if path is None:
@@ -197,6 +238,77 @@ def readim(path=None, which=None, pixelsize=None):
     default_names = [splitext(split(el)[1])[0] for el in l]
     if path in default_names: # check again without the endings
         path = l[default_names.index(path)]
+
+    # here we branch into Bioformats
+    try:
+        import bioformats
+        # import javabridge
+        # try:
+        #     javabridge.detach()
+        # except:
+        #     pass
+
+#        img = bioformats.load_image(path,c=c,z=z,t=t,channel_names=channel_names)
+        planes =[]
+        # import javabridge
+        # rdrClass = javabridge.JClassWrapper('loci.formats.in.OMETiffReader')()
+        # rdrClass.setOriginalMetadataPopulated(True)
+        # clsOMEXMLService = javabridge.JClassWrapper('loci.formats.services.OMEXMLService')
+        # serviceFactory = javabridge.JClassWrapper('loci.common.services.ServiceFactory')()
+        # service = serviceFactory.getInstance(clsOMEXMLService.klass)
+        # metadata = service.createOMEXMLMetadata()
+        if len(path)>6 and (path[:5] == "http:" or path[:6] == "https:"):
+            url=path
+            path=None
+        else:
+            url=None
+        with bioformats.ImageReader(path, url=url) as rdr:
+            # rdr.rdr.setMetadataStore(metadata)
+            xmax = rdr.rdr.getSizeX()
+            ymax = rdr.rdr.getSizeY()
+            zmax = rdr.rdr.getSizeZ()
+            cmax = rdr.rdr.getSizeC()
+            tmax = rdr.rdr.getSizeT()
+            (zrange,zmax) = toRange(z,zmax)
+            (crange,cmax) = toRange(c,cmax)
+            (trange,tmax) = toRange(t,tmax)
+            for t in trange:
+                for c in crange:
+                    for z in zrange:
+                        plane = rdr.read(c=c,z=z,t=t,rescale=False)
+                        if cmax == 3 and len(plane.shape) == 3 and plane.shape[-1]==3:
+                            plane = plane[:,:,c]
+                        if plane.dtype.str == ">u2":
+                            plane = plane.astype(np.uint16)
+                        planes.append(plane)
+            newshape = [tmax,cmax,zmax,ymax,xmax]
+            fdim = -3
+            for dim in range(len(newshape)):
+                if newshape[dim]>1.0:
+                    fdim = dim; break;
+            if fdim > 3:
+                fdim = 3
+            newshape = newshape[fdim:]
+            img = np.reshape(cat(planes),newshape)
+            img = image(img)
+            if len(img.shape)> 3 and (img.shape[-4] == 2 or img.shape[-4] == 3):  # rdr.rdr.isRGB()
+                img.colormodel = "RGB"
+            # rdr.rdr.getMetadataValue("Information")
+            rdr.close()
+            # get some metadata:
+            metaXML = bioformats.get_omexml_metadata(path=path,url=url)
+            meta = bioformats.OMEXML(metaXML)
+            pxl=meta.image().Pixels;
+            if pixelsize is None: # otherwise the user pixelsize takes precedence.
+                pixelsize = [pxl.get_PhysicalSizeZ(),pxl.get_PhysicalSizeY(),pxl.get_PhysicalSizeX()]
+            # info =
+            img.unit = [pxl.get_PhysicalSizeZUnit(),pxl.get_PhysicalSizeYUnit(),pxl.get_PhysicalSizeXUnit()]
+            img.name = meta.image().get_Name() # splitext(basename(path))[0]
+            img.set_pixelsize(pixelsize)
+            # img.info = info  # probably not so useful
+            return img
+    except:
+        print("WARNING: Bioformats failed. Reverting to other methods to load data.")
 
     if isfile(path):
         ext = splitext(path)[-1][1:]
@@ -211,52 +323,57 @@ def readim(path=None, which=None, pixelsize=None):
             try:
                 img.unit = alltags['ResolutionUnit'].value.name;
             except KeyError:
-                img.unit = None;
+                pass
             try:
                 img.colormodel = alltags['PhotometricInterpretation'].value.name;
             except KeyError:
                 img.colormodel = None;
             if imagej_metadata is None and pixelsize is None:
                 try:
-                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                    pixelsize = [psY, psX]
+                    if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
+                        img.unit = None;
+                        pixelsize = None;
+                    else:
+                        psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                        psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                        pixelsize = [psY, psX]
+                        psZ = alltags['ZResolution'].value[0]
                 except:
                     pass
-#                psZ = alltags['ZResolution'].value[0]
+#
             elif imagej_metadata is not None:
                 try:
-                    img.dim_description = imagej_metadata['Labels']
+                    img.dim_description = imagej_metadata['labels']
                 except:
                     pass
                 try:
-                    img.info = imagej_metadata['Info']
+                    img.info = imagej_metadata['info']
                     img.unit = imagej_metadata['unit']
-                except:
-                    pass
-                try:
-                    psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
-                    psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
-                    psZ = imagej_metadata['spacing']
-                    pixelsize = [psZ, psY, psX]
+
+                    if __DEFAULTS__['IMG_SIZE_IGNORE_INCH'] and img.unit.lower() == 'inch':
+                        img.unit = None;
+                        pixelsize = None;
+                    else:
+                        psX = alltags['XResolution'].value[1] / alltags['XResolution'].value[0]
+                        psY = alltags['YResolution'].value[1] / alltags['YResolution'].value[0]
+                        psZ = imagej_metadata['spacing']
+                        pixelsize = [psZ, psY, psX]
                     if imagej_metadata['mode'] == 'composite' and img.shape[-3] == 3:
                         img.colormodel = "RGB"
                 except:
-                    pass;
+                    pass
             # if which is None:
             #     img = (tif.imread(path))
             # else:
             #     img = (tif.imread(path, key=which))
             if img.ndim == 3 and img.colormodel == "RGB":
                 img = img[:, np.newaxis, :, :]
-            img.set_pixelsize(pixelsize)
         elif ext.lower() in __DEFAULTS__['IMG_IMG_FORMATS']:
                 img = (imageio.imread(path))
                 img = img.view(image)
                 if img.ndim == 3:
                     img = np.moveaxis(img[:, :, :, np.newaxis], [0, 1, 2, 3], [2, 3, 0, 1])
                     img.colormodel = "RGB"
-                img.set_pixelsize(pixelsize)
         elif ext.lower() in __DEFAULTS__['IMG_ZEISS_FORMATS']:
             # TODO HERE: READ ONLY SELECTED SLICES OF THE IMAGE
             from .EXTERNAL.Gohlke_czi_reader import imread as cziread
@@ -265,15 +382,22 @@ def readim(path=None, which=None, pixelsize=None):
                 img = img.squeeze().view(image)
             else:
                 img, meta = cziread(path)
-                img = img.view(image)
-            img = img.view(image, pixelsize)
+            img = img.view(image)
             img.metadata = meta
+            # pixelsize=img.metadata['ImageScaling']
             # TODO: Pixelsizes aus Metadaten fischen
-            img.set_pixelsize(pixelsize)
-        elif ext.lower == 'dcimg':
+        elif ext.lower() == 'dcimg':
             from .FileUtils import read_dcimg;
             img = read_dcimg(filepath = path, framelist=which, ret_times=False, high_contrast=False, view=None)
-            img.set_pixelsize(pixelsize)
+        elif ext.lower() == 'mat':
+            import scipy.io as sio
+            mat = sio.loadmat(path)
+            if MatVar is not None:
+                img = image(mat[MatVar])
+            else:
+                q = mat.popitem()
+                print("Found and read Matlab variable: "+q[0])
+                img = image(q[1])
         else:
             try:
                 import PIL.Image as IM
@@ -283,9 +407,9 @@ def readim(path=None, which=None, pixelsize=None):
                 img.colormodel = myImg.mode # may be RGB
                 if img.ndim == 3 and img.colormodel == "RGB":
                     img = np.moveaxis(img[:,:,:,np.newaxis], [0,1,2,3], [2,3,0,1])
-                img.set_pixelsize(pixelsize)
             except OSError:
                 raise ValueError('No valid image file')
+        img.set_pixelsize(pixelsize)
         img.name = splitext(basename(path))[0]
         return img
     else:  # try to load this as an URL with the PIL Toolbox
@@ -386,6 +510,26 @@ def findBg(img, kernelSigma=3.0):
     """
     return np.min(gaussf(img, kernelSigma))
 
+def weights1D(imgWidth, dampWidth, d, func = coshalf, ndims=None):
+    """
+    generates a 1D ramp with weights according to func
+    :param imgWidth: Total integer length of ramp
+    :param dampWidth: length of the transition region on either side
+    :param d: dimension into which to orient the ramp
+    :param func: function to apply in the ramp region
+    :return: the 1D weighting function oriented to the correct direction. Use negative numbers for -1 mean x, -2 means y, -3 menas z
+
+    Example:
+    import NanoImagingPack as nip
+    myramp=nip.weights1D(100,30, -3)  # a ramp oriented along Z
+    """
+    if dampWidth == 0:
+        myramp = np.ones(imgWidth)
+    else:
+        myramp = util.make_damp_ramp(dampWidth, func)
+        myramp = cat((myramp[::-1], np.ones(imgWidth - 2 * dampWidth + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+    myramp = util.castdim(myramp, ndims=ndims, wanteddim=d)
+    return myramp
 
 def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp", sigma=4.0):
     """
@@ -416,11 +560,11 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
 
         Example:
             import NanoImagingPack as nip
-            nip.DampEdge(nip.readim()[400:,200:])
+            a=nip.DampEdge(nip.readim()[110:,395:])
+            nip.vv(nip.repmat(a,[2,2]))
         TODO in FUTURE: padding of the image before damping
     """
     img = img.astype(defaultDataType)
-    res = np.ones(img.shape)
     if width == None:
         width = tuple(np.round(np.array(img.shape) * np.array(rwidth)).astype("int"))
 
@@ -438,15 +582,13 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
     mysum = util.zeros(img.shape)
     sz = img.shape
     den = -2 * len(set(axes))  # use only the counting dimensions
-     
-     
+
     axes = tuple([len(img.shape)+ax if ax <0 else ax for ax in axes])  # make the axes positive!
     
     for i, ax in enumerate(axes):
-        line = np.arange(0, img.shape[ax], 1)
-        myramp = util.make_damp_ramp(width[i], func)
         if method == "zero":
-            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
+            line = weights1D(img.shape[ax], width[ax], ax, func=func, ndims=img.ndim)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i]), myramp), -1)
             goal = 0.0  # dim down to zero
         elif method == "moisan":
             top = util.subslice(img, ax, 0)
@@ -455,7 +597,8 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
             mysum = util.subsliceAsg(mysum, ax, -1, top - bottom + util.subslice(mysum, ax, -1))
             den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(ax, sz[ax], len(sz)), ax, freq='ftfreq'))
         elif method == "damp":
-            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
+            line = weights1D(img.shape[ax], width[ax], ax, func=func, ndims=img.ndim)  # creates the weights
+#            line = cat((myramp[::-1], np.ones(img.shape[ax] - 2 * width[ax] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
             top = util.subslice(img, ax, 0)
             bottom = util.subslice(img, ax, -1)
             goal = (top + bottom) / 2.0
@@ -463,56 +606,22 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
         else:
             raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
         if method != "moisan":
-            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
+#            line = util.castdim(line, img.ndim, ax)  # The broadcasting works only for Python versions >3.5
             try:
                 res = res * line + (1.0 - line) * goal
             except ValueError:
                 print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
                 res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
-     
-#    for i in range(len(img.shape)):
-#
-#        if i in axes:
-#            line = np.arange(0, img.shape[i], 1)
-#            myramp = util.make_damp_ramp(width[i], func)
-#            if method == "zero":
-#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i]), myramp), -1)
-#                goal = 0.0  # dim down to zero
-#            elif method == "moisan":
-#                top = util.subslice(img, i, 0)
-#                bottom = util.subslice(img, i, -1)
-#                mysum = util.subsliceAsg(mysum, i, 0, bottom - top + util.subslice(mysum, i, 0))
-#                mysum = util.subsliceAsg(mysum, i, -1, top - bottom + util.subslice(mysum, i, -1))
-#                den = den + 2 * np.cos(2 * np.pi * coordinates.ramp(util.dimVec(i, sz[i], len(sz)), i, freq='ftfreq'))
-#            elif method == "damp":
-#                line = cat((myramp[::-1], np.ones(img.shape[i] - 2 * width[i] + 1), myramp[:-1]), 0)  # to make it perfectly cyclic
-#                top = util.subslice(img, i, 0)
-#                bottom = util.subslice(img, i, -1)
-#                goal = (top + bottom) / 2.0
-#                goal = gaussf(goal, sigma)
-#            else:
-#                raise ValueError("DampEdge: Unknown method. Choose: damp, moisan or zero.")
-#            # res = res.swapaxes(0,i); # The broadcasting works only for Python versions >3.5
-#            #            res = res.swapaxes(len(img.shape)-1,i); # The broadcasting works only for Python versions >3.5
-#            if method != "moisan":
-#                line = util.castdim(line, img.ndim, i)  # The broadcasting works only for Python versions >3.5
-#                try:
-#                    res = res * line + (1.0 - line) * goal
-#                except ValueError:
-#                    print('Broadcasting failed! Maybe the Python version is too old ... - Now we have to use repmat and reshape :(')
-#                    res *= np.reshape(repmat(line, 1, np.prod(res.shape[1:])), res.shape, order='F')
-
-
 
     if method == "moisan":
+        line = np.arange(0, img.shape[ax], 1)
         den = util.midValAsg(image(den), 1)  # to avoid the division by zero error
         den = ft(mysum) / den
         den = util.midValAsg(den, 0)  # kill the zero frequency
         den = np.real(ift(den))
         res = img - den
 
-    # return(res)
-    return res  # CK: (__cast__(img*res.view(image),img));  What is this?? It should return res and not img*res
+    return res
 
 
 def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelpower=3):
@@ -607,6 +716,7 @@ def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelp
         r = rr(newsize)
         r[r == 0] = np.inf
         mykernel = (1 / r) - 1 / np.linalg.norm(np.sum(width, axis=1) * np.sqrt(2))
+        # mykernel = (1 / r)
         mykernel[mykernel < 0] = 0
         mykernel = mykernel ** kernelpower
 
@@ -633,6 +743,7 @@ def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelp
     flag = mask != 0
 
     nimg[flag] = nimg2[flag] / wimg2[flag]
+#    nimg = nimg2 / wimg2
     nimg[tuple(grid)] = img
 
     return util.__cast__(nimg, img)
@@ -928,44 +1039,6 @@ def adjust_dims(imlist, maxdim=None):
     else:
         raise TypeError('Wrong data input')
     return imlist
-
-
-def toClipboard(im, separator='\t', decimal_delimiter='.', transpose=False):
-    import win32clipboard as clipboard
-    '''
-        Save image to clipboard
-        only works with 1D or 2D images
-    '''
-
-    # save to clipboard
-
-    # TODO: nD darstellung
-    # Put string into clipboard (open, clear, set, close)
-    if transpose:
-        im = im.transpose
-    s = np.array2string(im)
-    s = s.replace(']\n ', '\n')
-    s = s.replace('\n ', '')
-    s = s.replace('[', '')
-    s = s.replace(']', '')
-    s = s.replace('.', decimal_delimiter)
-    pos = 0
-    while pos >= 0:
-        pos = s.find(' ')
-        if pos != len(s) - 1:
-            if s[pos + 1] == ' ':
-                s = s[:pos] + s[1 + pos:]
-            else:
-                s = s[:pos] + separator + s[1 + pos:]
-        else:
-            s = s[:pos]
-
-    #    for i in im:
-    #        s+= str(i)+separator;
-    clipboard.OpenClipboard()
-    clipboard.EmptyClipboard()
-    clipboard.SetClipboardText(s)
-    clipboard.CloseClipboard()
 
 
 def catE(*argv, matchsizes = False):
@@ -1843,10 +1916,11 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
     else:
         ROIsize = util.expanddimvec(ROIsize, len(mysize), mysize)
 
+    mycenter = [sd // 2 for sd in mysize]
     if centerpos is None:
-        centerpos = [sd // 2 for sd in mysize]
+        centerpos = mycenter
     else:
-        centerpos = util.coordsToPos(centerpos, mysize)
+        centerpos = util.coordsToPos(util.expanddimvec(centerpos, img.ndim, othersizes=mycenter), mysize)
 
     #    print(ROIcoords(centerpos,ROIsize,img.ndim))
     res = img[util.ROIcoords(centerpos, ROIsize, img.ndim)]
@@ -1998,6 +2072,8 @@ class image(np.ndarray):
         if MyArray is None:
             MyArray = util.zeros((128,128))
         if isinstance(MyArray, image):  # this is an empty cast! Just return the input image
+            if pixelsize is not None:
+                MyArray.set_pixelsize(pixelsize)
             return MyArray
         if type(MyArray) is list or type(MyArray) is tuple:
             res = 1
@@ -2070,6 +2146,7 @@ class image(np.ndarray):
                     else:
                         # if self.name is None:
                         #     self.name = util.caller_string(3)  # use the name of the caller
+                        from .view5d import v5
                         self.v = v5(self)
                 elif __DEFAULTS__['IMG_VIEWER'] == 'INFO':
                     print('Image :'+self.name)
@@ -2504,6 +2581,7 @@ class image(np.ndarray):
                         for result, output in zip(results, outputs))
 
         if method == 'reduce' and isinstance(inputs[0], image) and inputs[0].pixelsize is not None:
+            util.expandPixelsize(inputs[0])  # ensure that pixelsize corresponds to shape
             keepdims = kwargs['keepdims']
             for i, output_ in enumerate(results):
                 if isinstance(output_, image):
@@ -2524,6 +2602,7 @@ class image(np.ndarray):
                 if isinstance(output_, image):
                     output_.__array_finalize__(inputs[0]) # use the first input for new result. ToDo: should be changed to a smarter joining of information
                     output_.pixelsize = util.joinAllPixelsizes(inputs)
+                    output_ = util.expandPixelsize(output_)  # ensure that pixelsize corresponds to shape. If one of the inputs is None, one does otherwise not get a correct pixelsize
 
         # if results and isinstance(results[0], image):
         #     results[0].info = info
@@ -2569,53 +2648,7 @@ class image(np.ndarray):
 
     def __array_finalize__(self, obj):
         if obj is None: return;   # is true for explicit creation of array
-        # This stuff is important in case that the "__new__" method isn't called
-        # e.g.: z is ndarray and a view of z as image class is created (imz = z.view(image))
-        
-        # THIS CODE SERVES TO DETECT WHICH AXIS HAVE BEEN ELIMINATED OR CHANGED IN THE CASTNG PROCESS 
-        # E.G. DUE TO INDEXING OR SWAPPING!
-        
-#        if  len(self.shape) != len(obj.shape):
-#            if obj.__array_interface__['strides'] is None:
-#                s = (np.cumprod(obj.shape[::-1]))[::-1];
-#                s = list(np.append(s[1:],1)*obj.dtype.itemsize);
-#            else:
-#                s = list(obj.__array_interface__['strides']);
-#            if self.__array_interface__['strides'] is None:
-#                s1 = (np.cumprod(self.shape[::-1]))[::-1];
-#                s1 = list(np.append(s1[1:],1)*self.dtype.itemsize);
-#            else:
-#                s1 = list(self.__array_interface__['strides']);
-#            new_axes = [s.index(el) for el in s1 if el in s];
-#        else:
-#            new_axes = [s for s in range(self.ndim)];
 
-#           TODO: DEPRICATE THIS PART!!!
-#           TODO: Handle what happens in case of transposing and ax swapping
-#
-#           Some problems:
-#               1) the matplotlib widgets creates a lot of views which alway cause problemse (thats the reason for the try below)
-#               2) for ax swaping (also rolling, transposing changes in strides can't be identified in __array_finalize__)
-        
-        # p = __DEFAULTS__['IMG_PIXELSIZES']
-        # if type(obj) == type(self):
-        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-        #     for i in range(len(self.shape)):
-        #         try:
-        #             pxs[-i-1] = obj.pixelsize[-i-1]  # new_axes[-i-1]
-        #         except:
-        #             if i >= len(p):
-        #                 pxs[-i-1] = p[0]
-        #             else:
-        #                 pxs[-i-1] = p[-i-1]
-        # else:
-        #     pxs = self.ndim*[1.0] # [i*0+1.0 for i in self.shape];
-        #     for i in range(len(self.shape)):
-        #         if i >= len(p):
-        #             pxs[-i-1] = p[0]
-        #         else:
-        #             pxs[-i-1] = p[-i-1]
-        # self.pixelsize = pxs
         self.set_pixelsize(getattr(obj, 'pixelsize', None))
 #        self.dim_description = getattr(obj,'dim_description', {'d0': [],'d1': [],'d2': [],'d3': [],'d4': [],'d5': []})
         self.dim_description = getattr(obj, 'dim_description', None)
@@ -2639,23 +2672,86 @@ class image(np.ndarray):
         # self.name = None # 'Img Nr'+str(max_im_number)
 
 
-def shiftby(img, avec):
-    return np.real(ift(coordinates.applyPhaseRamp(ft(img), avec)))
+def shiftby(img, avec, **kwargs):
+    """
+    Shifts an image in direction of avec pixels using the FT shift theorem.
+
+        :param im:              Image to be shifted
+        :param avec:            Shift vector  (array of float, int -> shifts the image in each direction, must have dimension of the image)
+        :param kwargs:          possible kwargs:
+                                    :param DampOutside:         should the image be damped outside before shifting? default is True
+                                    :param smooth:              smooth!!! default is False
+                                    :param kwargs of DampOutside
+        :return: an image shifted along the direction of avec
+
+        ---------------------------------------------------------------------------------------------------
+        Examples:
+
+            import NanoImagingPack as nip
+            img = nip.readim()
+
+            s1=nip.shiftby(img,[13.5,17.8])
+            s2=nip.shiftby(img,[13.5,17.8], DampOutside = False)
+            s3=nip.shiftby(img,[-23.11,2.4], rwidth = 0.5)
+
+        See also:
+            shift2Dby, extract, applyPhaseRamp
+
+    """
+    if 'DampOutside' in kwargs:
+        damp = kwargs.pop('DampOutside')
+        if not isinstance(damp, bool):
+            warnings.warn('DampOutside should be boolean.')
+            damp = True
+    else:
+            damp = True
+    if 'smooth' in kwargs:
+        smooth = kwargs.pop('smooth')
+        if not isinstance(smooth, bool):
+            warnings.warn('smooth should be boolean.')
+            smooth = False
+    else:
+            smooth = False
+    # choose standard damping
+    if not 'rwidth' in kwargs and not 'width' in kwargs:
+        kwargs['rwidth'] = 0.1
+
+    size = np.array(img.shape)
+
+    # do the damping
+    if damp == True:
+        img = DampOutside(img, **kwargs)
+
+    # shifting and change direction of avec
+    avec = - np.array(avec)
+    img = np.real(ift(coordinates.applyPhaseRamp(ft(img), avec, smooth = smooth)))
+
+    # remove padding
+    if damp == True:
+        img = extract(img, size)
+    # extract the shifted image
+
+    center = size//2 - (np.sign(avec)*np.ceil(np.abs(avec))).astype(int)
+    img = extract(img, size, center)
+
+    return img
 
 def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
 
-def zoom(img, zoomfactors=None):
-    """
-    zooms by interpolation using the SciPy command interpolation.zoom.
-    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
-    :param img: image to zoom
-    :param zoomfactors: factors as a list of zoom factors, one for each direction
-    :return: zoomed image
-    see also:
-    resample
-    """
-    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
+
+#def zoom(img, zoomfactors=None):
+#    """
+#    zooms by interpolation using the SciPy command interpolation.zoom.
+#    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
+#    :param img: image to zoom
+#    :param zoomfactors: factors as a list of zoom factors, one for each direction
+#    :return: zoomed image
+#    see also:
+#    resample
+#    """
+#    print('zoom depricated ... s')
+#    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
 
 def resize(img, newsize):
     """
