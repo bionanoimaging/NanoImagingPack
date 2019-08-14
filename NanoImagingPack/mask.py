@@ -40,17 +40,22 @@ def sin2D(mysize = (256,256), angle=0, period = 10, init_phase =0):
 
 def spherical_cap(mysize=  (256,256,32), maskpos = (0,0,0), R_sphere = 100, R_cap = 30, thickness = 'fill'):
     """
-      Create a binary mask of a spherical cap (only shell or whole volume in a 3D volume with the cap pointing in z -direction
+    Create a binary mask of a spherical cap (only shell or whole volume in a 3D volume with the cap pointing in z -direction
+    :param mysize: Shape of the volume
+    :param maskpos:  Center position of the ground surface (pixels),
+                    int (than same mask position for all axes);
+                    tuple or list (give the mask positions)
+                    'center'
+    :param R_sphere: Radius of the sphere (outer Radius in case non filled sphere)
+    :param R_cap: Radius of the ground surface of the cap
+    :param thickness: Thickness in pixels (than it makes a shell), or 'fill', than it fills the volume
+    :return:
 
-      mysize:       Shape of the volume
-      maskpos:      Center position of the ground surface (pixels),
-                         int (than same mask position for all axes);
-                         tuple or list (give the mask positions)
-                         'center'
-      R_sphere:     Radius of the sphere (outer Radius in case non filled sphere)
-      R_cap:        Radius of the ground surface of the cap
-      thickness:    Thickness in pixels (than it makes a shell), or 'fill', than it fills the volume
+    Example:
+    import NanoImagingPack as nip
+    out = nip.spherical_cap(mysize=  (256,256,32), maskpos = (0,0,0), R_sphere = 100, R_cap = 30, thickness = 'fill')
     """
+
  
     if (type(maskpos) == list or type(maskpos) == tuple):
             if len(maskpos) > len(mysize):
@@ -82,20 +87,23 @@ def spherical_cap(mysize=  (256,256,32), maskpos = (0,0,0), R_sphere = 100, R_ca
 
 def spherical_mask(mysize = (256,256,32), maskpos = (0,0,0), R_sphere = 100, thickness = 'fill'):
     """
-        creates a spherical mask
+    SPHERICAL_MASK creates a spherical mask
+    Create a binary mask of a spherical cap (only shell or whole volume in a 3D volume with the cap pointing in z -direction)
 
-              Create a binary mask of a spherical cap (only shell or whole volume in a 3D volume with the cap pointing in z -direction
-
-      mysize:       Shape of the volume
-      maskpos:      Center position of the sphere (pixels)
+    :param mysize: Shape of the volume
+    :param maskpos: Center position of the sphere (pixels)
                     int or float (than same mask position for all axes);
                     tuple or list (give the mask positions)
                     'center'
-      R_sphere:     Radius of the sphere (outer Radius in case non filled sphere)
-      thickness:    Thickness in pixels (than it makes a shell), or 'fill', than it fills the volume
+    :param R_sphere: Radius of the sphere (outer Radius in case non filled sphere)
+    :param thickness: Thickness in pixels (than it makes a shell), or 'fill', than it fills the volume
+    :return: a binary 3-D array of spherical cap pointing in z -direction
 
-     """
+    Example:
+    import NanoImagingPack as nip
+    out = nip.spherical_mask(mysize = (256,256,32), maskpos = (0,0,0), R_sphere = 100, thickness = 'fill')
 
+    """
     Sphere = VolumeList(mysize, MyCenter = maskpos, polar_axes = 'all', return_axes =0)
     if thickness == 'fill':
         return((Sphere<=R_sphere)*1)
@@ -105,14 +113,20 @@ def spherical_mask(mysize = (256,256,32), maskpos = (0,0,0), R_sphere = 100, thi
 
 def create_circle_mask(mysize =(256,256),maskpos = (0,0) ,radius=100, zero = 'center'):
     """
-        creates a circle mask of given radius around the maskpos coordinates
-
-        mysize: tuple of sizes ()
-        position: center of circle
-        radius: circle radius -> can be list or tuple if the radii in two directions are different (i.e. elliptical mask)
-        zero:
-                'center': cooridnate origin at center
+    CREATE_CIRCLE_MASK creates a circle mask of given radius around the maskpos coordinates
+    :param mysize: tuple of sizes ()
+    :param maskpos: center of circle
+    :param radius: circle radius -> can be list or tuple if the radii in two directions are different (i.e. elliptical mask)
+    :param zero: 'center': cooridnate origin at center
                 'image': like image coordinates (zero is in the upper left corner)
+    :return: a 2-D mask
+
+    Example:
+    import NanoImagingPack as nip
+    from NanoImagingPack import v5
+    out = nip.create_circle_mask(mysize =(256,256),maskpos = (0,0) ,radius=100, zero = 'center')
+    v5(out)
+
     """
     import numbers
     if isinstance(radius, numbers.Number):
@@ -129,12 +143,22 @@ def create_circle_mask(mysize =(256,256),maskpos = (0,0) ,radius=100, zero = 'ce
 
 def otf_support(im, pixelsize, l, NA):
     """
-        Creates a mask for a (2D) image, which is 1 for k<k_0 and 0 for k>k_0 (k_0 is the abbe frequency)
+    OTF_SUPPORT Creates a mask for a (2D) image, which is 1 for k<k_0 and 0 for k>k_0 (k_0 is the abbe frequency)
+    :param im: Input image
+    :param pixelsize: physical dimension of the pixel
+    :param l: wavelength
+    :param NA: Numerical Aperture
+    :return: a 2-D mask
+    Note: Make sure l and pixelsize have the same unit
 
-        l is the wavelength
-
-        Make sure l and pixelsize have the same unit
+    Example:
+    import NanoImagingPack as nip
+    from NanoImagingPack import v5
+    im = nip.readim()
+    out = nip.otf_support(im,(16,16),500,1.4)
+    v5(out)
     """
+
     import numbers
     if isinstance(pixelsize, numbers.Number):
         pixelsize = [pixelsize,pixelsize]

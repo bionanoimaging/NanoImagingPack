@@ -196,12 +196,20 @@ def NM2NollIdx(n, m):
 
 def zernike(r, m, n, radial = False):
     """
-        compute the zerincke polynomial Z^m_n(r, phi)
+    Compute the zerincke polynomial Z^m_n(r, phi)
+    :param r: Normalized radial coordinate
+    :param m: order of polynomial
+    :param n: order of polynomial
+    :param radial: if true, only the radial component of the zernike will be returned
+    :return:
 
-        r: normalized radial coordinate
-        n,m  orders of the polynomial
-        radial: if true, only the radial component of the zernike will be returned
+    Example:
+    import NanoImagingPack as nip
+    from NanoImagingPack import v5
+    out = nip.zernike(256,2,3) TODO: I don't know which input parameter works - Monalisa
+    v5(out)
     """
+
     if n<0 or np.abs(m)>n:
         raise ValueError('n must not be negative and |m| <= n')
     if radial == False:

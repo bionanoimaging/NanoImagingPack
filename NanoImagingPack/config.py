@@ -51,9 +51,14 @@ class __zernikes__():
 # DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
 def PSF_PARAMS():
     """
-    a functions returning a structure of default PSF_PARAMS. This prevents them from being changed!
+    PSF_PARAMS function return a structure of default PSF_PARAMS. This prevents them from being changed!
     :return: PSF_PARAMS stucture
+
+    Example:
+    import NanoImaging as nip
+    nip.PSF_PARAMS()
     """
+
     __PSF_PARAMS = util.struct()
     __PSF_PARAMS.explanation= '\n NA                    Numerical aperture \n'
     __PSF_PARAMS.explanation+=' n                     refractive index of the immersion medium\n'

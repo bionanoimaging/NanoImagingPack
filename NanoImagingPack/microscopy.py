@@ -72,8 +72,20 @@ def __setPol__(im, psf_params= None):
 
 def zernikeStack(im, psf_params=None, nzernikes=15):
     """
-    create a stack of Zernike base aberrations including the scalar pupil.
+    ZERNIKESTACK creates a stack of Zernike base aberrations including the scalar pupil
+    :param im: Input image
+    :param psf_params: default PSF parameter
+    :param nzernikes: number of stacks
+    :return: a stack of Zernike base aberrations
+
+    Example:
+    import NanoImagingPack as nip
+    from NanoImagingPack import v5
+    im = nip.readim()
+    out = nip.zernikeStack(im,nzernikes=3)
+    v5(out)
     """
+
     psf_params = getDefaultPSF_PARAMS(psf_params)
     r = pupilRadius(im, psf_params)
     myzernikes = zeros((nzernikes, im.shape[-2], im.shape[-1]))  # + 1j * nip.zeros((nzernikes, Po.shape[-2], Po.shape[-1]))
@@ -85,7 +97,13 @@ def zernikeStack(im, psf_params=None, nzernikes=15):
 
 def aberrationMap(im, psf_params= None):
     """
-    create an aberration phase map (based on Zernike polynomials) for PSF generation
+    ABERRATIONMAP creates an aberration phase map (based on Zernike polynomials) for PSF generation
+    :param im: Input Image
+    :param psf_params: PSF paramter
+    :return:
+    """
+    """
+    
 
     uses:
         PSF_PARAMS().aberration_strength = None;
@@ -168,9 +186,49 @@ def aberrationMap(im, psf_params= None):
     return aberration_map
 
 def propagatePupil(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
+    """
+
+    :param pupil:
+    :param sizeZ:
+    :param psf_params:
+    :param mode:
+    :param doDampPupil:
+    :return:
+
+    Example:
+    import NanoImagingPack as nip
+    from NanoImagingPack import v5
+    im = nip.readim()
+    im.set_pixelsize((100,100))
+    nip.pupilAperture(im)
+    pupil = nip.jincAperture(im)
+    out = nip.propagatePupil(pupil)
+
+
+    see also jincAperture, pupilAperture
+    """
+
     return pupil * propagationStack(pupil, sizeZ, psf_params, mode, doDampPupil)
 
 def propagationStack(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
+    """
+
+    :param pupil:
+    :param sizeZ:
+    :param psf_params:
+    :param mode:
+    :param doDampPupil:
+    :return:
+
+    Example:
+    import NanoImagingPack as nip
+    from NanoImagingPack import v5
+    im = nip.readim()
+    im.set_pixelsize((100,100))
+    nip.pupilAperture(im)
+    pupil = nip.jincAperture(im)
+
+    """
     psf_params = getDefaultPSF_PARAMS(psf_params)
     myshape = (sizeZ,) + shapevec(pupil)[-2:]
     return __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape)
@@ -204,6 +262,8 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
     else:
         axial_pxs = None
 
+#    if axial_pxs is None:
+#        raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize().")
 
     if len(shape)>2:
         if axial_pxs is None:
@@ -259,6 +319,15 @@ def pupilAperture(im, psf_params = None):
     :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: boolean aperture
+
+    Example:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    ft_im = nip.ft2d(im)
+    nip.pupilAperture(ft_im)
+
+    See also: jincAperture(), psf_params()
+
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
     return pupilRadius(im,psf_params) < 1.0
@@ -270,6 +339,14 @@ def jincAperture(im, psf_params = None):
     :param im: image in Fourier space, defining the coordinates. This is given in any image with a set pixelsize
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: boolean aperture
+
+    Example:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    ft_im = nip.ft2d(im)
+    nip.jincAperture(ft_im)
+
+    See also: psf_params(), pupilAperture()
     """
     if im.pixelsize is None:
         raise ValueError("jincAperture needs the pixelsize to be present in the image. Please first set the pixelsize via img.set_pixelsize(value).")
@@ -292,9 +369,15 @@ def jincAperture(im, psf_params = None):
 def cosSinAlpha(im, psf_params = None):
     """
     calculates the cos and sin of the angles (alpha) of beams (in real space) to the optical axis in the pupil plane
-    :param im: image in Fourier space, defing the coordinates. This can be obtained by Fourier-transforming a real space image with a set pixelsize
+    :param im: image in Fourier space, defining the coordinates. This can be obtained by Fourier-transforming a real space image with a set pixelsize
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: a tuple of cos(alpha) and sin(alpha) images in the pupil plane
+
+    Example:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    ft_im = nip.ft2d(im)
+    nip.cosSinAlpha(ft_im)
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
     NA = psf_params.NA
@@ -312,7 +395,12 @@ def FresnelCoefficients(cos_alpha, sin_alpha, n1, n2):
     :param cos_alpha: the cosine of the angle of the incident beam towards the normal
     :param n1: refractive index of the medium of the incident beam
     :param n2: refractive index of the medium of the outgoing beam
-    :return: ((Ep/E0p),(Es/E0s))  with E0p being the incident amplitude for the parallel polarisation and Ep being the outgoing amplitude.
+    :return: ((Ep/E0p),(Es/E0s), cos_beta, sin_beta)  with E0p being the incident amplitude for the parallel polarisation
+            and Ep being the outgoing amplitude. beta is the angle made by transmitted beam with normal
+
+    Example:
+    import NanoImagingPack as nip
+    nip.FresnelCoefficiens(cos_alpha=1, sin_alpha=0, n1=1, n2=1.5)
     """
     sin_beta = n1 * sin_alpha / n2
     cos_beta = np.sqrt(1 - sin_beta**2)    # n1 sin_alpha = n2  sin_beta.
@@ -323,7 +411,8 @@ def FresnelCoefficients(cos_alpha, sin_alpha, n1, n2):
 
 def dampPupilForRealSpaceCut(PhaseMap):
     """
-    considers the limited field-of-view effect in real space by dimming the higher frequencies in the pupil plane.
+    Considers the limited field-of-view effect in real space by dimming the higher frequencies in the pupil plane.
+    :param PhaseMap:
     :return: an amplitude strength modification factor for the pupil and given defocus value(s)
     """
     # figure out phi: the relative phase change between neighboring pixels, estimated from cos_alpha
@@ -334,12 +423,17 @@ def dampPupilForRealSpaceCut(PhaseMap):
 
 def defocusPhase(cos_alpha, defocus=None, psf_params = None):
     """
-    calculates the complex-valued defocus phase propagation pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
-
+    Calculates the complex-valued defocus phase propagation pattern for a given focus position. The calculation is accurate for high NA. However, it does not consider Fourier-space undersampling effects.
     :param cos_alpha: a map of cos(alpha) values in the pupil plane. Use "cosSinAlpha(im,psf_param)" to optain such a map
     :param defocus: real-space defocus value. if None is supplied, psf_params.off_focal_distance is used instead
     :param psf_params: a structure of point spread function parameters. See SimLens for details
     :return: a phase map (in rad) of phases for the stated defocus
+
+    Example:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    cos_alpha, sin_alpha = nip.cosSinAlpha(im)
+    nip.defocusPhase(cos_alpha) TODO : kindly check the result - MG
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
     if defocus is None:
