@@ -1627,41 +1627,43 @@ def centroid(im):
 
 
 def line_cut(im, coord1=0, coord2=None, thickness=10):
-    """
-        extract a line cut from an image
-        The used method:  image is rotated in the way, that the line is horizontal and then extracted
-            if the image has more than 2 Dimensions, the linecut will be done through all 2D images in the stack (first two axes, first one is x, second one is y)
-
-        coord1:
-            -> first supporting coordinate of the line cut:
+    '''
+    LINE_CUT Extract a line that is cut from an image and gives a 1-D array
+    :param im: Input image
+    :param coord1: -> first supporting coordinate of the line cut:
                 if tupel or list -> starting coordinate of the line
                 if float or int:  this is the tilting angle of the line (in degree)
-
-        coord2:
-            -> second supporting coordinate of the line cut:
+    :param coord2:-> second supporting coordinate of the line cut:
                 if tupel or list
                     -> end coordinate of the line (if coord1 is a coordinate)
                     -> support point of the line (if coord1 is an angle)
                 if None: the line cut will go through the center of the image and be symmetrical (e.g. from coord1 throuhg the center and have the double length of the distance coord1 - center )
-
-                    Note: for the angle: the y-axis goes in negative direction!!!
+                Note: for the angle: the y-axis goes in negative direction!!!
                                          the angle is typically defined (atan(DeltaY/DeltaX))
-
-        thickness is averaging around the line (default = 10)
-
-        EXAMPLES:
-            line_cut(im,coord1 = 40)
-                creates a line cut through the center and an angle of 40 Degree through the whole image
-
-            line_cut(im,coord1 = 40, coord2 = (120,200)
-                creates a line cut through pixel (120,200) and an angle of 40 Degree through the whole image
+    :param thickness: thickness is averaging around the line (default = 10)
+    :return: returns 1D- array with linecut and rotation angle
 
 
-            line_cut(im,coord1 = (120,200), coord2 = (500,300),thickness = 20)
-                creates a line cut from (120,200) to (500,300), averages ove 20 points around the cut
 
-        returns 1D- array with linecut and rotation angle
-    """
+    Example1:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.line_cut(coord1 = 40)
+                #creates a line cut through the center and an angle of 40 Degree through the whole image
+    Example2:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.line_cut(coord1 = 40, coord2 = (120,200))
+                #creates a line cut through pixel (120,200) and an angle of 40 Degree through the whole image
+
+    Example2:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.line_cut(coord1 = (120,200), coord2 = (500,300),thickness = 20)
+                #creates a line cut from (120,200) to (500,300), averages ove 20 points around the cut
+
+    '''
+
     through_all = False
     if coord2 is None:
         coord2 = (np.array(im.shape[:2][::-1]) - 1) / 2.
@@ -1755,18 +1757,22 @@ def extractFt(img, ROIsize=None, mycenter=None, ModifyInput=False, ignoredim=Non
 
 def fixFtAfterExtract(res, img, ignoredim):
     """
-    corrects for the even-size issues when extracting. ATTENTION! THIS ROUTINE MODIFIES img
+    FIXFTAFTEREXTRACT corrects for the even-size issues when extracting. ATTENTION! THIS ROUTINE MODIFIES img
+    :param res: result after extracting the normal way
+    :param img: input image before extraction (WILL BE MODIFED!)
+    :param ignoredim: ToDO: What is this used for?
+    :return:
 
-    Parameters
-    ----------
-        res: result after extracting the normal way
-        img: input image before extraction (WILL BE MODIFED!)
+    Example1: ToDO: Don't know how exampple work
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.fixFtAfterExtract()
 
     See also
     -------
     extract
-
     """
+
     szold = img.shape
     midold = img.mid()
     sznew = res.shape
@@ -1790,6 +1796,28 @@ def fixFtAfterExtract(res, img, ignoredim):
 
 
 def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
+    '''
+    EXTRACT a part in an n-dimensional array based on stating the destination ROI size and center in the source
+    :param img: Input image
+    :param ROIsize: region of interest to extract ((minx,maxx),(miny,maxy))
+    :param centerpos: center of the ROI in source image to extract
+    :param PadValue: Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
+    :param checkComplex: ToDO: What is this used for?
+    :return: an extracted image
+
+    Example1:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.extract([128,128]) #EXTRACT an ROI of 128*128 from centre of image
+
+    Example1:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.extract([128,128],[128,128]) #EXTRACT an ROI of 128*128 with coordinate 128,128 as centre
+
+    ToDO: The example below by Rainer doesn't work becasue there is no function centered_extract?
+
+    '''
     """
         extracts a part in an n-dimensional array based on stating the destination ROI size and center in the source
 
@@ -1798,6 +1826,7 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
         PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
 
         Example:
+        
             nip.centered_extract(nip.readim(),[799,799],[-1,-1],100) # extracts the right bottom quarter of the image
 
         RH Version
@@ -1834,22 +1863,21 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
 
 def extractROI(im, roi=[(0, 10), (0, 10)], axes=None, extend='DEFAULT'):
     """
-        returns sub image
+    EXTRACTROI extract region of interest
+    :param im: Input Image
+    :param roi: Region of Interest -> this must be a list of tupels
+                each tupel gives the minimum and the maximum to clip for the given axis!
+    :param axes: axes is a list of axis, if not given the first axes will be used, if given its length has to have the length of the roi list
+    :param extend: True or False, if true, the image will be padded with zeros if the roi exceeds borders
+    :return: returns sub image
 
-            im is the image
-            roi is the region of interests  -> this must be a list of tupels
-                                                     each tupel gives the minium and the maximum to clip for the given axis!
-
-
-            axes is a list of axis, if not given the first axes will be used, if given its length has to have the length of the roi list
-
-            extend: True or False, if true, the image will be padded with zeros if the roi exceeds boarders
-
-            example:
-                extract(im, roi = [(20,30), (100,300)], axes = (0,2));
-                   will clip the image im between 20 and 30 in the x-axis and 100 and 300 in the z-axis
+    Example:
+    import NanoImagingPack as nip
+    im = nip.readim()
+    im.extractROI([(0,128),(0,128)])
 
     """
+
     old_arr = im
     if extend == 'DEFAULT':
         extend = __DEFAULTS__['EXTRACT_EXTEND']
@@ -2396,10 +2424,18 @@ class image(np.ndarray):
         
     def centroid(self, roi = None, axes = None, ret = 'global'):
         """
-            Centroid coordinate in certain roi (list of (min, max))
-            ret:
-                if global -> returns global coordinates of image, otherwise coords in that roi
+         member fuction to calculate the centroid coordinate in certain roi (list of (min, max))
+        :param roi: region of interest to evaluate ((minx,maxx),(miny,maxy))
+        :param axes: ToDO: What is this used for?
+        :param ret: if global -> returns global coordinates of image, otherwise coordinates in that roi
+        :return: the coordinates of centre of mass
+
+        Example :
+        import NanoImagingPack as nip
+        im = nip.readim()
+        im.centroid(roi=((100,200),(100,102)))
         """
+
         coord = cm(np.asarray(self.extractROI(roi, axes)))
         if ret == 'global':
             return self.__get_img_coord_from_roi__(coord, roi = roi, axes = axes)

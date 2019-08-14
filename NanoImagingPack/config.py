@@ -51,16 +51,21 @@ class __zernikes__():
 # DEFINE AVAILABLE PACKAGE STRUCT DEFAULTS HERE!
 def PSF_PARAMS():
     """
-    a functions returning a structure of default PSF_PARAMS. This prevents them from being changed!
+    PSF_PARAMS function return a structure of default PSF_PARAMS. This prevents them from being changed!
     :return: PSF_PARAMS stucture
+
+    Example:
+    import NanoImaging as nip
+    nip.PSF_PARAMS()
     """
+
     __PSF_PARAMS = util.struct()
     __PSF_PARAMS.explanation= '\n NA                    Numerical aperture \n'
     __PSF_PARAMS.explanation+=' n                     refractive index of the immersion medium\n'
     __PSF_PARAMS.explanation+=' n_embedding           refractive index of the embedding medium (default: None, meaning the same as the immersion medium.\n'
     __PSF_PARAMS.explanation+=' n_cs                  refractive index of the coveslip (default: None, meaning that the reflections at the coverslip are not accounted for). Set to 1.52 for typical coverslips.\n'
     #PSF_PARAMS.explanation+=' dimension             2 or 3 -> dimenstion of the Transfere function \n'
-    __PSF_PARAMS.explanation+=' wavelenght            wavelength in units of the image pixel size \n'
+    __PSF_PARAMS.explanation+=' wavelength            wavelength in units of the image pixel size \n'
     __PSF_PARAMS.explanation+=' pol                   polarization: give "lin","lin_x","lin_y", "azimuthal", "radial", "circular", "elliptic" or a tuple or list of polarization maps (has to be of x,y dim of the image, first element is x, second y polarization) \n'
     __PSF_PARAMS.explanation+=' pols                  polarization: Choose Polarization type from a list\n'
     __PSF_PARAMS.explanation+=' pol_xy_phase_shift    Only for elliptic polarization: Enter the phase shift between x and y in rad \n'
