@@ -48,7 +48,7 @@ allviewers=[]
 # View5D=javabridge.JClassWrapper('view5d.View5D')()
 
 class View5D:
-    if (JVM_RUNNING == 0):
+    if JVM_RUNNING:
         setSize = javabridge.make_method("setSize","(II)V")
         setName = javabridge.make_method("setName","(ILjava/lang/String;)V")
         NameElement = javabridge.make_method("NameElement","(ILjava/lang/String;)V")
