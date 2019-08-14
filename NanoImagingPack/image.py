@@ -35,7 +35,6 @@ from .config import DBG_MSG, __DEFAULTS__
 from .noise import poisson
 from . import coordinates
 from .view import graph, view
-from .view5d import v5, JVM_RUNNING # for debugging
 from . import util
 import warnings
 
@@ -2119,6 +2118,7 @@ class image(np.ndarray):
                     else:
                         # if self.name is None:
                         #     self.name = util.caller_string(3)  # use the name of the caller
+                        from .view5d import v5
                         self.v = v5(self)
                 elif __DEFAULTS__['IMG_VIEWER'] == 'INFO':
                     print('Image :'+self.name)
