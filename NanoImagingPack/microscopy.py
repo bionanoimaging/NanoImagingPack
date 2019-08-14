@@ -306,7 +306,7 @@ def cosSinAlpha(im, psf_params = None):
     cos_alpha = np.sqrt(1-(sin_alpha)**2)  # angle map cos
     return cos_alpha, sin_alpha
 
-def FresnelCoefficiens(cos_alpha, sin_alpha, n1, n2):
+def FresnelCoefficients(cos_alpha, sin_alpha, n1, n2):
     """
     returns a tuple of Fresnel coefficient maps (Ep/E0) and (Es/E0) when the light is transiting from refractive index n1 to n2.
     :param cos_alpha: the cosine of the angle of the incident beam towards the normal
@@ -316,7 +316,7 @@ def FresnelCoefficiens(cos_alpha, sin_alpha, n1, n2):
     """
     sin_beta = n1 * sin_alpha / n2
     cos_beta = np.sqrt(1 - sin_beta**2)    # n1 sin_alpha = n2  sin_beta.
-    numerator = 2*n1*cos_alpha
+    numerator = 2.0*n1*cos_alpha
     F_s = numerator / (n1 * cos_alpha + n2 * cos_beta)
     F_p = numerator / (n2 * cos_alpha + n1 * cos_beta)
     return (F_s, F_p, cos_beta, sin_beta)
@@ -414,6 +414,18 @@ def aberratedPupil(im, psf_params = None):
     plane *= np.exp(1j*PhaseMap)  # psf_params.off_focal_distance is used as default
     return plane
 
+def fLensmaker(R1=52,R2=np.inf, n=1.52, d = 10): # BK 7 at 520 nm
+    """
+    calculate the focal length f of a thick lens.
+    :param R1: radius of curvature of the first surface
+    :param R2: radius of curvature of the second surface (can be infinite: np.inf)
+    :param n: refractive index. Default BK7 at 520nm
+    :param d: thickness in the middle. Units are mm
+    :return: focal length
+    """
+    f = 1.0/((n-1.0)*(1.0/R1-1.0/R2+(n-1)*d/(n*R1*R2)))
+    return f
+
 def simLens(im, psf_params = None):
     """
     Compute the 2D pupil-plane field (fourier transform of the electrical field in the plane (at position PSF_PARAMS.off_focal_dist))
@@ -451,8 +463,8 @@ def simLens(im, psf_params = None):
         E_radial     = cos_theta * polx - sin_theta * poly
         E_tangential = sin_theta * polx + cos_theta * poly
         if psf_params.n_cs is not None:
-            (Fs1, Fp1, cos_alpha2, sin_alpha2) = FresnelCoefficiens(cos_alpha, sin_alpha, n_embedding, psf_params.n_cs)
-            (Fs2, Fp2, cos_alpha3, sin_alpha3) = FresnelCoefficiens(cos_alpha2, sin_alpha2, psf_params.n_cs, psf_params.n)
+            (Fs1, Fp1, cos_alpha2, sin_alpha2) = FresnelCoefficients(cos_alpha, sin_alpha, n_embedding, psf_params.n_cs)
+            (Fs2, Fp2, cos_alpha3, sin_alpha3) = FresnelCoefficients(cos_alpha2, sin_alpha2, psf_params.n_cs, psf_params.n)
             E_radial *= Fp1 * Fp2
             E_tangential *= Fs1 * Fs2
         E_z = E_radial * sin_alpha
