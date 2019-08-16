@@ -1155,3 +1155,62 @@ def caller_args(findString='(', stripOuterBrackets = True):
     finally:
         del frame
 
+def GLS(x,y,v):
+    """
+    [o,s]=GLS(x,y,v)  : Generalized Least Square fit, linear regression with error. Fits a straight line with offset through data with known variances.
+    x : vector of x-values, known postions at which was measured.
+    y : vector y-values, measurements.
+    v : vector of known errors. These can also be estimated, but if you have a model, use RWLS, the reweighted least squares regression.
+        Specifically look at RWLSPoisson if this fitting is for Poisson statistics.
+    o : offset = y-value at zero x-value
+    s : slope
+
+    This routine is based on the Wikipedia description at
+    https://en.wikipedia.org/wiki/Linear_regression
+    (Xt Omega-1 X)^-1  Xt Omega^-1  Y
+    Example:
+    [o,s]=GLS([1 2 3 4],[7 8 9 11],[1 1 1 1])
+    """
+    Xt = np.stack((np.ones(x.shape),x),-2)
+    #X = np.transpose(Xt)
+    Omega_X = np.transpose(np.stack((1/v,x/v),-2))
+    Omega_Y = np.transpose(y/v)
+    ToInvert = Xt.dot(Omega_X) # matrix product
+
+    res = np.linalg.inv(ToInvert).dot(Xt.dot(Omega_Y))
+    return res
+
+
+def RWLSPoisson(x,y,N=1, ignoreNan=True):
+    """ [o,s]=RWLSPoisson(x,y,N)  : Poisson Reweighted Least Square fit, linear regression with error according to the Poisson distribution. Fits a straight line with offset.
+     x : vector of x-values, known postions at which was measured.
+     y : vector y-values, measurements.
+     N : optional number of measurements from which y was obtained by averaging
+
+     This routine is based on the Wikipedia description at
+     https://en.wikipedia.org/wiki/Linear_regression
+     (Xt Omega-1 X)^-1  Xt Omega^-1  Y
+
+     Example:
+     [o,s]=RWLSPoisson([1 2 3 4],[7 8 9 11])
+    """
+    if ignoreNan:
+        valid = ~ np.isnan(y)
+        x = x[valid]
+        y = y[valid]
+        if len(np.shape(N)) > 0:
+            N = N[valid]
+
+    myThresh = 1.0 # roughly determined by a simulation
+    NumIter = 5
+    v = y  # variances of data is equal (or proportional) to the measured variances
+    for n in range(NumIter):
+        vv = v**2 / N; # Variance of the variance. The error of the variance is proportional to the square of the variance, see http://math.stackexchange.com/questions/1015215/standard-error-of-sample-variance
+        if any(v<myThresh):
+            vv[v<myThresh]=myThresh;  # This is to protect agains ADU-caused bias, which is NOT reduced by averaging
+            if n == 1:
+                print('WARNING RWLSPoisson: The data has a variance below 2 ADUs at low signal level. This leads to unwanted biases. Increasing the variance estimation for the fit.\n');
+        (o,s) = GLS(x, y, vv)
+        v = o+s*x # predict variances from the fit for the next round
+        # print('RWLSPoisson Iteration %d, o: %g, s: %g\n',n,o,s);
+    return o, s, vv

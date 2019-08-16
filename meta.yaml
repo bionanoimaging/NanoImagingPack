@@ -1,6 +1,6 @@
 package:
   name: nanoimagingpack
-  version: 2.0.0.dev3
+  version: 2.0.0.dev4
 
 source:
   git_rev: 
@@ -8,6 +8,7 @@ source:
 
 requirements:
   build:
+    - numpy>=1.12
     - python
     - setuptools
     - tifffile
@@ -15,7 +16,10 @@ requirements:
     - imageio
     - matplotlib
     - IPython
+    - scikit-tensor-py3
+    - python-bioformats
   run:
+    - numpy>=1.12
     #- python
     - tifffile
     #- mock>=2.0

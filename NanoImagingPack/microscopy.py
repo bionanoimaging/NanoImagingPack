@@ -11,7 +11,7 @@ Also SIM stuff
 """
 
 import numpy as np
-from .util import zernike, expanddim, midValAsg, zeros, shapevec, nollIdx2NM, abssqr
+from .util import zernike, expanddim, midValAsg, zeros, shapevec, nollIdx2NM, abssqr, RWLSPoisson
 from .transformations import rft,irft,ft2d
 from .coordinates import rr, phiphi, px_freq_step, ramp1D, cosSinTheta
 from .config import PSF_PARAMS, __DEFAULTS__
@@ -20,6 +20,7 @@ import warnings
 from scipy.special import j1
 from .image import image
 from .view5d import v5 # for debugging
+from matplotlib.pyplot import plot,errorbar,figure, xlabel, ylabel, rc
 
 def getDefaultPSF_PARAMS(psf_params):
     if psf_params is None:
@@ -277,16 +278,6 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
             return np.exp(1j * PhaseMap)
     else:
         return 1.0
-
-def cal_readnoise(images, bgimages, xrange=None, NBins=100):
-    varp = np.var(images, axis=0)
-    meanp = np.mean(images, axis=0)
-    if xrange is None:
-        xrange = [np.min(meanp), np.max(meanp)]
-    yrange = [np.min(varp), np.max(varp)]
-    (hist, xedges, yedges) = np.histogram2d(meanp, varp, bins=NBins, range=[xrange, yrange])
-    v5(hist)
-
 
 def pupilRadius(im, psf_params = None):
     """
@@ -1436,3 +1427,61 @@ def removePhaseInt(pulse):
     phase0 = np.angle(pulse[idx % pulse.size])
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
+
+def cal_readnoise(fg,bg,numBins=100,validRange=None, correctBrightness=True, doPlot=True):
+    """
+    calibrates detectors by fitting a straight line through a mean-variance plot
+    :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
+    :param bg: A series of dark images under identical camera settings (integration time, temperature, etc.). Suggested number: 20 images
+    :param numBins: Number of bins for the fit
+    :param validRange: If provided, the fit will only be performed over this range (from,to) of mean values
+    :param doPlot: Plot the mean-variance curves
+    :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
+    to scale your images into photons use: (image-offset) * gain
+    """
+    # a_nobg = a * 1.0 - meanbg
+    rc('font', size=12)  # controls default text sizes
+    rc('axes', titlesize=16, labelsize=12)  # fontsize of the axes title and number labels
+
+    meanbg = np.mean(bg, (-3))
+    background = np.mean(meanbg)
+    if correctBrightness:
+        brightness = np.mean(fg, (-2,-1), keepdims=True)
+        meanbright = np.mean(brightness)
+        relbright = brightness/meanbright
+        figure()
+        plot(relbright.flat)
+        xlabel("frame no.")
+        ylabel("relative brightness")
+        fg = (fg - background) * relbright
+    meanp = np.mean(fg, (-3))
+    varp = np.var(fg, (-3))
+    varbg = np.mean(bg, (-3))
+    (histNum, mybins) = np.histogram(meanp, bins=numBins)
+    (histWeight, mybins) = np.histogram(meanp, bins=numBins, weights=varp)
+    binMid = (mybins[1:] + mybins[:-1]) / 2.0;
+
+    valid = histNum > 0
+    histWeight = histWeight[valid]
+    histNum = histNum[valid]
+    binMid = binMid[valid]
+
+    meanvar = histWeight / histNum # this yields the mean variance curve
+
+    (offset, slope, vv) = RWLSPoisson(binMid, meanvar, histNum)
+
+    if doPlot:
+        figure(figsize=(12, 6))
+        plot(binMid, meanvar, label='Camera Data')
+        errorbar(binMid, binMid * slope + offset, np.sqrt(vv), label='Fit')
+        xlabel("mean signal / adu")
+        ylabel("variance / adu")
+
+    gain = 1.0 / slope
+    print("Calibration results:\n")
+    print("Background [adu]: " + str(background)+"\n")
+    print("Gain(from slope): " + str(gain)+"\n")
+    print("Readnoise(from slope): " + str(offset*slope)+"\n")
+    Readnoise = np.sqrt(np.mean(varbg)) * gain
+    print("Readnoise(from background noise and gain): "+ str(Readnoise)+"\n")
+    return (background, gain, Readnoise)

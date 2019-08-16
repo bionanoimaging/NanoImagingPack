@@ -308,7 +308,7 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             # img.info = info  # probably not so useful
             return img
     except:
-        print("WARNING: Bioformats failed. Reverting to other methods to load data.")
+        print("WARNING: Bioformats failed loading "+path+". Reverting to other methods to load data.")
 
     if isfile(path):
         ext = splitext(path)[-1][1:]
@@ -468,7 +468,7 @@ def readtimeseries(path, filename='', roi=[-1, -1, -1, -1], channel = None, ret_
                 im = im[:,roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
             else:
                 im = im[:, :, roi[1]:roi[3] + roi[1], roi[0]:roi[2] + roi[0]]
-        print(' Shape: ' + str(im.shape), end=' ; ', flush=True)
+        print('\nShape: ' + str(im.shape), end=' ; ', flush=True)
         if im.ndim > max_im_dim:
             max_im_dim = im.ndim
         if channel is not None and np.ndim(im) > 3:
