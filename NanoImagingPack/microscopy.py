@@ -20,7 +20,7 @@ import warnings
 from scipy.special import j1
 from .image import image
 from .view5d import v5 # for debugging
-from matplotlib.pyplot import plot,errorbar,figure, xlabel, ylabel, rc
+from matplotlib.pyplot import plot,figure, xlabel, ylabel, text, title, xlim, ylim # rc, errorbar,
 
 def getDefaultPSF_PARAMS(psf_params):
     if psf_params is None:
@@ -1428,37 +1428,94 @@ def removePhaseInt(pulse):
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
-def cal_readnoise(fg,bg,numBins=100,validRange=None, correctBrightness=True, doPlot=True):
+def cal_readnoise(fg,bg,numBins=100, validRange=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True):
     """
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
     :param bg: A series of dark images under identical camera settings (integration time, temperature, etc.). Suggested number: 20 images
     :param numBins: Number of bins for the fit
-    :param validRange: If provided, the fit will only be performed over this range (from,to) of mean values
+    :param validRange: If provided, the fit will only be performed over this range (from,to) of mean values. The values are inclusived borders
     :param doPlot: Plot the mean-variance curves
     :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
     to scale your images into photons use: (image-offset) * gain
     """
     # a_nobg = a * 1.0 - meanbg
-    rc('font', size=12)  # controls default text sizes
-    rc('axes', titlesize=16, labelsize=12)  # fontsize of the axes title and number labels
+    AxisFontSize=16
+    TextFontSize=14
+    TitleFontSize=20
+    # rc('font', size=AxisFontSize)  # controls default text sizes
+    # rc('axes', titlesize=AxisFontSize, labelsize=AxisFontSize)  # fontsize of the axes title and number labels
+    Text = "Analysed {nb:d} bright and {nd:d} dark images:\n".format(nb=fg.shape[0],nd=bg.shape[0])
+
+    validmap = None
+    if validRange is None:
+        underflow = np.sum(fg <= 0, (0,)) > 0
+        validmap = ~ underflow
+        numUnderflow = np.sum(underflow)
+        if np.min(fg) <= 0:
+            print("WARNING: "+str(numUnderflow)+" pixels with at least one zero-value (value<=0) were detected but no fit range was selected. Excluded those from the fit.")
+        Text = Text + "Zero-value pixels: {zv:d}".format(zv=numUnderflow)+" excluded.\n"
+        overflow = None
+        for MaxVal in [255,4096]:
+            if np.max(fg) == MaxVal:
+                overflow = np.sum(fg == MaxVal,(0,)) > 0
+                relsat = np.sum(overflow)
+                print("WARNING: "+str(relsat)+" pixels saturating at least once (value=="+str(MaxVal)+") were detected but no fit range was selected. Excluding those from the fit.")
+                Text = Text + "Overflow (=="+str(MaxVal)+") pixels: "+str(relsat)+"  excluded.\n"
+                validmap = validmap & ~ overflow
+        if overflow is None:
+            Text = Text + "No overflow pixels detected.\n"
+
+    print("Calibration results:")
+    if correctOffsetDrift:
+        meanoffset = np.mean(bg, (-2,-1), keepdims=True)
+        refOffset = np.mean(bg)
+        bg = bg - meanoffset + refOffset
+        reloffset = (refOffset - meanoffset)  / np.sqrt(np.var(bg))
+        if doPlot:
+            figure(figsize=(12, 6))
+            title("Offset Drift", fontsize=TitleFontSize)
+            plot(reloffset.flat, label='Offset / Std.Dev.')
+            xlabel("frame no.", fontsize=AxisFontSize)
+            ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
 
     meanbg = np.mean(bg, (-3))
     background = np.mean(meanbg)
+    patternVar = np.var(meanbg)
+
     if correctBrightness:
         brightness = np.mean(fg, (-2,-1), keepdims=True)
         meanbright = np.mean(brightness)
         relbright = brightness/meanbright
-        figure()
-        plot(relbright.flat)
-        xlabel("frame no.")
-        ylabel("relative brightness")
+        if doPlot:
+            figure(figsize=(12, 6))
+            title("Brightness Fluctuation", fontsize=TitleFontSize)
+            plot(relbright.flat)
+            xlabel("frame no.",fontsize=AxisFontSize)
+            ylabel("relative brightness",fontsize=AxisFontSize)
         fg = (fg - background) * relbright
+        maxFluc = np.max(np.abs(1.0-relbright))
+        Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
     meanp = np.mean(fg, (-3))
     varp = np.var(fg, (-3))
-    varbg = np.mean(bg, (-3))
-    (histNum, mybins) = np.histogram(meanp, bins=numBins)
-    (histWeight, mybins) = np.histogram(meanp, bins=numBins, weights=varp)
+    varbg = np.var(bg, (-3))
+
+    hotPixels = None
+    if excludeHotPixels:
+        hotPixels = np.abs(meanbg - np.mean(meanbg)) > 4.0*np.sqrt(np.mean(varbg))
+        numHotPixels=np.sum(hotPixels)
+        Text = Text + "Hot pixels (|bg mean| > 4 StdDev): "+str(numHotPixels)+" excluded.\n"
+        if validmap is None:
+            validmap = ~hotPixels
+        else:
+            validmap = validmap & ~hotPixels
+
+    if validmap is not None:
+        (histNum, mybins) = np.histogram(meanp, bins=numBins, weights=validmap+0.0)
+        (histWeight, mybins) = np.histogram(meanp, bins=numBins, weights=validmap*varp)
+    else:
+        (histNum, mybins) = np.histogram(meanp, bins=numBins)
+        (histWeight, mybins) = np.histogram(meanp, bins=numBins, weights=varp)
     binMid = (mybins[1:] + mybins[:-1]) / 2.0;
 
     valid = histNum > 0
@@ -1468,20 +1525,36 @@ def cal_readnoise(fg,bg,numBins=100,validRange=None, correctBrightness=True, doP
 
     meanvar = histWeight / histNum # this yields the mean variance curve
 
-    (offset, slope, vv) = RWLSPoisson(binMid, meanvar, histNum)
+    (offset, slope, vv) = RWLSPoisson(binMid, meanvar, histNum, validRange=validRange)
+
+    myFit = binMid * slope + offset
+    myStd = np.sqrt(vv)
+    gain = 1.0 / slope
+    Text = Text + "Background [adu]: {bg:.2f}".format(bg=background) + "\n"
+    Text = Text + "Gain [e- / adu]): {g:.4f}".format(g=gain) + "\n"
+    if offset < 0.0:
+        Text = Text + "Readnoise (fit): variance ({of:.2f}) below zero.".format(of=offset) + "\n"
+    else:
+        Text = Text + "Readnoise (fit): {rn:.2f}".format(rn=np.sqrt(offset)*gain)+"\n"
+    Text = Text + "Fixed Pattern, gain * Std.Dev.(mean_bg): {rn:.2f}".format(rn=np.sqrt(patternVar))+"e- RMS\n"
+    Readnoise = np.sqrt(np.mean(varbg)) * gain
+    Text = Text + "Readnoise, gain * bg_noise): {rn:.2f}".format(rn=Readnoise)+" e- RMS\n"
 
     if doPlot:
-        figure(figsize=(12, 6))
-        plot(binMid, meanvar, label='Camera Data')
-        errorbar(binMid, binMid * slope + offset, np.sqrt(vv), label='Fit')
-        xlabel("mean signal / adu")
-        ylabel("variance / adu")
+        figure(figsize=(12, 8))
+        title("Photon Calibration", fontsize=TitleFontSize)
+        plot(binMid, meanvar, 'bo', label='Camera Data')
+        # errorbar(binMid, myStd, myStd, label='Fit')
+        plot(binMid, myFit, 'r', label='Fit')
+        plot(binMid, myFit+myStd, '--r')
+        plot(binMid, myFit-myStd, '--r')
+        maxx = np.max(binMid)
+        maxy = np.max(meanvar)
+        xlim(0,maxx*1.05)
+        ylim(0,maxy*1.05)
+        xlabel("mean signal / adu", fontsize=AxisFontSize)
+        ylabel("variance / adu", fontsize=AxisFontSize)
+        text(maxx/20.0, maxy*0.6, Text, fontsize=TextFontSize)
 
-    gain = 1.0 / slope
-    print("Calibration results:\n")
-    print("Background [adu]: " + str(background)+"\n")
-    print("Gain(from slope): " + str(gain)+"\n")
-    print("Readnoise(from slope): " + str(offset*slope)+"\n")
-    Readnoise = np.sqrt(np.mean(varbg)) * gain
-    print("Readnoise(from background noise and gain): "+ str(Readnoise)+"\n")
-    return (background, gain, Readnoise)
+    print(Text)
+    return (background, gain, Readnoise, hotPixels)

@@ -1181,11 +1181,13 @@ def GLS(x,y,v):
     return res
 
 
-def RWLSPoisson(x,y,N=1, ignoreNan=True):
+def RWLSPoisson(x,y,N=1, ignoreNan=True, validRange=None):
     """ [o,s]=RWLSPoisson(x,y,N)  : Poisson Reweighted Least Square fit, linear regression with error according to the Poisson distribution. Fits a straight line with offset.
      x : vector of x-values, known postions at which was measured.
      y : vector y-values, measurements.
      N : optional number of measurements from which y was obtained by averaging
+     ignoreNan : should Nan valued be irnored?
+     validRange : optionally limits the range to fit
 
      This routine is based on the Wikipedia description at
      https://en.wikipedia.org/wiki/Linear_regression
@@ -1196,6 +1198,13 @@ def RWLSPoisson(x,y,N=1, ignoreNan=True):
     """
     if ignoreNan:
         valid = ~ np.isnan(y)
+        x = x[valid]
+        y = y[valid]
+        if len(np.shape(N)) > 0:
+            N = N[valid]
+
+    if validRange is not None:
+        valid = (x <= validRange[1]) & (x >= validRange[0])
         x = x[valid]
         y = y[valid]
         if len(np.shape(N)) > 0:
