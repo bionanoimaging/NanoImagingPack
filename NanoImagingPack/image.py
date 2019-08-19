@@ -52,14 +52,28 @@ def getPixelsize(img):
 
 def save_to_3D_tif(directory, file_prototype, save_name, sort='date', key=None):
     """
-        load a stack of 2D images and save it as 3D Stack
+    load a stack of 2D images and save it as 3D Stack
 
-        directory:   directory of the images
-        file_prototype: string: all files where the name contains the strings be loaded
-        save_name: save name
-        sort: how to sort files ('name' or 'date' or 'integer_key')
-            integer key: give key character, after which an integer number will be searched
+    :param directory: directory of the images
+    :param file_prototype: string: all files where the name contains the strings be loaded
+    :param save_name: save name
+    :param sort: how to sort files ('name' or 'date' or 'integer_key')
+    :param key: integer key: give key character, after which an integer number will be searched
+    :return: as 3D Stack
+
+     -----
+    Example:
+        import NanoImagingPack as nip
+        import os;
+
+        mydirectory = os.path.split(nip.__file__)[0]
+        mydirectory = os.path.join(mydirectory, 'resources', '2D_stack')   # Build a directory containing image files
+
+        myfiles = 'example';            # The base names of the files
+        nip.save_to_3D_tif(directory = mydirectory, file_prototype = myfiles, save_name = 'new')
+
     """
+
 
     flist = get_sorted_file_list(directory, file_prototype, sort, key)
     print(flist)
@@ -533,37 +547,33 @@ def weights1D(imgWidth, dampWidth, d, func = coshalf, ndims=None):
 
 def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp", sigma=4.0):
     """
-        DampEdge function
+    DampEdge function
 
-        im  image to damp edges
-
-        rwidth : relative width (default : 0.1 meaning 10%)
-            width in relation to the image size along this dimenions. Can be a single number or a tuple
-
-        width (None: rwidht is used, else width takes precedence)
+    :param img: image to damp edges
+    :param width: (None: rwidht is used, else width takes precedence)
             -> characteristic absolute width for damping
             -> can be integer, than every (given) axis is damped by the same size
             -> can be list or tupel -> than individual damping for given axis
+    :param rwidth: Relative width (default : 0.1 meaning 10%)
+                   width in relation to the image size along this dimenions. Can be a single number or a tuple
+    :param axes: Which axes to be damped (default is None, meaning all axes)
+    :param func: Which function shall be used for damping -> some are stated in functions.py, first element should be x, second one the length (Damping length!)
+                 e.g. cossqr, coshalf, linear
+                 default: coshalf
+    :param method: Which method should be used?
+                   -> "zero" : dims down to zero
+                   -> "damp" : blurs to an averaged mean (default)
+                   -> "moisan" : HF/LF split method according to Moisan, J Math Imaging Vis (2011) 39: 161–179, DOI 10.1007/s10851-010-0227-1
+    :param sigma:
+    :return: Returns image with damped edges
 
-        axes-> which axes to be damped (default is None, meaning all axes)
-
-        func   - which function shall be used for damping -> some are stated in functions.py, first element should be x, second one the length (Damping length!)
-                e.g. cossqr, coshalf, linear
-                default: coshalf
-
-        method -> which method should be used?
-                -> "zero" : dims down to zero
-                -> "damp" : blurs to an averaged mean (default)
-                -> "moisan" : HF/LF split method according to Moisan, J Math Imaging Vis (2011) 39: 161–179, DOI 10.1007/s10851-010-0227-1
-
-        return image with damped edges
-
-        Example:
-            import NanoImagingPack as nip
-            a=nip.DampEdge(nip.readim()[110:,395:])
-            nip.vv(nip.repmat(a,[2,2]))
+    -----
+    Example:
+        import NanoImagingPack as nip
+        nip.DampEdge(nip.readim()[400:,200:])
         TODO in FUTURE: padding of the image before damping
     """
+
     img = img.astype(defaultDataType)
     if width == None:
         width = tuple(np.round(np.array(img.shape) * np.array(rwidth)).astype("int"))
@@ -626,44 +636,32 @@ def DampEdge(img, width=None, rwidth=0.1, axes=None, func=coshalf, method="damp"
 
 def DampOutside(img, width=None, rwidth=0.1, usepixels=3, mykernel=None, kernelpower=3):
     """
-    DampOutside function
-
-
     Extrapolates the data by filling in blurred information outside the edges. This is a bit like DampEdge
     but using a normalized convolution with a kernel.
 
-    Parameters
-    ----------
-        img         image to pad damp edges
+    :param img: image to pad damp edges
+    :param width: (None): rwidth is used, else width takes precedence
+                   -> characteristic absolute width for damping
+                   -> can be integer, than every (given) axis is damped by the same size
+                   -> can be list or tupel or list of tuples -> than individual damping for given axis
+    :param rwidth: relative width (default : 0.1 meaning 10%)
+                   width in relation to the image size along its dimenions. Can be a single number or a tuple or list of tuples
+    :param usepixels: pixels to be used for convolution, should be a single number
+    :param mykernel: (None): kernel to be used for convolution, default is r^-3
+                      must be an image of the same size as the padded image
+    :param kernelpower: factor to be used in the default kernel, default is 3
+    :return: image with padded and damped edges
 
-        width       (None): rwidth is used, else width takes precedence
-                     -> characteristic absolute width for damping
-                     -> can be integer, than every (given) axis is damped by the same size
-                     -> can be list or tupel or list of tuples -> than individual damping for given axis
-
-        rwidth      relative width (default : 0.1 meaning 10%)
-                    width in relation to the image size along its dimenions. Can be a single number or a tuple or list of tuples
-
-        usepixels   pixels to be used for convolution, should be a single number
-
-        mykernel    (None): kernel to be used for convolution, default is r^-3
-                    must be an image of the same size as the padded image
-
-        kernelpower factor to be used in the default kernel, default is 3
-
-    Returns
-    -------
-        img : image with padded and damped edges
-
-    Examples
-    --------
+        -----
+    Example:
         import NanoImagingPack as nip
         img = nip.readim()
 
-        DampOutside(img)
-        DampOutside(img, [4,20])
-        DampOutside(img, rwidth = [[0,0.3],[0.5,0.2]])
+        nip.DampOutside(img)
+        nip.DampOutside(img, [4,20])
+        nip.DampOutside(img, rwidth = [[0,0.3],[0.5,0.2]])
     """
+
     from .coordinates import rr
     from .transformations import ft, ift
 
@@ -758,10 +756,21 @@ def __check_complex__(im):
     return not (np.issubdtype(im.dtype, np.floating) or np.issubdtype(im.dtype, np.integer))
 
 
+
 def make_odd(M, ax):
     """
-    Make a image odd in the given axis by removing one pixel line
+    Makes a image odd in the given axis by removing one pixel line
+
+    :param M: input image
+    :param ax: axis
+    :return:
+       -----
+    Example not working:
+        import NanoImagingPack as nip
+        nip.make_odd(nip.readim(), 1)
+
     """
+
     if np.mod(np.size(M, axis=ax), 2) == 0:
         M = np.delete(M, 0, ax)
     return util.__cast__(M, M)
@@ -770,26 +779,27 @@ def make_odd(M, ax):
 def match_size(im1, im2, axes=None, padmode='constant', clip_offset=None, odd=False):
     """
     Adjust the sizes of 2 images
-    Both images must have the same dimensions.
+    Returns 2 images with same dimensions.
 
-    :param im1:          Image1
-    :param im2:          Image2
+    :param im1:         Image1
+    :param im2:         Image2
     :param ax:          axes along which the images should be adjusted
     :param padmode:     clip: clips the larger image to the size of the smaller one, whereas the first part is used!
                         constant: fill up with zeros symmetrical (e.g. same size above and below)
                         const_below: fill up below
     :param clip_offset: for clipping: what is the offset of the at which axis for the clipping?
-    :param odd:         Make the images odd (Potentially to be depricated in newer versions)
+    :param odd:         Makes the images odd (Potentially to be deprecated in newer versions)
     :return:            A tuple of the adjusted images
 
     ----------------------------------------------------------------------------------------
     Example:
 
-    import NanoImagingPack as nip;
-    im1 = nip.readim();         # 800X800 image
-    im2 = nip.readim('erika');  # 256X256 image
+    import NanoImagingPack as nip
+    im1 = nip.readim()         # 800X800 image
+    im2 = nip.readim('erika')  # 256X256 image
 
     new_im1, new_im2 = nip.match_size(im1, im2, 0, 'constant')
+
     """
     if np.ndim(im1) == np.ndim(im2):
         if isinstance(axes, numbers.Integral):
@@ -977,12 +987,23 @@ def FRC(im1, im2, pixel_size = None, num_rings = 10, correct_shift = True):
 # def supersample(M, direction)
 
 def threshold(im, t1, t2=None):
-    """
-        Threshold image
-        returns a binary image -> if pixelvalue >= t1 -> 1, else: 0
 
-        if t2 is given than it returns 1 for pixelvalues between t1 and t2
     """
+    Threshold image, returns a binary image.
+    If the pixelvalue >= t1, then becomes 1, else: 0
+
+    :param im: input image
+    :param t1: threshold value
+    :param t2: if t2 is given, then it returns 1 for pixelvalues between t1 and t2
+    :return: binary image
+
+        -----
+    Example:
+        import NanoImagingPack as nip
+        nip.threshold(nip.readim(), 100)
+
+    """
+
     if t2 is None:
         return (im >= t1) * 1
     else:
@@ -1008,13 +1029,25 @@ def get_max(M, region=[-1, -1, -1, -1]):
 
 
 def adjust_dims(imlist, maxdim=None):
-    """
-        This functions takes a tupel of a list of images and adds dimensions in a way that all images in the list (or the tupel) have the same number of dimensions afterwards. T
-        Maxdim defines the dimension number of the final images.
-        If maxdim is smaller than the dimension size in one image or not given, maxdim will be ignored and the dimension number of that image with the most dimensions will be used instead
 
-        Extra dimensions will be added at the end
+
     """
+    This functions takes a tupel of a list of images and adds dimensions in a way that all images in the list (or the tupel) have the same number of dimensions afterwards. T
+        Extra dimensions will be added at the end
+
+    :param imlist: input list of images
+    :param maxdim: defines the dimension number of the final images
+                   If maxdim is smaller than the dimension size in one image or not given, maxdim will be ignored and the dimension number of that image with the most dimensions will be used instead
+    :return:
+
+
+        -----
+    Example:
+        import NanoImagingPack as nip
+        my_imlist = [nip.readim('erika'), nip.readim('lena')]
+        nip.adjust_dims(my_imlist, 2)
+    """
+
 
     def __exp_dims__(im):
         for i in range(im.ndim, maxdim):
@@ -1428,12 +1461,26 @@ def shear(img, shearamount=10, shearDir=0, shearOrtho=None, center='center', pad
 
 def rot_2D_im(M, angle):
     """
-        Rotates 2D image
-        Maintains the size of the image and fills gaps due to rotation up with zeros
-        Parts of the image that will be outside of the boarders (aka the edges of the old image) will be clipped!
+    Rotates a 2D image in the xy plane
+    Maintains the size of the image and fills gaps due to rotation up with zeros
+    Parts of the image that will be outside of the boarders (aka the edges of the old image) will be clipped!
+
+    :param M: input image
+    :param angle: rotation angle (z axis) in Degrees
+    :return: array with values of rotated image
+
+    apply nip.image to convert the array to image
+
+        -----
+    Example:
+        import NanoImagingPack as nip
+        rot_array = nip.rot_2D_im(nip.readim(), 90)
+        my_rot_im = nip.image(rot_array)
     """
+
     import scipy.ndimage as image
     return image.interpolation.rotate(M, angle, reshape=False)
+
 
 def rot2d(img, angle, padding = True, **kwargs):
     """
@@ -2740,18 +2787,22 @@ def shift2Dby(img, avec):
     return np.real(ift2d(coordinates.applyPhaseRamp(ft2d(img), avec)))
 
 
-#def zoom(img, zoomfactors=None):
-#    """
-#    zooms by interpolation using the SciPy command interpolation.zoom.
-#    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
-#    :param img: image to zoom
-#    :param zoomfactors: factors as a list of zoom factors, one for each direction
-#    :return: zoomed image
-#    see also:
-#    resample
-#    """
-#    print('zoom depricated ... s')
-#    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
+def zoom(img, zoomfactors=None):
+    """
+    Zooms by interpolation using the SciPy command interpolation.zoom.
+    ToDO: the center of the image has to be made agreeable to the nip defaults. Even size images are zoomed non-symmetrically. It should be tested for complex valued images. pixelsizes have to also be zoomed!
+    :param img: input image to zoom
+    :param zoomfactors: factors as a list of zoom factors, one for each direction
+    :return: zoomed image
+       -----
+    Example:
+        import NanoImagingPack as nip
+        v=nip.zoom(nip.readim(), (10,3))
+
+    See also:
+    resample
+    """
+    return image(scipy.ndimage.interpolation.zoom(img, zoomfactors), pixelsize = img.pixelsize) / np.prod(zoomfactors)
 
 def resize(img, newsize):
     """

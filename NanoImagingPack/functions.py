@@ -92,8 +92,15 @@ def gauss2D(amplitude=1, center_x=0, center_y=0, sigma_x=1, sigma_y=1, rotation=
 
 def gaussian(myshape, sigma, placement='center'):
     """
-        n-dimensional gaussian function
+    n-dimensional gaussian function
+
+    :param myshape:
+    :param sigma:
+    :param placement:
+    :return:
+
     """
+
     assert isinstance(sigma, object)
     sigma = np.array(util.repToList(sigma, len(myshape)))
     myNorm = 1.0
