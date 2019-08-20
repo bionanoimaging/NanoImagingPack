@@ -7,7 +7,7 @@ import NanoImagingPack as nip
 # v1=nip.v5(obj2)
 
 obj = nip.readim()
-v1=nip.v5(obj)
+v1 = nip.v5(obj)
 v1.AddElement(255.0-obj)  # has a different datatype.
 v1.ProcessKeys("e"+25*"cZ") # swapt the second element to a cyclic colormap
 import time
