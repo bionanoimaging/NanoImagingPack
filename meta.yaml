@@ -18,6 +18,7 @@ requirements:
     - IPython
     - scikit-tensor-py3
     - python-bioformats
+    - napari
   run:
     - numpy>=1.12
     #- python
@@ -28,6 +29,7 @@ requirements:
     - matplotlib
     - scikit-tensor-py3
     - python-bioformats
+    - napari
     #- IPython
 test:
   imports:

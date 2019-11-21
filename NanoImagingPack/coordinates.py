@@ -145,17 +145,28 @@ def rr2(mysize=(256, 256), placement='center', offset=None, scale=None, freq=Non
     if (type(placement) is list) or (type(placement) is np.array):
         myplacement=placement[-1]
 #     res = ((ramp(mysize, 0, myplacement, freq) - offset[0]) * scale[0]) ** 2
+
+    ascale = scale[-1]
+    if np.isnan(ascale):
+        ascale = np.inf
+    if np.isinf(ascale):
+        ascale = np.finfo(ascale).max # to avoid 0/np.inf below
     if pixelsize is None:
-        res = ((ramp(mysize, -1, myplacement, freq) - offset[-1]) * scale[-1]) ** 2
+        res = ((ramp(mysize, -1, myplacement, freq) - offset[-1]) * ascale) ** 2
     else:
-        res = ((ramp(mysize, -1, myplacement, freq, pixelsize=pixelsize) - offset[-1]) * scale[-1]) ** 2
+        res = ((ramp(mysize, -1, myplacement, freq, pixelsize=pixelsize) - offset[-1]) * ascale) ** 2
     for d in range(2, len(mysize)+1):
+        ascale = scale[-d]
+        if np.isnan(ascale):
+            ascale = np.inf
+        if np.isinf(ascale):
+            ascale = np.finfo(ascale).max # to avoid 0/np.inf below
         if (type(placement) is list) or (type(placement) is np.array):
             myplacement = placement[-d]
         if pixelsize is None:
-            res += ((ramp1D(mysize[-d], -d, myplacement, freq) - offset[-d]) * scale[-d]) ** 2
+            res += ((ramp1D(mysize[-d], -d, myplacement, freq) - offset[-d]) * ascale) ** 2
         else:
-            res += ((ramp1D(mysize[-d], -d, myplacement, freq, pixelsize=pixelsize[-d]) - offset[-d]) * scale[-d]) ** 2
+            res += ((ramp1D(mysize[-d], -d, myplacement, freq, pixelsize=pixelsize[-d]) - offset[-d]) * ascale) ** 2
     # if pixelsize is not None:   # only assign a pixelsize with scale changing it if that dimension already has a pixelsize
     #     res.pixelsize = [scale[-d-1]*pixelsize[-d-1] if (pixelsize[-d-1] is not None) else None for d in range(res.ndim)]
     return res
@@ -428,6 +439,46 @@ def freq_ramp(im, pxs=50, shift=True, real=False, axis=0):
 
     return (res)
 
+def findshift(im1, im2, prec=100, verbose=False):
+    """
+    Just a wrapper for the Skimage function using sub-pixel shifts, but with nice info-printout.
+    link: https://scikit-image.org/docs/dev/auto_examples/transform/plot_register_translation.html
+    :param:
+    =======
+    :im1: reference image
+    :im2: shifted image
+    :prec: upsample-factor = number of digits used for sub-pix-precision (for sub-sampling)
+
+    :out:
+    =====
+    :shift: calculated shift-vector
+    :error: translation invariant normalized RMS error between images
+    :diffphase: global phase between images -> should be 0
+    :tend: time needed for processing
+
+    Author: René Lachmann
+
+    Example:
+    import NanoImagingPack as nip
+    a=nip.readim();
+    b=nip.shift(a,[10.2,12.3])
+    v=nip.findshift(b,a,verbose=False)
+    c=nip.shift(b,-v)
+    nip.vv(nip.catE(a,b,c,a))
+    """
+    from time import time
+    from skimage.feature import register_translation
+    if verbose:
+        tstart = time()
+    # 'real' marks that input-data still has to be fft-ed
+    shift, error, diffphase = register_translation(im1, im2, prec, space='real', return_error=True)
+    if verbose:
+        tend = np.round(time() - tstart, 2)
+        print("Found shifts={} with upsampling={}, error={} and diffphase={} in {}s.".format(
+        shift, prec, np.round(error, 4), diffphase, tend))
+        return shift, error, diffphase, tend
+    else:
+        return shift
 
 def applyPhaseRamp(img, shiftvec, smooth=False, relwidth=0.1):
     """

@@ -1428,7 +1428,7 @@ def removePhaseInt(pulse):
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
-def cal_readnoise(fg,bg,numBins=100, validRange=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True):
+def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True):
     """
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
@@ -1445,6 +1445,23 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, correctBrightness=True, co
     TitleFontSize=20
     # rc('font', size=AxisFontSize)  # controls default text sizes
     # rc('axes', titlesize=AxisFontSize, labelsize=AxisFontSize)  # fontsize of the axes title and number labels
+    fg = np.squeeze(fg)
+    bg = np.squeeze(bg)
+    didReduce = False
+    if fg.ndim > 3:
+        print('WARNING: Foreground data has more than 3 dimensions. Just taking the first of the series.')
+        fg = fg[0]
+        didReduce = True
+    if bg.ndim > 3:
+        print('WARNING: Background data has more than 3 dimensions. Just taking the first of the series.')
+        bg = bg[0]
+        didReduce = True
+    fg = np.squeeze(fg)
+    bg = np.squeeze(bg)
+    if didReduce:
+        return cal_readnoise(fg,bg,numBins, validRange, CameraName, correctBrightness, correctOffsetDrift, excludeHotPixels, doPlot)
+
+
     Text = "Analysed {nb:d} bright and {nd:d} dark images:\n".format(nb=fg.shape[0],nd=bg.shape[0])
 
     validmap = None
@@ -1474,7 +1491,10 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, correctBrightness=True, co
         reloffset = (refOffset - meanoffset)  / np.sqrt(np.var(bg))
         if doPlot:
             figure(figsize=(12, 6))
-            title("Offset Drift", fontsize=TitleFontSize)
+            if CameraName is not None:
+                title("Offset Drift ("+CameraName+")", fontsize=TitleFontSize)
+            else:
+                title("Offset Drift", fontsize=TitleFontSize)
             plot(reloffset.flat, label='Offset / Std.Dev.')
             xlabel("frame no.", fontsize=AxisFontSize)
             ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
@@ -1489,7 +1509,10 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, correctBrightness=True, co
         relbright = brightness/meanbright
         if doPlot:
             figure(figsize=(12, 6))
-            title("Brightness Fluctuation", fontsize=TitleFontSize)
+            if CameraName is not None:
+                title("Brightness Fluctuation ("+CameraName+")", fontsize=TitleFontSize)
+            else:
+                title("Brightness Fluctuation", fontsize=TitleFontSize)
             plot(relbright.flat)
             xlabel("frame no.",fontsize=AxisFontSize)
             ylabel("relative brightness",fontsize=AxisFontSize)
@@ -1536,13 +1559,16 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, correctBrightness=True, co
         Text = Text + "Readnoise (fit): variance ({of:.2f}) below zero.".format(of=offset) + "\n"
     else:
         Text = Text + "Readnoise (fit): {rn:.2f}".format(rn=np.sqrt(offset)*gain)+"\n"
-    Text = Text + "Fixed Pattern, gain * Std.Dev.(mean_bg): {rn:.2f}".format(rn=np.sqrt(patternVar))+"e- RMS\n"
+    Text = Text + "Fixed Pattern, gain * Std.Dev. for mean_bg: {rn:.2f}".format(rn=np.sqrt(patternVar))+"e- RMS\n"
     Readnoise = np.sqrt(np.mean(varbg)) * gain
-    Text = Text + "Readnoise, gain * bg_noise): {rn:.2f}".format(rn=Readnoise)+" e- RMS\n"
+    Text = Text + "Readnoise, gain * bg_noise: {rn:.2f}".format(rn=Readnoise)+" e- RMS\n"
 
     if doPlot:
         figure(figsize=(12, 8))
-        title("Photon Calibration", fontsize=TitleFontSize)
+        if CameraName is not None:
+            title("Photon Calibration ("+CameraName+")", fontsize=TitleFontSize)
+        else:
+            title("Photon Calibration", fontsize=TitleFontSize)
         plot(binMid, meanvar, 'bo', label='Camera Data')
         # errorbar(binMid, myStd, myStd, label='Fit')
         plot(binMid, myFit, 'r', label='Fit')

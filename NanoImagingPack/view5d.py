@@ -32,7 +32,7 @@ if (JVM_RUNNING==0):
         JVM_RUNNING = 1
     except:
         print("Problem setting classpath. Switching to conventional viewer by setting __DEFAULTS__['IMG_VIEWER'] = 'NIP_VIEW' ")
-        config.setDefault('IMG_VIEWER', 'NIP_VIEW')
+        config.setDefault('IMG_VIEWER', 'NAPARI') # 'NIP_VIEW'
 
 # jnius_config.add_options('-Xrs', '-Xmx4096')
 # jnius_config.set_classpath()
@@ -119,7 +119,7 @@ class View5D:
                 dc = env.make_byte_array(dc)
                 typ = "B"
                 sig = "([BIIIII)Lview5d/View5D;"
-                self.o.ProcessKeys('r')  # Adjust all intensities
+                self.ProcessKeys('r')  # Adjust all intensities
             elif data.dtype == 'int16':
                 dc = env.make_short_array(dc)
                 typ = "S"
@@ -285,7 +285,11 @@ def vv(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
     if config.__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':
         return v5(data, SX=SX, SY=SY, multicol=multicol, gamma=gamma, showPhases=showPhases, fontSize=fontSize, linkElements = linkElements)
     else:
-        return data._repr_pretty_([], cycle=False)
+        ret = data._repr_pretty_([], cycle=False)
+        if hasattr(data, 'v') and data.v!=[]:
+            return data.v
+        else:
+            return ret
 
 def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, fontSize=18, linkElements = None, viewer=None):
     """

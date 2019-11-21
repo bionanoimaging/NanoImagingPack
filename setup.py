@@ -28,7 +28,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     
-    install_requires=['numpy==1.16','scipy','tifffile', 'imageio', 'matplotlib', 'scikit-tensor-py3>0.2.1'],  # scikit-tensor-py3 for sktensor
+    install_requires=['numpy>=1.16','scipy','tifffile', 'imageio', 'matplotlib', 'scikit-tensor-py3>0.2.1', 'napari'],  # scikit-tensor-py3 for sktensor
     # 'python-bioformats', 'javabridge'  are removed from the requirements to make the basic installation simple.
     #dependency_links=['https://github.com/blink1073/tifffile'],
     #url="https://test.pypi.org/legacy/",   # <- Add gitHubLink here!

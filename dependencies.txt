@@ -3,6 +3,7 @@ Up until now I haven't set the dependency installation correctly. Majorly, as th
 If you have anaconda already installed (and I highly recommend to do so) you only have to install 2 dependency packages:
 
 	tifffile
+	napari (for the napari viewer)
 	javabridge (for using VIEW5D)
 
 If you are not using anaconda you have to install a lot of extra packages IN ADDITION such as:

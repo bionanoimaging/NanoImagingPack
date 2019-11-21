@@ -161,7 +161,7 @@ __DEFAULTS__ ={
         'IMG_ZEISS_FORMATS': ['czi'],
         'IMG_DEFAULT_IMG_FOLDERS' :[os.path.join(os.path.split(__file__)[0],'resources')],     # Default folders to find images
         'IMG_DEFAULT_IMG_NAME' : 'resolution_512',  # Default image to load
-        'IMG_VIEWER': 'VIEW5D',           # Default viewer -> currently only implemented viewr -> later also view5D, currently allwowd 'NIP_VIEW', 'INFO'
+        'IMG_VIEWER': 'NAPARI',           # Default viewer -> currently only implemented, currently allowed 'NIP_VIEW', 'VIEW5D','NAPARI','INFO'
         'IMG_SQUEEZE_ZEISS': True,         # Do you want to squeeze zeiss files? otherwise theyhave 9 dimensions
         'IMG_NUMBERING': False,     # image numbering -> switch off for Debuging!
         'IMG_SIZE_IGNORE_INCH': True,   #if True: ignores pixelsize if pixelunit is 'INCH'

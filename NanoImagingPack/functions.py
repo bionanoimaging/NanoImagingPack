@@ -9,6 +9,7 @@ implement some functions here, to be used in the package
 make sure, x is always the first argument
 
 """
+import warnings
 import numpy as np
 from . import util
 from . import coordinates
@@ -101,7 +102,9 @@ def gaussian(myshape, sigma, placement='center'):
         if myshape[d]>1 and sigma[d] > 0.0:
             myNorm *= 1.0/np.sqrt(2*np.pi*sigma[d]**2)
 
-    sigma[sigma <= 0.0] = 1e-10
-    return myNorm * np.exp(- coordinates.rr2(myshape, scale=tuple(1 / (np.sqrt(2) * np.array(sigma))), placement=placement))
-
-
+    sigma=sigma.astype('double')
+    # sigma[sigma <= 0.0] = 1e-10  # the nan is now handles by the rr2 routine below
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        myscale = tuple(1 / (np.sqrt(2) * np.array(sigma)))
+        return myNorm * np.exp(- coordinates.rr2(myshape, scale=myscale, placement=placement))

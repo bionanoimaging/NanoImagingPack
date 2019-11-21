@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: NanoImagingPack
-Version: 1.0.0.dev6
+Version: 2.1.0.dev1
 Summary: A nice little image processing package
 Home-page: UNKNOWN
-Author: Christian Karras
+Author: Christian Karras and Rainer Heintzmann
 Author-email: christian-karras@gmx.de
 License: UNKNOWN
 Description: This is a package for simple image processing.

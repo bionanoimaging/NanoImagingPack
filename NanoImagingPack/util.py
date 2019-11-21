@@ -340,6 +340,8 @@ def scale_log(M, c =1):
 def toList(val):
     if isinstance(val, numbers.Number):
         return [val]
+    elif isinstance(val, np.ndarray):
+        return list(val)
     else:
         return val
 
@@ -366,6 +368,8 @@ def repToList(val, ndim, defaultVal=0):
             nip.repToList([10.2],3) # yields: [0,0,10.2]
             see usage in gaussf()
     """
+    if isinstance(val, tuple):
+        val = list(val)
     if isinstance(val, numbers.Number):
         return ndim*[val]
     if ndim != len(val):
