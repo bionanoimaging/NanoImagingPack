@@ -21,7 +21,6 @@ Created on Thu Jul 27 17:21:21 2017
 import tifffile as tif
 import numbers
 import numpy as np
-import napari as nap
 from numpy.matlib import repmat
 from .FileUtils import list_files, get_sorted_file_list
 from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext, split, basename
@@ -2150,8 +2149,8 @@ class image(np.ndarray):
                     else:
                         # with nap.gui_qt():
                         # create a Viewer and add an image here
-                        self.v = nap.Viewer()
-                        self.v.add_image(self)
+                        from .view5d import napariAddLayer
+                        self.v = napariAddLayer(self)
                 elif __DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':  # RH 3.2.19
                     mysize=self.shape
                     if (len(mysize) == 1) and (mysize[0] < 5):

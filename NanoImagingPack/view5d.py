@@ -10,6 +10,7 @@ from . import util
 from . import transformations
 from . import config
 from . import image
+import napari as nap
 
 global JVM_RUNNING
 if ~('JVM_RUNNING' in globals()):
@@ -280,6 +281,27 @@ class View5D:
 
 def v5ProcessKeys(out,KeyList):
     out.ProcessKeys(KeyList)
+
+def napariAddLayer(data,v=None,gamma=1.0):
+    if v is None:
+        v = nap.Viewer()
+    if np.isrealobj(data):
+        v.add_image(data)
+        v.dims.set_point(0, data.shape[0] // 2)
+        if data.ndim>1:
+            v.dims.set_point(1, data.shape[1] // 2)
+        if data.ndim>2:
+            v.dims.set_point(2, data.shape[2] // 2)
+        v.active_layer.gamma = gamma
+    else:
+        v=napariAddLayer(np.imag(data),v)
+        v.active_layer.visible = False
+        v=napariAddLayer(np.real(data),v)
+        v.active_layer.visible = False
+        v=napariAddLayer(np.angle(data),v)
+        v.active_layer.visible = False
+        v=napariAddLayer(np.abs(data),v,0.25)
+    return v
 
 def vv(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, fontSize=18, linkElements = None):
     if config.__DEFAULTS__['IMG_VIEWER'] == 'VIEW5D':
