@@ -10,7 +10,6 @@ from . import util
 from . import transformations
 from . import config
 from . import image
-import napari as nap
 
 global JVM_RUNNING
 if ~('JVM_RUNNING' in globals()):
@@ -283,6 +282,8 @@ def v5ProcessKeys(out,KeyList):
     out.ProcessKeys(KeyList)
 
 def napariAddLayer(data,v=None,gamma=1.0):
+    import napari as nap
+
     if v is None:
         v = nap.Viewer()
     if np.isrealobj(data):
@@ -330,7 +331,7 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         v=nip.v5(np.random.rand(10,10,10,4),multicol=True)
     """
 #    data=np.transpose(data) # force a cast to np.array
-    if not isinstance(data, image):
+    if not isinstance(data, image.image):
         data = image(data)
 
     try:

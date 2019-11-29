@@ -19,7 +19,7 @@ import numbers
 import warnings
 from scipy.special import j1
 from .image import image
-from .view5d import v5 # for debugging
+# from .view5d import v5 # for debugging
 from matplotlib.pyplot import plot,figure, xlabel, ylabel, text, title, xlim, ylim # rc, errorbar,
 
 def getDefaultPSF_PARAMS(psf_params):
@@ -186,32 +186,30 @@ def aberrationMap(im, psf_params= None):
     aberration_map.name = "aberrated pupil phase"
     return aberration_map
 
-def propagatePupil(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
+def propagatePupil(pupil, sizeZ, distZ=None, psf_params = None, mode = 'Fourier', doDampPupil=False):
     """
-
-    :param pupil:
-    :param sizeZ:
-    :param psf_params:
-    :param mode:
-    :param doDampPupil:
+    Propagates a pupil plane to a 3D stack of pupils.
+    :param pupil: pupil amplitude to propagate
+    :param sizeZ: Number of slices to propagate
+    :param distZ: Distance between the slices (in units of the XY pixel information of the pupil)
+    :param psf_params: Set of PSF parameters. Default: PSF_PARAMS()
+    :param mode: mode of calculaton
+    :param doDampPupil: should the damping around the edges be applied to the propagation?
     :return:
 
-    Example:
-    import NanoImagingPack as nip
-    from NanoImagingPack import v5
+    Example: 100nm XY pixelsize and 1000nm spacing
     im = nip.readim()
     im.set_pixelsize((100,100))
-    nip.pupilAperture(im)
     pupil = nip.jincAperture(im)
-    out = nip.propagatePupil(pupil)
-
+    out = nip.propagatePupil(pupil,10,1000.0)
+    amp3d = nip.ift2d(out)
 
     see also jincAperture, pupilAperture
     """
 
-    return pupil * propagationStack(pupil, sizeZ, psf_params, mode, doDampPupil)
+    return pupil * propagationStack(pupil, sizeZ, distZ, psf_params, mode, doDampPupil)
 
-def propagationStack(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPupil=False):
+def propagationStack(pupil, sizeZ, distZ=None, psf_params = None, mode = 'Fourier', doDampPupil=False):
     """
 
     :param pupil:
@@ -232,9 +230,9 @@ def propagationStack(pupil, sizeZ, psf_params = None, mode = 'Fourier', doDampPu
     """
     psf_params = getDefaultPSF_PARAMS(psf_params)
     myshape = (sizeZ,) + shapevec(pupil)[-2:]
-    return __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape)
+    return __make_propagator__(pupil, psf_params, doDampPupil, shape=myshape, distZ=distZ)
 
-def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
+def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None, distZ=None):
     """
     Compute the field propagation matrix
 
@@ -255,9 +253,12 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
 
     if len(shape) > 2:
         if (len(pxs)<3):
-            raise ValueError("To propagate the pixelsize along Z needs to be defined!")
-            axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
-            warnings.warn('makePropagator: Only 2 Dimensional image given -> using default pixezsize[-3] = ('+str(axial_pxs)+')')
+            if distZ is not None:
+                axial_pxs = distZ
+            else:
+                raise ValueError("To propagate the pixelsize along Z needs to be defined or distZ needs to be used!")
+                axial_pxs = __DEFAULTS__['IMG_PIXELSIZES'][0]
+                warnings.warn('makePropagator: Only 2 Dimensional image given -> using default pixezsize[-3] = ('+str(axial_pxs)+')')
         else:
             axial_pxs = pxs[-3]
     else:
@@ -268,10 +269,11 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None):
 
     if len(shape)>2:
         if axial_pxs is None:
-            raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize().")
+            raise ValueError("For propagation an axial pixelsize is needed. Use input.set_pixelsize() or the parameter distZ.")
         cos_alpha, sin_alpha = cosSinAlpha(im, psf_params)
         defocus = axial_pxs * ramp1D(shape[-3], -3) # a series of defocus factors
         PhaseMap = defocusPhase(cos_alpha, defocus, psf_params)
+        PhaseMap.pixelsize[-3] = axial_pxs
         if doDampPupil:
             return dampPupilForRealSpaceCut(PhaseMap) * np.exp(1j * PhaseMap)
         else:

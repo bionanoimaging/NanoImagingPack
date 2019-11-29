@@ -20,7 +20,7 @@ def simulateImage(obj=None, PSFParam=None, pixelsize=None,  MaxPhotons=1000, Rea
     :param MaxPhotons:  Maximal number of expected emitted photons. The random number generator will always start with seed=0. If MaxPhotons is None, no photon noise is applied.
     :param ReadNoise:  If specified, Gaussian readnoise will be added (in addition to Poisson noise, if specified). The value states the Std.Dev. of the readnoise.
     :param NumSimulations: If specified, multiple simulations with different noise instances will be generated. seed=0 is applied only to the first simulation
-    :return: simulated image(s), psf, object and perfect image
+    :return: simulated image(s), psf, object and perfect image as a tuple
     """
 
     if obj is None:
@@ -40,7 +40,7 @@ def simulateImage(obj=None, PSFParam=None, pixelsize=None,  MaxPhotons=1000, Rea
         obj.pixelsize = pixelsize
 
     if PSFParam is None:
-        PSFParam = microscopy.PSF_PARAMS
+        PSFParam = microscopy.PSF_PARAMS()
 
     if obj.pixelsize is None:
         obj.pixelsize = pixelsize
