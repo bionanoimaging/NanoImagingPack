@@ -13,7 +13,7 @@ from . import image, microscopy, noise, coordinates
 
 def simulateImage(obj=None, PSFParam=None, pixelsize=None,  MaxPhotons=1000, ReadNoise=None, NumSimulations=1):
     """
-        simulates a microscopy image
+    simulates a microscopy image
     :param obj: Can be a string with "2D" or "3D" or a filename (with  path) or an array with object data
     :param pixelsize: vector of pixel sizes
     :param PSFParam: see PSF for details. By default a widefield PSF is simulated.
@@ -21,6 +21,10 @@ def simulateImage(obj=None, PSFParam=None, pixelsize=None,  MaxPhotons=1000, Rea
     :param ReadNoise:  If specified, Gaussian readnoise will be added (in addition to Poisson noise, if specified). The value states the Std.Dev. of the readnoise.
     :param NumSimulations: If specified, multiple simulations with different noise instances will be generated. seed=0 is applied only to the first simulation
     :return: simulated image(s), psf, object and perfect image as a tuple
+
+    Example:
+    import NanoImagingPack as nip
+    (img,psf,obj, pimg) = nip.simulateImage('3D',MaxPhotons=100)
     """
 
     if obj is None:

@@ -215,13 +215,15 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
              if nothing given reads the default image
              path -> path of image
                          if nothing: optens death star image
+                         'resolution_512' -Kai's resolution test image
+                         'resolution_fine' -Kai's resolution test image (more pixels)
+                         'obj3d' -a simulated 3D object (pixelsize: 100 nm x30 nm x30 nm)
+                         'psf3d' -a simulated 3D psf
                          'lena'  - image of lena
                          'erika'  - image of erika
                          'orka'   - iamge of an orka
                          'house'   - iamge of a house
                          'todesstern' - image of death star
-                         'resolution_512' -Kai's resolution test image
-                         'resolution_fine' -Kai's resolution test image (more pixels)
                          'MITO_SIM'   - SIM stack (3 phases, 3 directions) of BPAE mitochondria (l_ex = 561 nm, l_em approx 600 nm, px_size = 62.5 nm)
              which is which images should be read IN CASE OF 3D TIFF ?  -> can be list or tuple or range
 
@@ -2549,6 +2551,27 @@ class image(np.ndarray):
 # #        output = image(f[method](*inputs, **kwargs))  # convert the inputs to np.ndarray to prevent recursion, call the function, then cast it back as ExampleTensor
 #         output.__dict__ = self.__dict__  # carry forward attributes
 #         return output
+    def squeeze(self, axis=None):
+        """
+         Removes singleton dimensions. Overwrites the numpy squeeze method, since the pixelsizes need to be also squeezed.
+         see numpy.squeeze for details
+        :param axes: defined which axis to squeeze
+        """
+        self = util.expandPixelsize(self)  # ensure that pixelsize corresponds to shape. If one of the inputs is None, one does otherwise not get a correct pixelsize
+        pxs = self.pixelsize
+        sz = self.shape
+        if axis is None:
+            res = super(image,self).squeeze()
+            if pxs is not None:
+                res.pixelsize = [pxs[d] for d in range(len(sz)) if sz[d] > 1]
+        else:
+            res = super(image,self).squeeze(axis)
+            if pxs is not None:
+                if isinstance(axis,tuple):
+                    res.pixelsize = [pxs[d] for d in range(len(pxs)) if (d not in axis)]
+                else:
+                    res.pixelsize = [pxs[d] for d in range(len(pxs)) if (d not in (axis,))]
+        return res
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):   # example method from: https://docs.scipy.org/doc/numpy-1.13.0/user/basics.subclassing.html
         args = []
@@ -2651,11 +2674,16 @@ class image(np.ndarray):
         elif isinstance(item, tuple):
             pxs=[]
             p=0
-            for i in range(len(item)):
-                if item[i] is None:
-                    pxs.append(None)
-                elif isinstance(item[i], numbers.Integral):
-                    p += 1
+            self = util.expandPixelsize(self)  # ensure that pixelsize corresponds to shape. If one of the inputs is None, one does otherwise not get a correct pixelsize
+            for i in range(self.ndim): # range(len(item)):
+                if i < len(item):
+                    if item[i] is None:
+                        pxs.append(None)
+                    elif isinstance(item[i], numbers.Integral):
+                        p += 1
+                    else:
+                        pxs.append(self.pixelsize[p])
+                        p += 1
                 else:
                     pxs.append(self.pixelsize[p])
                     p += 1
@@ -2772,6 +2800,7 @@ def shift2Dby(img, avec):
 def resize(img, newsize):
     """
     resizes the array by filling in replicative 1D copies of the whole array. See np.resize for details.
+    It does NOT consider axes seperately. For this use the nip.tile function.
     :param img: image to resize
     :param newsize: newsize to resize to
     :return: resized image

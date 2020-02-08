@@ -657,7 +657,7 @@ def rft(im, shift_after=False, shift_before=False, ret='complex', axes=None, s=N
             im = fftshift(im, axes=shift_ax)  # corner freq to mid freq
         return __ret_val__(im, ret)
 
-def resample(img, factors=[2.0, 2.0]):
+def resample(img, factors=[2.0, 2.0], dstSize=None):
     """
     resamples an image by an RFT (or FFT for complex data), extracting a ROI and performing an inverse RFT. The sum of values is kept constant.
 
@@ -677,16 +677,22 @@ def resample(img, factors=[2.0, 2.0]):
     Example
     -------
     """
+    if dstSize is None:
+        if factors is None:
+            return img
+        newsize = resampledSize(img.shape, factors)
+    else:
+        newsize = dstSize
+        factors = np.array(newsize) / np.array(img.shape)
+
     if np.iscomplexobj(img):
         myft = ft(img)
-        newsize = resampledSize(img.shape, factors)
         res = ift(image.extractFt(myft, newsize, ModifyInput=True))  # the FT can be modified since it is anyway temporarily existing only
     else:
         rf = rft(img, shift_before=True)  # why is the shift necessary??
         oldsize = rf.shape
         #       print(oldsize)
         newrftsize = resampledSize(oldsize, factors, RFT=True)
-        newsize = resampledSize(img.shape, factors)
         #       print(newsize)
         # the function below already takes care of the pixelsize
         rfre = resampleRFT(rf, newrftsize, img.shape, newsize, ModifyInput=True)

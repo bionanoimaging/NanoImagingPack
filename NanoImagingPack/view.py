@@ -110,6 +110,12 @@ class view:
         """
 #        matplotlib.use('Qt5Agg', warn=False) # RH, to make the plot work interactively
         #from matplotlib.widgets import Slider;
+        if type(image) is tuple:
+            myres = [];
+            for img in image:
+                myres.append(view(img))
+            return
+
         if __VIEWER_DOWNCONVERT_DATA__:
             if np.issubdtype(image.dtype, np.complexfloating):
                 self.image = image.astype(np.complex64)
@@ -137,7 +143,7 @@ class view:
             self.title =title
         self.curr_title = title
 
-        if image.dtype==np.bool:
+        if image.dtype is np.bool:
             self.image = image.astype(np.uint8)
         self.image = self.image.transpose()
         self.image = self.image.swapaxes(0,1)

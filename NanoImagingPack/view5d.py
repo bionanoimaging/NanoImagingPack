@@ -68,7 +68,7 @@ class View5D:
         DeleteAllMarkerLists = javabridge.make_method("DeleteAllMarkerLists","()V")
         ExportMarkers = javabridge.make_method("ExportMarkers","(I)[[D")
         ExportMarkerLists = javabridge.make_method("ExportMarkerLists","()[[D")
-        ExportMarkers = javabridge.make_method("ExportMarkers","()Ljava/lang/String;")
+        ExportMarkersString = javabridge.make_method("ExportMarkers","()Ljava/lang/String;")
         ImportMarkers = javabridge.make_method("ImportMarkers","([[F)V")
         ImportMarkerLists = javabridge.make_method("ImportMarkerLists","([[F)V")
         AddElem = javabridge.make_method("AddElement","([FIIIII)Lview5d/View5D;")
@@ -274,7 +274,7 @@ class View5D:
 
     def getMarkerString(self):
         env = javabridge.get_env()
-        return self.ExportMarkers()
+        return self.ExportMarkersString()
 
 # self.toFront()
 
@@ -331,8 +331,19 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
         v=nip.v5(np.random.rand(10,10,10,4),multicol=True)
     """
 #    data=np.transpose(data) # force a cast to np.array
+    if 'Tensor' in str(type(data)):  # check if this may be a tensorflow tensor object
+        try:
+            import tensorflow as tf
+            with tf.Session() as session:
+                session.run(tf.global_variables_initializer())
+                data = image.image(data.eval())
+            if not isinstance(data,np.ndarray):
+                raise ValueError("v5: cannot evaluate tensor.")
+        except ImportError:
+            raise ValueError("v5: unsupported datatype to display")
+
     if not isinstance(data, image.image):
-        data = image(data)
+        data = image.image(data)
 
     try:
         import javabridge
@@ -348,16 +359,6 @@ def v5(data, SX=1200, SY=1200, multicol=None, gamma=None, showPhases=False, font
 #    data=expanddim(data,5) # casts all arrays to 5D
     #    data=np.transpose(data) # reverts all axes to common display direction
 #    data=np.moveaxis(data,(4,3,2,1,0),(0,1,2,3,4)) # reverts axes to common display direction
-    if not isinstance(data, np.ndarray):
-        try:
-            import tensorflow as tf
-            with tf.Session() as session:
-                session.run(tf.global_variables_initializer())
-                data = image(data.eval())
-            if not isinstance(data,np.ndarray):
-                raise ValueError("v5: cannot evaluate tensor.")
-        except ImportError:
-            raise ValueError("v5: unsupported datatype to display")
     sz=data.shape
     sz=sz[::-1] # reverse
     sz=np.append(sz, np.ones(5-len(data.shape)))

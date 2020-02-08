@@ -5,9 +5,10 @@
     TODO: Add Dependencies!
 
     How to package everything:
+    cd C:\\Users\\pi96doc\\Documents\\Programming\\PythonScripts\\FromWeb\\nanoimagingpack
     python setup.py sdist bdist_wheel
     twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-    (heintzmann Su+)
+    (heintzmann Su+ pipy)
 '''
 
 
