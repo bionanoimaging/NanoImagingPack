@@ -198,7 +198,7 @@ def rft2d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm
 
 def irft2d(im, newsize, shift_after=False, shift_before=False, ret='complex', norm=None, doWarn=True):
     """
-        Perform a 2D inverse Fourier transform of the first two dimensions only of an arbitrary stack
+        Perform a 2D inverse Fourier transform of the last two dimensions only of an arbitrary stack
     """
     newsize = util.expanddimvec(newsize, im.ndim)
     axes = (-2, -1)
@@ -214,7 +214,7 @@ def irft2d(im, newsize, shift_after=False, shift_before=False, ret='complex', no
 
 def rft3d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm=None, doWarn=True):
     """
-        Perform a 3D Fourier transform of the first two dimensions only of an arbitrary stack
+        Perform a 3D Fourier transform of the last three dimensions only of an arbitrary stack
     """
     axes = (-3, -2, -1)
     ndims = np.ndim(im)
@@ -227,7 +227,7 @@ def rft3d(im, shift_after=False, shift_before=False, ret='complex', s=None, norm
 
 def irft3d(im, newsize, shift_after=False, shift_before=False, ret='complex', norm=None, doWarn=True):
     """
-        Perform a 3D inverse Fourier transform of the first two dimensions only of an arbitrary stack
+        Perform a 3D inverse Fourier transform of the last two dimensions only of an arbitrary stack
     """
     newsize = util.expanddimvec(newsize, im.ndim)
     axes = (-3, -2, -1)
@@ -657,7 +657,7 @@ def rft(im, shift_after=False, shift_before=False, ret='complex', axes=None, s=N
             im = fftshift(im, axes=shift_ax)  # corner freq to mid freq
         return __ret_val__(im, ret)
 
-def resample(img, factors=[2.0, 2.0], dstSize=None):
+def resample(img, factors=[2.0, 2.0], dstSize=None, dampOutside=False):
     """
     resamples an image by an RFT (or FFT for complex data), extracting a ROI and performing an inverse RFT. The sum of values is kept constant.
 
@@ -677,6 +677,7 @@ def resample(img, factors=[2.0, 2.0], dstSize=None):
     Example
     -------
     """
+
     if dstSize is None:
         if factors is None:
             return img
@@ -684,6 +685,12 @@ def resample(img, factors=[2.0, 2.0], dstSize=None):
     else:
         newsize = dstSize
         factors = np.array(newsize) / np.array(img.shape)
+
+    if dampOutside:
+        im2 = image.DampOutside(img)
+        im2 = resample(im2, factors, dstSize, dampOutside=False)
+        im2 = image.extract(im2, newsize)
+        return im2
 
     if np.iscomplexobj(img):
         myft = ft(img)

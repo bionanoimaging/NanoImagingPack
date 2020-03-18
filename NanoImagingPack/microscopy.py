@@ -178,6 +178,8 @@ def aberrationMap(im, psf_params= None):
                 n = zernike_para[ab][1]
                 aberration_map += s*zernike(r, m, n)*np.pi
             elif isinstance(ab,np.ndarray):
+                if ab.ndim > 2:
+                    raise ValueError('Array map in aberration type needs to be 2D.')
                 aberration_map += ab
             else:
                 m = ab[0]

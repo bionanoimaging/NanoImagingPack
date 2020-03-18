@@ -691,7 +691,7 @@ def subsliceCenteredAdd(img,mydim,start,val):
 #    print(srcCoord)
 #    print(destCoord)
  
-    img[tuple(destCoord)]+=val[tuple(srcCoord)]
+    img[tuple(destCoord)] += val[tuple(srcCoord)]
     return img
 
 

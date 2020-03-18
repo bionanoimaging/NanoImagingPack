@@ -109,8 +109,25 @@ def PSF_PARAMS():
     return __PSF_PARAMS
 
 def setDefault(name, value):
+    """
+    sets a value in the global __DEFAULTS__ variable of the NanoImagingPack Toolbox.
+    :param name: string of the member in the __DEFAULTS__ structure
+    :param value: new value of this member
+    :return:
+
+    Example:
+    import NanoImagingPack as nip
+    nip.setDefault('IMG_VIEWER','VIEW5D')
+    """
     __DEFAULTS__[name]=value
 
+def setViewer(name):
+    """
+    sets the default viewer to
+    :param name:
+    :return:
+    """
+    setDefault('IMG_VIEWER', name)
 
 def getDefault(name):
     return __DEFAULTS__[name]

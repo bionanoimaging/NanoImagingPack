@@ -23,6 +23,7 @@ import numbers
 import numpy as np
 from numpy.matlib import repmat
 from .FileUtils import list_files, get_sorted_file_list
+from .nditerator import ndIterator
 from os.path import join, isdir, splitext, isfile, split, isfile, join, splitext, split, basename
 from os import mkdir, listdir
 import imageio
@@ -514,6 +515,34 @@ def findBg(img, kernelSigma=3.0):
     :return:
     """
     return np.min(gaussf(img, kernelSigma))
+
+def Parabola(relpos, slopes=0.2, curvatures=0.3):
+    factor = 1.0 + np.dot(relpos,slopes)
+    factor += np.dot(relpos**2, curvatures)
+    return factor
+
+def directionalZoom(obj, axis=0, ZoomFkt=Parabola):
+    """
+    Zooms with factors which can depend on the current line or column. This allows pincushion or barrel distortions.
+    :param obj: the object to zoom
+    :param axis: axis which to iterate over
+    :param ZoomFkt: A function receiving the relative non-zoom position, returning the current zoom. See Parabola for example
+    :return:
+    Example:
+    import NanoImagingPack as nip
+    obj = nip.readim()
+    P = lambda obj: nip.Parabola(obj,0,-0.3) # defines the distortion
+    res = nip.directionalZoom(obj, axis=0, ZoomFkt=P) # distort along X
+    res2 = nip.directionalZoom(res, axis=1, ZoomFkt=P) # distort along Y
+    nip.vv(nip.catE(obj,res,res2))
+    """
+    res = util.zeros(obj, dtype='complex')
+    it = ndIterator(obj, exclude_axes = axis)
+    for pos in it:
+        objslice = obj[pos]
+        nzy = np.int(np.round(obj.shape[axis]*ZoomFkt(it.relPos(pos))))  # changes the shape. new size to extract for this line
+        res[pos] = extractFt(ft(extract(objslice, nzy, checkComplex=False)), res.shape[axis])
+    return np.real(ift(res, axes=[axis]))
 
 def weights1D(imgWidth, dampWidth, d, func = coshalf, ndims=None):
     """
@@ -1122,7 +1151,7 @@ def histogram(im, name='', bins=65535, range=None, normed=False, weights=None, d
     return h
 
 
-def shift(im, delta, axes=0, pixelwise=False):
+def shift(im, delta, axes=0, pixelwise=False, dampOutside=False, setUnknown=0):
     """
         Shifts an image im for a distance of delta pixels in the given direction using the FT shift theorem
         shift is done wia phaseramp (rft for real input), except of if pixelwise = True, than its shifted in real space for the given amount of pixels
@@ -1130,7 +1159,9 @@ def shift(im, delta, axes=0, pixelwise=False):
         :param im:              Image to be shifted
         :param delta:           Shift  (float, int -> same shift for all direction or list of float and ints -> shift vectors)
         :param axes:            axes for the shift
-        :param pixelwise:
+        :param dampOutside      Extrapolates the data to avoid ringing artefacts.
+        :param setUnknown       If a  value (not None) is provided the unknown regions during shift are replaced with this value
+        :param pixelwise:       use real-space shifting by integer pixels instead of FFT-based shifting
         :return:
 
         ---------------------------------------------------------------------------------------------------
@@ -1160,6 +1191,12 @@ def shift(im, delta, axes=0, pixelwise=False):
     elif isinstance(delta, numbers.Real):
         axes = [direction]
         delta = [delta]
+
+    if dampOutside:
+        imOut = DampOutside(im)
+        imOut = extract(shift(imOut, delta, axes, pixelwise, dampOutside=False, setUnknown=None), im.shape)
+        imOut = clipRims(imOut,delta,axes,setUnknown)
+        return imOut
 
     t = [(0, 0) for i in range(M.ndim)]
     i = 0;
@@ -1211,16 +1248,22 @@ def shift(im, delta, axes=0, pixelwise=False):
             M = irft(FT * phaseramp, s=M.shape, shift_after=False, shift_before=True, axes=axes, norm=None, ret='real')
 
         # clipping rims
-        for d, ax in zip(delta, axes):
-            M = M.swapaxes(0, ax)
-            if d<0:
-                M[int(np.floor(d)):] = 0;
-            else:
-                M[:int(np.floor(d))] =0;
-        #     M = M[int(np.ceil(np.abs(d))):old_shape[ax] + int(np.ceil(np.abs(d)))]
-            M = M.swapaxes(0, ax)
+        M = clipRims(M, delta, axes)
+
     return util.__cast__(M, old_arr)
 
+def clipRims(M,delta, axes, value=0):
+    if value is None:
+        return M
+    for d, ax in zip(delta, axes):
+        M = M.swapaxes(0, ax)
+        if d < 0:
+            M[int(np.floor(d)):] = value;
+        else:
+            M[:int(np.floor(d))] = value;
+        #     M = M[int(np.ceil(np.abs(d))):old_shape[ax] + int(np.ceil(np.abs(d)))]
+        M = M.swapaxes(0, ax)
+    return M
 
 def shiftx(M, delta):
     """
@@ -1863,11 +1906,11 @@ def fixFtAfterExtract(res, img, ignoredim):
                 res = util.subsliceAsg(res, d, ROILeftPos + szold[d], aslice / 2.0)  # distribute it evenly, also to keep parseval happy and real arrays real
                 res = util.subsliceAsg(res, d, ROILeftPos, aslice / 2.0)  # distribute it evenly, also to keep parseval happy and real arrays real
             if (sznew[d] < szold[d]) and util.iseven(sznew[d]):  # the slice corresponds to both sides of the fourier transform as a sum
-                ROIRightPos = szold[d] - (midold[d] - midnew[d])  # position of the removed top border pixel in the old array
+                ROIRightPos = szold[d] - 1 - (midold[d] - midnew[d])  # position of the removed top border pixel in the old array
                 aslice = util.subslice(img, d, ROIRightPos)  # this is one pixel beyond what is cut out
                 res = util.subsliceCenteredAdd(res, d, 0, aslice)  # sum both
-                ROILeftPos = (midold[d] - midnew[d])  # position of the new corner start positon in the old array
-                img = util.subsliceCenteredAdd(img, d, ROILeftPos, aslice)  # to adress the corners (and edges in 3D!) correctly
+                ROILeftPos = (midold[d] - midnew[d])  # position of the new corner start position in the old array
+                img = util.subsliceCenteredAdd(img, d, ROILeftPos, aslice)  # to address the corners (and edges in 3D!) correctly
 
     #            print("Dimension ignored:"+str(d))
     return res
@@ -2292,11 +2335,27 @@ class image(np.ndarray):
         """
         return util.midValAsg(self, val)
 
+    def midpos(self, ax = None):
+        """
+            returns the middle positon of the given axis (as tuple) as seen for ft, i.e. im.shape//2
+            if ax is provided, the middle position of this axis (one direction only) is returned
+            See also: mid
+            ----
+            ax : which axes
+            If nothing given, it returns the mid pos for all axis as returned as a vector
+        """
+        if ax is None:
+            return self.mid()
+        else:
+            return self.shape[ax] // 2
+
     def mid(self, ax = None):
         """
-            returns the midpos of the given axis (as tuple) as seen for ft, i.e. im.shape//2
+            returns the middle positon of the given axis (as tuple) as seen for ft, i.e. im.shape//2
+            if ax is provided, the middle slicing position along all provided axes is returned
+            See also: midpos
             ----
-            ax : which axes (list of all axes)
+            ax : which axes (or list of all axes)
             If nothing given, it returns the mid pos for all axis
         """
         import numbers
@@ -2313,7 +2372,7 @@ class image(np.ndarray):
             if i in ax:
                 pos += [self.shape[i]//2]
             else:
-                pos+=[slice(0,self.shape[i])]
+                pos += [slice(0,self.shape[i])]
         return tuple(pos)
 
     def expanddim(self, ndims, trailing = False):
@@ -2723,9 +2782,9 @@ def shiftby(img, avec, **kwargs):
         :param im:              Image to be shifted
         :param avec:            Shift vector  (array of float, int -> shifts the image in each direction, must have dimension of the image)
         :param kwargs:          possible kwargs:
-                                    :param DampOutside:         should the image be damped outside before shifting? default is True
-                                    :param smooth:              smooth!!! default is False
-                                    :param kwargs of DampOutside
+        :param DampOutside:         should the image be damped outside before shifting? default is True
+        :param smooth:              smooth!!! default is False
+        :param kwargs of DampOutside
         :return: an image shifted along the direction of avec
 
         ---------------------------------------------------------------------------------------------------

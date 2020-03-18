@@ -31,6 +31,7 @@ from .config import __DEFAULTS__
 from .image import image as image
 from .test import *
 from .simPSF import *
+from .nditerator import *
 
 ## packages
 from . import resources
