@@ -602,8 +602,10 @@ def irft(im, s, shift_after=False, shift_before=False, ret='complex', axes=None,
     if shift_before == True:
         shift_ax = [i for i in axes if i != real_axis]
         im = ifftshift(im, axes=shift_ax)  # mid freq to corner
-    if (not s is None) and (not axes is None) and len(axes) < len(s):
-        s = s[-len(axes):]  # it will automatically deal with the other axes
+    if (s is not None) and ( axes is not None) and len(axes) < len(s):
+        s = np.array(s)
+        s = s[axes]
+        # wrong old code: s = s[-len(axes):]  # it will automatically deal with the other axes
     im = irfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultDataType)
     if shift_after == True:
         im = fftshift(im, axes=axes)  # corner to mid
