@@ -709,3 +709,45 @@ def resample(img, factors=[2.0, 2.0], dstSize=None, dampOutside=False):
         res = irft(rfre, newsize, shift_after=True)  # why is the shift necessary??
     # no modification is needed to warrant that the integral does not change!
     return res
+
+def findTransformFromMarkers(im1, im2=None, src=None, dst=None, transformType = 'affine', viewer = None):
+    """
+    uses the java-based view5d and the  routines to allow the user to select matching pairs of points.
+    It then determines the geometrical transformation via the skimage routine estimate_transform
+    and transforms the first image (im1) to the geometry of the second image (im2) as specified by the src and dst positions
+    By calling this routine with the a pre-existing viewer v, it is assumed that the user has already set the markers.
+    This can be used to correct previously set marker positions.
+    :param im1: first image (to transform)
+    :param im2: second image (optional) to place the markers
+    :param transformType: the type of transform (see skimage.transform.estimate_transformn for detail)
+    :param viewer: the viewer, if it is already open
+    :return: a tuple of the transformed im1, the src and dst markers and the viewer, which is still open.
+    Example:
+    import NanoImagingPack as nip
+    obj = nip.readim()
+    obj2 = nip.rot2d(obj,10.3)  # rotate by 10.3 deg
+    obj2 = nip.extract(nip.shift(obj2,[10.2,-3.4]), obj.shape) # shift and match shape
+    objt, src, dst, v = nip.findTransformFromMarkers(obj,obj2) # requires user interaction
+    nip.v5(nip.catE((obj, objt, obj2)))
+    # objt, src, dst, v = nip.findTransformFromMarkers(obj,obj2,viewer=v) # for correcting positions
+    # nip.v5(nip.catE((obj, objt, obj2))) # visualize again
+    """
+    from skimage import transform as transf
+    from . import v5
+    from .image import catE
+    if (src is None or dst is None) and viewer is None:
+        if im2 is not None:
+            viewer = v5(catE((im1, im2)))
+        else:
+            viewer = v5(im1)
+        input('Please position markers (press "m") in alternating elements (toggle with "e") or simply alternating positions.\nUse "0" or "9" to step through markers and "M" to delete a marker.\n "A" and "a" to Zoom.\nTo turn off the automatic maximum search for marker positioning use the menu "n".')
+    if viewer is not None:
+        mm = viewer.getMarkers()
+        if len(mm) < 6:
+            raise ValueError('At least 3 markers are needed for both images!')
+        src = np.array(mm[::2])[:, 4:2:-1]
+        dst = np.array(mm[1::2])[:, 4:2:-1]
+
+    tform = transf.estimate_transform(transformType, src, dst)
+    im1t = image.image(transf.warp(im1, inverse_map=tform.inverse, order=4))
+    return (im1t, src, dst, viewer)
