@@ -1,0 +1,26 @@
+conda create -n NIPImageJ pyimagej openjdk=8
+activate NIPImageJ
+conda install scikit-image
+pip install imglyb=0.3.5
+
+
+Test:
+#import scyjava_config
+#scyjava_config.add_options('-Xmx6g')
+import imagej
+ij = imagej.init('sc.fiji:fiji') # downloads the newest ImageJ version including Fiji
+# the above line takes a while!
+
+# Import an image with scikit-image.
+import skimage
+from skimage import io
+# NB: Blood vessel image from: https://www.fi.edu/heart/blood-vessels
+img = io.imread('https://www.fi.edu/sites/fi.live.franklinds.webair.com/files/styles/featured_large/public/General_EduRes_Heart_BloodVessels_0.jpg')
+import numpy as np
+img = np.mean(img, axis=2)
+ij.py.show(img)
+
+# Invoke ImageJ's Frangi vesselness op.
+vessels = np.zeros(img.shape, dtype=img.dtype)
+ij.op().filter().frangiVesselness(ij.py.to_java(vessels), ij.py.to_java(img), [1, 1], 20)
+
