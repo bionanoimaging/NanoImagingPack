@@ -1432,7 +1432,7 @@ def removePhaseInt(pulse):
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
-def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True):
+def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True, exportpath=None):
     """
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
@@ -1440,6 +1440,7 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
     :param numBins: Number of bins for the fit
     :param validRange: If provided, the fit will only be performed over this range (from,to) of mean values. The values are inclusived borders
     :param doPlot: Plot the mean-variance curves
+    :param exportpath: define the path where the graphs may get exported (PNGs), EXAMPLE: './'
     :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
     to scale your images into photons use: (image-offset) * gain
     """
@@ -1503,6 +1504,10 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
             xlabel("frame no.", fontsize=AxisFontSize)
             ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
 
+            if exportpath is not None:
+                savefig(exportpath+'/correctOffsetDrift.png')
+
+
     meanbg = np.mean(bg, (-3))
     background = np.mean(meanbg)
     patternVar = np.var(meanbg)
@@ -1523,6 +1528,8 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         fg = (fg - background) * relbright
         maxFluc = np.max(np.abs(1.0-relbright))
         Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
+        if exportpath is not None:
+            savefig(exportpath+'/correctBrightness.png')
     meanp = np.mean(fg, (-3))
     varp = np.var(fg, (-3))
     varbg = np.var(bg, (-3))
@@ -1566,7 +1573,11 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
     Text = Text + "Fixed Pattern, gain * Std.Dev. for mean_bg: {rn:.2f}".format(rn=np.sqrt(patternVar))+"e- RMS\n"
     Readnoise = np.sqrt(np.mean(varbg)) * gain
     Text = Text + "Readnoise, gain * bg_noise: {rn:.2f}".format(rn=Readnoise)+" e- RMS\n"
-
+    if exportpath is not None:
+        file = open(exportpath+'result.csv','w') 
+        file.write(Text) 
+        file.close() 
+        
     if doPlot:
         figure(figsize=(12, 8))
         if CameraName is not None:
@@ -1585,6 +1596,8 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         xlabel("mean signal / adu", fontsize=AxisFontSize)
         ylabel("variance / adu", fontsize=AxisFontSize)
         text(maxx/20.0, maxy*0.6, Text, fontsize=TextFontSize)
+        if exportpath is not None:
+            savefig(exportpath+'/PhotonCalibration.png')
 
     print(Text)
     return (background, gain, Readnoise, hotPixels)
