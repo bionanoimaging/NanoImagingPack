@@ -7,7 +7,7 @@ fg=nip.readtimeseries(r"C:\NoBackup\Data\FrankGarwe\tritium\ganzneu2\tritium_2pi
 bg = nip.readtimeseries(r"C:\NoBackup\Data\FrankGarwe\tritium\ganzneu2\tritium_2pinholes_direkt_apertur0p15_1s_gain20_offset10\background_1s_gain20_offset10_ganzneu2\\")
 # otherbg = nip.readim(r"C:\NoBackup\Data\FrankGarwe\tritium\tritium_2pinholes_apertur_0p15_direct_1s_gain20_offset10_bg.tiff")
 # nip.v5(a+0.0-bg)
-nip.cal_readnoise(fg, bg)
+nip.cal_readnoise(fg, bg) #
 
 # lstsq()
 # meanvarvar =
@@ -18,4 +18,4 @@ nip.cal_readnoise(fg, bg)
 if True:
     fg = nip.readim(r"C:\Users\pi96doc\Documents\MATLAB\Hamamatsu\10ms.BTF")
     bg = nip.readim(r"C:\Users\pi96doc\Documents\MATLAB\Hamamatsu\10msdark.BTF").squeeze()
-    qq=nip.cal_readnoise(fg, bg)
+    qq=nip.cal_readnoise(fg, bg) # validRange=[80,30000]

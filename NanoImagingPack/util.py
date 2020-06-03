@@ -1208,6 +1208,7 @@ def RWLSPoisson(x,y,N=1, ignoreNan=True, validRange=None):
             N = N[valid]
 
     if validRange is not None:
+        allvv = x * np.nan
         valid = (x <= validRange[1]) & (x >= validRange[0])
         x = x[valid]
         y = y[valid]
@@ -1226,4 +1227,7 @@ def RWLSPoisson(x,y,N=1, ignoreNan=True, validRange=None):
         (o,s) = GLS(x, y, vv)
         v = o+s*x # predict variances from the fit for the next round
         # print('RWLSPoisson Iteration %d, o: %g, s: %g\n',n,o,s);
+    if validRange is not None:
+        allvv[valid] = vv
+        vv = allvv
     return o, s, vv
