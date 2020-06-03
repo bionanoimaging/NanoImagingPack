@@ -1434,7 +1434,7 @@ def removePhaseInt(pulse):
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
 def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True, exportpath=None):
-    """
+    """ 
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
     :param bg: A series of dark images under identical camera settings (integration time, temperature, etc.). Suggested number: 20 images
