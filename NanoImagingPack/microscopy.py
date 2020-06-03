@@ -190,8 +190,7 @@ def aberrationMap(im, psf_params= None):
 
 def propagatePupil(pupil, sizeZ, distZ=None, psf_params = None, mode = 'Fourier', doDampPupil=False):
     """
-    Propagates a pupil plane to a 3D stack of pupils. The result is still in Fourier space!
-    To obtain a 3D stack, you need to do an ift2d().
+    Propagates a pupil plane to a 3D stack of pupils.
     :param pupil: pupil amplitude to propagate
     :param sizeZ: Number of slices to propagate
     :param distZ: Distance between the slices (in units of the XY pixel information of the pupil)
@@ -242,7 +241,6 @@ def __make_propagator__(im, psf_params = None, doDampPupil=False, shape=None, di
 
     :param im:              input image
     :param psf_params:      psf params structure
-    :param distZ:           pixelsize along Z for propagation
 
                             TODO: Include chirp Z transform method
     :return:                Returns the phase propagation matrix (exp^i*delta_phi)
@@ -1435,7 +1433,7 @@ def removePhaseInt(pulse):
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
-def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True):
+def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True, exportpath=None):
     """
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
@@ -1443,18 +1441,8 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
     :param numBins: Number of bins for the fit
     :param validRange: If provided, the fit will only be performed over this range (from,to) of mean values. The values are inclusived borders
     :param doPlot: Plot the mean-variance curves
-    :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS], hotpixemap)
+    :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
     to scale your images into photons use: (image-offset) * gain
-
-    Example:
-    import NanoImagingPack as nip
-    import numpy as np
-    obj = nip.repmat(nip.readim(),[10,1,1])
-    RN = 3.5
-    gain = 2.3
-    nimg = (nip.noise.poisson(obj) + np.random.normal(obj*0.0,RN)) / gain
-    bgimg = np.random.normal(obj*0.0,RN) / gain
-    (offset, myGain, myReadnoise, hotPixelMap) =nip.cal_readnoise(nimg, bgimg, validRange=[20,80])
     """
     # a_nobg = a * 1.0 - meanbg
     AxisFontSize=16
@@ -1515,6 +1503,10 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
             plot(reloffset.flat, label='Offset / Std.Dev.')
             xlabel("frame no.", fontsize=AxisFontSize)
             ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
+
+            if exportpath is not None:
+                savefig(exportpath+'/correctOffsetDrift.png')
+
 
     meanbg = np.mean(bg, (-3))
     background = np.mean(meanbg)
