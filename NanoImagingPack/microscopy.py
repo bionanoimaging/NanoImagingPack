@@ -20,7 +20,7 @@ import warnings
 from scipy.special import j1
 from .image import image
 # from .view5d import v5 # for debugging
-from matplotlib.pyplot import plot,figure, xlabel, ylabel, text, title, xlim, ylim # rc, errorbar,
+from matplotlib.pyplot import plot,figure, savefig, xlabel, ylabel, text, title, xlim, ylim # rc, errorbar,
 
 def getDefaultPSF_PARAMS(psf_params):
     if psf_params is None:
