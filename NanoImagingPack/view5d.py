@@ -281,12 +281,17 @@ class View5D:
 def v5ProcessKeys(out,KeyList):
     out.ProcessKeys(KeyList)
 
-def napariAddLayer(data,v=None,gamma=1.0):
+def napariAddLayer(data,v=None,gamma=None):
     import napari as nap
 
     if v is None:
         v = nap.Viewer()
-    if np.isrealobj(data):
+
+    if np.isrealobj(data) or nap.__version__ == '0.3.7rc11.dev148+g4efccaf5':
+        if gamma is None and np.isrealobj(data):
+            gamma = 1.0;
+        else:
+            gamma = 0.25;
         v.add_image(data)
         v.dims.set_point(0, data.shape[0] // 2)
         if data.ndim>1:

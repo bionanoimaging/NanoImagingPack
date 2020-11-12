@@ -751,3 +751,4 @@ def findTransformFromMarkers(im1, im2=None, src=None, dst=None, transformType = 
     tform = transf.estimate_transform(transformType, src, dst)
     im1t = image.image(transf.warp(im1, inverse_map=tform.inverse, order=4))
     return (im1t, src, dst, viewer)
+

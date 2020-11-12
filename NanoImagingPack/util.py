@@ -521,6 +521,7 @@ def clip(img,minval=0.0,maxval=None):
 def castdim(img, ndims=None, wanteddim=0):
     """
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one
+        it orients a vector along the -wanteddim direction
         ----------
         img: input image to expand
         ndims: number of dimensions to expand to

@@ -1921,7 +1921,7 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
     EXTRACT a part in an n-dimensional array based on stating the destination ROI size and center in the source
     :param img: Input image
     :param ROIsize: region of interest to extract ((minx,maxx),(miny,maxy))
-    :param centerpos: center of the ROI in source image to extract
+    :param centerpos: center of the ROI in source image to extract. Coordinates are measured from the corner being (0,0,..)
     :param PadValue: Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
     :param checkComplex: ToDO: What is this used for?
     :return: an extracted image
@@ -1935,23 +1935,8 @@ def extract(img, ROIsize=None, centerpos=None, PadValue=0.0, checkComplex=True):
     import NanoImagingPack as nip
     im = nip.readim()
     im.extract([128,128],[128,128]) #EXTRACT an ROI of 128*128 with coordinate 128,128 as centre
-
-    ToDO: The example below by Rainer doesn't work becasue there is no function centered_extract?
-
     '''
-    """
-        extracts a part in an n-dimensional array based on stating the destination ROI size and center in the source
 
-        ROIsize: size of the ROI to extract. Will automatically be limited by the array sizes when applied. If ROIsize==None the original size is used
-        centerpos: center of the ROI in source image to exatract
-        PadValue (default=0) : Value to assign to the padded area. If PadValue==None, no padding is performed and the non-existing regions are pruned.
-
-        Example:
-        
-            nip.centered_extract(nip.readim(),[799,799],[-1,-1],100) # extracts the right bottom quarter of the image
-
-        RH Version
-    """
     if checkComplex:
         if np.iscomplexobj(img):
             raise ValueError(

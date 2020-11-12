@@ -123,8 +123,8 @@ def setDefault(name, value):
 
 def setViewer(name):
     """
-    sets the default viewer to
-    :param name:
+    sets the default viewer to name.
+    :param name:  any of 'NIP_VIEW', 'VIEW5D','NAPARI','INFO'
     :return:
     """
     setDefault('IMG_VIEWER', name)

@@ -15,6 +15,7 @@ NanoImagingPack/functions.py
 NanoImagingPack/image.py
 NanoImagingPack/mask.py
 NanoImagingPack/microscopy.py
+NanoImagingPack/nditerator.py
 NanoImagingPack/noise.py
 NanoImagingPack/separables.py
 NanoImagingPack/simPSF.py
