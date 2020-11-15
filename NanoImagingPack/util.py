@@ -518,6 +518,16 @@ def castdimvec(mysize, ndims=None, wanteddim=0):
 def clip(img,minval=0.0,maxval=None):
     return np.clip(img,minval,maxval)
 
+def inverse_perm(perm):
+    """
+    inverts a permutation vector such that permuting dimensions will be reverted.
+    :param perm: the permuation vector to invert
+    :return: the invers permutation vector to apply via np.transpose()
+    """
+    myinv = np.empty_like(perm)
+    myinv[perm] = np.arange(len(myinv), dtype=myinv.dtype)
+    return myinv
+
 def castdim(img, ndims=None, wanteddim=0):
     """
         expands a 1D image to the necessary number of dimension casting the dimension to a wanted one

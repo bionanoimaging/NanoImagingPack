@@ -881,7 +881,7 @@ def localMax(img, threshold_rel=None, kernel=(3,3,3)):
     values = ndimage.measurements.maximum(img, labels=labels, index=np.arange(1, num_labels + 1))
     return coords, values
 
-def extractMuliPeaks(im, ROIsize, sigma=2.0, threshold_rel=None, alternateImg=None, kernel=(3,3,3)):
+def extractMuliPeaks(im, ROIsize, sigma=None, threshold_rel=None, alternateImg=None, kernel=(3,3,3), borderDist=None):
     """
     extracts ROIs around the local maxima in im after gaussian filtering
     :param im: image to extract from
@@ -891,9 +891,17 @@ def extractMuliPeaks(im, ROIsize, sigma=2.0, threshold_rel=None, alternateImg=No
     :param min_distance: minimum distance to keep around maxima
     :return: tuple of (the n-dimensional ROIs stacked along an extra dimension and center coordinates)
     """
-    if np.linalg.norm(sigma) > 0:
+    if sigma is not None and np.linalg.norm(sigma) > 0:
         im2 = image(gaussian_filter(im, sigma))
+    else:
+        im2 = im
     coordinates, values = localMax(im2, threshold_rel=threshold_rel, kernel=kernel)
+    if borderDist is not None:
+        coordinates = np.array(coordinates)
+        borderDist = np.array(borderDist)
+        inBorder = np.all(coordinates-borderDist >= 0,axis=1) & np.all(im.shape - coordinates - borderDist >= 0, axis=1)
+        coordinates=coordinates[inBorder,:]
+        values=values[inBorder]
 
     if alternateImg is not None:
         im = alternateImg
