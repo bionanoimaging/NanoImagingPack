@@ -1,0 +1,422 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Getting Started &mdash; NanoImagingToolbox 0.1 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> NanoImagingToolbox
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"><ul>
+<li><a class="reference internal" href="#">Getting Started</a><ul>
+<li><a class="reference internal" href="#reading-and-displaying-an-image">Reading and displaying an image</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#creator-functions">Creator functions</a><ul>
+<li><a class="reference internal" href="#linear-ramps-in-xx-yy-and-zz">Linear Ramps in XX, YY and ZZ</a></li>
+<li><a class="reference internal" href="#polar-ramps-in-phiphi-and-rr">Polar Ramps in PhiPhi and RR</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#fourier-transforms">Fourier Transforms</a><ul>
+<li><a class="reference internal" href="#display-2d-spectrum">Display 2D spectrum</a></li>
+<li><a class="reference internal" href="#filter-the-2d-spectrum-and-image">Filter the 2D spectrum and “image”</a></li>
+</ul>
+</li>
+</ul>
+</div>
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">NanoImagingToolbox</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Getting Started</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/tutorial_1.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="getting-started">
+<h1>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h1>
+<p>First we want to start with some toy-examples. Start by importing the libraries:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">NanoImagingPack</span> <span class="k">as</span> <span class="nn">nip</span>
+</pre></div>
+</div>
+<p>The output will be something like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Backend</span> <span class="n">Qt5Agg</span> <span class="ow">is</span> <span class="n">interactive</span> <span class="n">backend</span><span class="o">.</span> <span class="n">Turning</span> <span class="n">interactive</span> <span class="n">mode</span> <span class="n">on</span><span class="o">.</span>
+<span class="n">Problem</span> <span class="n">setting</span> <span class="n">classpath</span><span class="o">.</span> <span class="n">Switching</span> <span class="n">to</span> <span class="n">conventional</span> <span class="n">viewer</span> <span class="n">by</span> <span class="n">setting</span> <span class="n">__DEFAULTS__</span><span class="p">[</span><span class="s1">&#39;IMG_VIEWER&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;NIP_VIEW&#39;</span>
+</pre></div>
+</div>
+<p>which already indicates, that the default viewer is set to <code class="docutils literal notranslate"><span class="pre">NIP_VIEW</span></code>. We can change that later.</p>
+<div class="section" id="reading-and-displaying-an-image">
+<h2>Reading and displaying an image<a class="headerlink" href="#reading-and-displaying-an-image" title="Permalink to this headline">¶</a></h2>
+<p>NIP has an inbuild image reader function which can read N-dimensional data with the help of the bioformats</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">myobject</span> <span class="o">=</span> <span class="n">nip</span><span class="o">.</span><span class="n">readim</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Without setting an argument, a default test image will be read. You can display it with the following command</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">nip</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">myobject</span><span class="p">)</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_readim.png" width="400"></a>
+</p><p>The image is a <code class="docutils literal notranslate"><span class="pre">NanoImagingPack.image.image</span></code>-class object:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">object</span><span class="o">.</span><span class="vm">__class__</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">7</span><span class="p">]:</span> <span class="n">NanoImagingPack</span><span class="o">.</span><span class="n">image</span><span class="o">.</span><span class="n">image</span>
+</pre></div>
+</div>
+<p>An alternative to display the image would be the use of the <a class="reference external" href="https://napari.org/"><em><strong>NAPARI</strong></em></a> image viewer. You can conveniently call it by using the following command:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nip</span><span class="o">.</span><span class="n">vv</span><span class="p">(</span><span class="n">sample</span><span class="p">)</span>
+<span class="n">Out</span><span class="p">[</span><span class="mi">24</span><span class="p">]:</span> <span class="o">&lt;</span><span class="n">napari</span><span class="o">.</span><span class="n">viewer</span><span class="o">.</span><span class="n">Viewer</span> <span class="n">at</span> <span class="mh">0x1f065bd5748</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>In case nothing happens or an error occurs, you can try adding the following python magic commad which selects the proper backend: <code class="docutils literal notranslate"><span class="pre">%gui</span> <span class="pre">qt</span></code>. The image opens externally</p>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_napari.png" width="600"></a>
+</p></div>
+</div>
+<div class="section" id="creator-functions">
+<h1>Creator functions<a class="headerlink" href="#creator-functions" title="Permalink to this headline">¶</a></h1>
+<p>NIP has a number of creator functions which makes life much easier if you for example want to construct a <em>linear phase mask</em> or create a circular disk to block certain frequencies.</p>
+<p>You can find following functions:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>nip.rr() - creates a ramp in r direction
+nip.xx() - creates a ramp in x direction
+nip.yy() - creates a ramp in y direction
+nip.zz() - creates a ramp in z direction
+nip.phiphi() - creates a ramp in phi direction. This does NOT account for the pixel sizes!! Use cosSinTheta instead!
+nip.rr2() - creates a square of a ramp in r direction 
+</pre></div>
+</div>
+<p>According to the <code class="docutils literal notranslate"><span class="pre">FFT</span></code> Fouriertransforms, the center is defined as</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">mod</span><span class="p">(</span><span class="n">N</span><span class="p">):</span> 
+	<span class="n">center</span><span class="o">=</span><span class="n">N</span><span class="o">//</span><span class="mi">2</span><span class="o">+</span><span class="mi">1</span>
+<span class="k">else</span><span class="p">:</span>
+	<span class="n">center</span><span class="o">=</span><span class="n">N</span><span class="o">/</span><span class="mi">2</span>
+</pre></div>
+</div>
+<div class="section" id="linear-ramps-in-xx-yy-and-zz">
+<h2>Linear Ramps in XX, YY and ZZ<a class="headerlink" href="#linear-ramps-in-xx-yy-and-zz" title="Permalink to this headline">¶</a></h2>
+<p>You can create a linear ramp in x, y and z with this function call:
+<code class="docutils literal notranslate"><span class="pre">nip.xx(mysize=(256,</span> <span class="pre">256),</span> <span class="pre">placement='center',</span> <span class="pre">freq=None,</span> <span class="pre">pixelsize=None)</span></code>, where <code class="docutils literal notranslate"><span class="pre">mysize</span></code> corresponds to the dimension in <code class="docutils literal notranslate"><span class="pre">(Nx,</span> <span class="pre">Ny,</span> <span class="pre">Nz)</span></code>, <code class="docutils literal notranslate"><span class="pre">placement</span></code> sets the origin (i.e. zero-coordinate) of your ramp function, <code class="docutils literal notranslate"><span class="pre">freq='ftfreq',</span> <span class="pre">ftradfreq,</span> <span class="pre">fftfreq,</span> <span class="pre">rfftfreq,</span> <span class="pre">fftradfreq</span> <span class="pre">or</span> <span class="pre">rfftradfreq</span></code> can change the scaling (e.g. <code class="docutils literal notranslate"><span class="pre">-Nx//2:0:Nx//2</span></code> or <code class="docutils literal notranslate"><span class="pre">-0.5:0:0.5</span></code>)</p>
+<p>The documentation of the function will give you that</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span>    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    creates a ramp in x direction</span>
+<span class="sd">    standart size is 256 X 256</span>
+<span class="sd">    placement:</span>
+<span class="sd">        center: 0 is at cetner</span>
+<span class="sd">                if x is even, it has one more value in the positve:</span>
+<span class="sd">                    e.g. size_x = 100 -&gt; goes from -50 to 49</span>
+<span class="sd">        negative : goes from negative size_x to 0</span>
+<span class="sd">        positvie : goes from 0 size_x to positive</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>The following code produces a simple 2D ramp - but it can be 1D, 2D or 3D:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">xx</span><span class="p">(</span><span class="n">mysize</span><span class="o">=</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">placement</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">&#39;ftfreq&#39;</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_xx.png" width="400"></a>
+</p></div>
+<div class="section" id="polar-ramps-in-phiphi-and-rr">
+<h2>Polar Ramps in PhiPhi and RR<a class="headerlink" href="#polar-ramps-in-phiphi-and-rr" title="Permalink to this headline">¶</a></h2>
+<p>You can create a linear phase-ramps in polar coordinates. Very useful for spiral phases or circular masks.</p>
+<p>Now we create a circle using the <code class="docutils literal notranslate"><span class="pre">nip.rr</span></code>function which first creates a 2D map with pixel values <code class="docutils literal notranslate"><span class="pre">r=sqrt(x**2+y**2)</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">rr</span><span class="p">(</span><span class="n">mysize</span><span class="o">=</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">placement</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_rr.png" width="400"></a>
+</p><p>Thresholding the <code class="docutils literal notranslate"><span class="pre">rr</span></code>-function gives us a circle with radius of the threshold:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">rr</span><span class="p">(</span><span class="n">mysize</span><span class="o">=</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">placement</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">64</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_circ.png" width="400"></a>
+</p><p>The full doc-string will give you the following information:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">nip</span><span class="o">.</span><span class="n">rr</span><span class="p">(</span>
+    <span class="n">mysize</span><span class="o">=</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span>
+    <span class="n">placement</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span>
+    <span class="n">offset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">scale</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">freq</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">pixelsize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">Docstring</span><span class="p">:</span>
+<span class="n">creates</span> <span class="n">a</span> <span class="n">ramp</span> <span class="ow">in</span> <span class="n">r</span> <span class="n">direction</span>
+<span class="n">standart</span> <span class="n">size</span> <span class="ow">is</span> <span class="mi">256</span> <span class="n">X</span> <span class="mi">256</span>
+<span class="n">placement</span> <span class="ow">is</span> <span class="n">always</span> <span class="s2">&quot;center&quot;</span>
+<span class="n">offset</span> <span class="o">-&gt;</span> <span class="n">x</span><span class="o">/</span><span class="n">y</span> <span class="n">offset</span> <span class="ow">in</span> <span class="n">pixels</span> <span class="p">(</span><span class="n">number</span><span class="p">,</span> <span class="nb">list</span> <span class="ow">or</span> <span class="nb">tuple</span><span class="p">)</span>
+<span class="n">scale</span> <span class="ow">is</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="n">none</span> <span class="ow">or</span> <span class="n">number</span> <span class="n">of</span> <span class="n">axis</span> <span class="n">scale</span>
+<span class="n">File</span><span class="p">:</span>      <span class="n">c</span><span class="p">:</span>\<span class="n">users</span>\<span class="n">pi96doc</span>\<span class="n">documents</span>\<span class="n">programming</span>\<span class="n">pythonscripts</span>\<span class="n">fromweb</span>\<span class="n">nanoimagingpack</span>\<span class="n">nanoimagingpack</span>\<span class="n">coordinates</span><span class="o">.</span><span class="n">py</span>
+<span class="n">Type</span><span class="p">:</span>      <span class="n">function</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">nip</span><span class="o">.</span><span class="n">rr</span><span class="p">()</span>
+   <span class="o">...</span><span class="p">:</span>
+<span class="n">a</span>
+</pre></div>
+</div>
+<p>Creating a circular phase ramp with a phase-value -pi…pi can be done using the <code class="docutils literal notranslate"><span class="pre">nip.phiphi()</span></code>-function:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">phiphi</span><span class="p">(</span><span class="n">mysize</span><span class="o">=</span><span class="p">(</span><span class="mi">256</span><span class="p">,</span> <span class="mi">256</span><span class="p">),</span> <span class="n">placement</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_phiphi.png" width="400"></a>
+</p></div>
+</div>
+<div class="section" id="fourier-transforms">
+<h1>Fourier Transforms<a class="headerlink" href="#fourier-transforms" title="Permalink to this headline">¶</a></h1>
+<p>NIP makes your frequency-space life a lot easier, since you don’t need to worry about the correct order of shift/back-shift your zero-frequencies.</p>
+<p>The following Fourier-transforming options are available:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">Forward</span> <span class="n">Transformation</span><span class="p">:</span>
+
+<span class="n">nip</span><span class="o">.</span><span class="n">ft</span><span class="p">()</span> <span class="o">-</span> <span class="n">Perform</span> <span class="n">a</span> <span class="n">ND</span> <span class="n">Fourier</span> <span class="n">transform</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">two</span> <span class="n">dimensions</span> <span class="n">only</span> <span class="n">of</span> <span class="n">an</span> <span class="n">arbitrary</span> <span class="n">stack</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">ft2d</span><span class="p">()</span> <span class="o">-</span> <span class="n">Perform</span> <span class="n">a</span> <span class="mi">2</span><span class="n">D</span> <span class="n">Fourier</span> <span class="n">transform</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">two</span> <span class="n">dimensions</span> <span class="n">only</span> <span class="n">of</span> <span class="n">an</span> <span class="n">arbitrary</span> <span class="n">stack</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">ft3d</span><span class="p">()</span> <span class="o">-</span> <span class="n">Perform</span> <span class="n">a</span> <span class="mi">3</span><span class="n">D</span> <span class="n">Fourier</span> <span class="n">transform</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">two</span> <span class="n">dimensions</span> <span class="n">only</span> <span class="n">of</span> <span class="n">an</span> <span class="n">arbitrary</span> <span class="n">stack</span>
+
+
+<span class="n">inverse</span> <span class="n">Transformation</span><span class="p">:</span>
+
+<span class="n">nip</span><span class="o">.</span><span class="n">ift</span><span class="p">()</span> <span class="o">-</span> <span class="n">Perform</span> <span class="n">a</span> <span class="n">ND</span> <span class="n">inverse</span> <span class="n">Fourier</span> <span class="n">transform</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">two</span> <span class="n">dimensions</span> <span class="n">only</span> <span class="n">of</span> <span class="n">an</span> <span class="n">arbitrary</span> <span class="n">stack</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">ift2d</span><span class="p">()</span> <span class="o">-</span> <span class="n">Perform</span> <span class="n">a</span> <span class="mi">2</span><span class="n">D</span> <span class="n">inverse</span> <span class="n">Fourier</span> <span class="n">transform</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">two</span> <span class="n">dimensions</span> <span class="n">only</span> <span class="n">of</span> <span class="n">an</span> <span class="n">arbitrary</span> <span class="n">stack</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">ift3d</span><span class="p">()</span> <span class="o">-</span> <span class="n">Perform</span> <span class="n">a</span> <span class="mi">3</span><span class="n">D</span> <span class="n">inverse</span> <span class="n">Fourier</span> <span class="n">transform</span> <span class="n">of</span> <span class="n">the</span> <span class="n">first</span> <span class="n">two</span> <span class="n">dimensions</span> <span class="n">only</span> <span class="n">of</span> <span class="n">an</span> <span class="n">arbitrary</span> <span class="n">stack</span>
+
+<span class="n">real</span><span class="o">-</span><span class="n">space</span> <span class="n">FT</span><span class="p">:</span>
+
+<span class="n">nip</span><span class="o">.</span><span class="n">rft</span><span class="p">()</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">rft2d</span><span class="p">()</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">rft3d</span><span class="p">()</span>
+
+<span class="n">nip</span><span class="o">.</span><span class="n">irft</span><span class="p">()</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">irft2d</span><span class="p">()</span>
+<span class="n">nip</span><span class="o">.</span><span class="n">irft3d</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><em><strong>ATTENTION:</strong></em> Other than in Matlab, the FFT is normalized by an additional division by <code class="docutils literal notranslate"><span class="pre">sqrt(prod(totransfor.shape))</span></code>!</p>
+<div class="section" id="display-2d-spectrum">
+<h2>Display 2D spectrum<a class="headerlink" href="#display-2d-spectrum" title="Permalink to this headline">¶</a></h2>
+<p>Displaying the 2D spectrum of the sample image is as simple as this:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">nip</span><span class="o">.</span><span class="n">ft</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">readim</span><span class="p">()))),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_FT.png" width="400"></a>
+</p><p>This is what a lens would produce if we place the transmissive object inside the focal plane of the lens and capture the back focal plane (BFP). Beware, that we plot it in log-scale, otherwise you would not see the large dynamic range of the Fourier transform.</p>
+<p>Compared to the generic FFT from numpy, it shifts all frequency components automatically, such that you can find the zero-pixel in the center. The same code with the numpy FFT looks like that:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft2</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">readim</span><span class="p">()))),</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_FT_np.png" width="400"></a>
+</p><p>The zero-frequency can be found at the <code class="docutils literal notranslate"><span class="pre">(0,0)</span></code> coordinate.</p>
+</div>
+<div class="section" id="filter-the-2d-spectrum-and-image">
+<h2>Filter the 2D spectrum and “image”<a class="headerlink" href="#filter-the-2d-spectrum-and-image" title="Permalink to this headline">¶</a></h2>
+<p>Now we want to apply a low-pass filter to the spectram and filter all the higher information out. Therefore we multiply the spectrum with the disc we created earlier and perform an inverse Fourier transform as</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">myobject</span> <span class="o">=</span> <span class="n">nip</span><span class="o">.</span><span class="n">readim</span><span class="p">()</span>
+<span class="n">disk</span> <span class="o">=</span> <span class="n">nip</span><span class="o">.</span><span class="n">rr</span><span class="p">(</span><span class="n">mysize</span><span class="o">=</span> <span class="n">myobject</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">placement</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">)</span><span class="o">&lt;</span><span class="mi">64</span>
+<span class="n">myspectrum</span> <span class="o">=</span> <span class="n">nip</span><span class="o">.</span><span class="n">ft2d</span><span class="p">(</span><span class="n">myobject</span><span class="p">)</span>
+<span class="n">myspectrum_filtred</span> <span class="o">=</span> <span class="n">myspectrum</span><span class="o">*</span><span class="n">disk</span>
+<span class="n">myimage</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">nip</span><span class="o">.</span><span class="n">ift2d</span><span class="p">(</span><span class="n">myspectrum_filtred</span><span class="p">))</span>
+
+<span class="c1"># display original and filtered object/image</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">121</span><span class="p">),</span> <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;original object&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">myobject</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">122</span><span class="p">),</span> <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;filtered image&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">myimage</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">()</span>
+</pre></div>
+</div>
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_filtered.png" width="600"></a>
+</p><p>You can see that some of the smaller detailes are lost since they did not pass through the aperture.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2020, NanoImagingGroup @ Leibniz IPHT Jena
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
