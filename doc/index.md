@@ -37,6 +37,10 @@ We will give a brief introduction into the core concept of the NanoImagingPack (
 
 ```
 
+## Installation
+
+A guid on how to install NIP on your computer can be found in this [tutorial](install.md).
+
 ## Tutorials 
 
 The tutorials start from the very basics of how to read, write and display image data. We will guide the user through the pipeline of creating a virtual microscope with realistic imaging properties. 
