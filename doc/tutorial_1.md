@@ -62,6 +62,19 @@ In case nothing happens or an error occurs, you can try adding the following pyt
 </p>
 
 
+#### NIP default viewer 
+
+NIP has a viewer which can adjust the minimum, maximum and gamma value with sliders. You can open it by typing
+
+```py
+nip.view(np.log(np.abs(1+np.fft.fft2(nip.readim()))))
+```
+
+<p align="center">
+<a href="#logo" name="logo"><img src="./IMAGES/IMG_view.png" width="600"></a>
+</p>
+
+
 ## Creator functions
 
 NIP has a number of creator functions which makes life much easier if you for example want to construct a *linear phase mask* or create a circular disk to block certain frequencies. 
@@ -79,10 +92,7 @@ nip.rr2() - creates a square of a ramp in r direction
 
 According to the ```FFT``` Fouriertransforms, the center is defined as 
 ``` 
-if mod(N): 
-	center=N//2+1
-else:
-	center=N/2
+center=N//2+1
 ```
 
 #### Linear Ramps in XX, YY and ZZ
@@ -90,7 +100,7 @@ else:
 You can create a linear ramp in x, y and z with this function call:
 ```nip.xx(mysize=(256, 256), placement='center', freq=None, pixelsize=None)```, where ```mysize``` corresponds to the dimension in ```(Nx, Ny, Nz)```, ```placement``` sets the origin (i.e. zero-coordinate) of your ramp function, ```freq='ftfreq', ftradfreq, fftfreq, rfftfreq, fftradfreq or rfftradfreq``` can change the scaling (e.g. ```-Nx//2:0:Nx//2``` or ```-0.5:0:0.5```) 
 
-The documentation of the function will give you that
+By typing ```xx?``` you can get the documentation of the function, which will give you this
 
 ```py
     """
@@ -275,4 +285,5 @@ plt.colorbar()
 </p>
 
 
-You can see that some of the smaller detailes are lost since they did not pass through the aperture.
+You can see that some of the smaller detailes are lost since they are blocked by the cirucular aperture you just created. 
+

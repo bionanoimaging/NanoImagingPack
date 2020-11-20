@@ -14,14 +14,37 @@ Type the following inside the Anaconda prompt:
 ```conda create -n IP python=3.6* pip git numpy matplotlib pillow git Spyderconda activate IPconda install -c conda-forge scikit-image pyqt=5.12.3pip install tifffile==2020.2.16 scipy==1.3.3pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack# pip install --extra-index-url https://test.pypi.org/simple/ NanoImagingPack
 ```
 
+
+## NIP inside Spyder 
+
 Now you can open Spyder (or any other IDE) for programming with NIP in Python. 
 
 Therfore type ```spyder```in the Anconda command line.
 
-## GUI tweaks:
+### GUI tweaks:
 
 To get the most of Spyder + NIP you can do the following- open by typing ‚spyder‘
 - tools→ seetings→ ipython console → start
 - add ```%gui qt```
 
 This will open Napari in the external rendering environment. 
+
+
+## NIP inside Jupyter Notebook
+
+Start the Jupyter Notebook from the Anaconda Notebook by typing:
+
+```jupyter notebook```
+
+Inside a new Notebook you can import the NIP toolbox with the usual import statement:
+
+```import NanoImagingPack```
+
+
+## Troubleshooting
+
+If you get an error message about NanoImagingPack not existing, check the following: 
+
+1. Did you install nip in the conda environment you created. 
+2. Did you start "jupyter notebook" from within that environment (the left side of your prompt has to be marked "IP"). 
+3. Did you install jupyter WITHIN that conda environment ``pip install jupyter```
