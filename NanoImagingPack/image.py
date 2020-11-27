@@ -1839,7 +1839,6 @@ def line_cut(im, coord1=0, coord2=None, thickness=10):
         im = np.reshape(im, (im.shape[0], im.shape[1], np.prod(np.asarray(im.shape)[2:])))
         return [__get_line__(im[:, :, i]) for i in range(im.shape[2])]
 
-
 def extractFt(img, ROIsize=None, mycenter=None, ModifyInput=False, ignoredim=None):
     """
     Identical to exctract, but fixes the zero positon (highest frequency) for even array sizes
@@ -1854,7 +1853,15 @@ def extractFt(img, ROIsize=None, mycenter=None, ModifyInput=False, ignoredim=Non
 
     Example:
     ----------
-        nip.extractFt(nip.ft(nip.readim()),[400,400]) # subsamples
+    a = nip.readim()
+    sz = a.shape
+    nsz=[sz[0],sz[1]*2]
+    stretched1 = nip.ift(nip.extract(nip.ft(a),nsz,checkComplex=False))
+    print(np.min(np.imag(stretched1)))  # Problem, due to the umatching Fourier line
+    stretched2 = nip.ift(nip.extractFt(nip.ft(a),nsz))
+    print(np.min(np.imag(stretched2)))  # No problem, due to the umatching Fourier line
+    unstretched = nip.ift(nip.extractFt(nip.ft(stretched2),sz))
+    print(np.min(np.imag(unstretched))) # No problem, due to the umatching Fourier line
 
     See also
     -------
@@ -1876,7 +1883,7 @@ def extractFt(img, ROIsize=None, mycenter=None, ModifyInput=False, ignoredim=Non
     return res
 
 
-def fixFtAfterExtract(res, img, ignoredim):
+def fixFtAfterExtract(res, img, ignoredim=None):
     """
     FIXFTAFTEREXTRACT corrects for the even-size issues when extracting. ATTENTION! THIS ROUTINE MODIFIES img
     :param res: result after extracting the normal way
@@ -1884,10 +1891,16 @@ def fixFtAfterExtract(res, img, ignoredim):
     :param ignoredim: ToDO: What is this used for?
     :return:
 
-    Example1: ToDO: Don't know how exampple work
-    import NanoImagingPack as nip
-    im = nip.readim()
-    im.fixFtAfterExtract()
+    Example:
+    a = nip.readim()
+    sz = a.shape
+    nsz=[sz[0],sz[1]*2]
+    fta = nip.ft(a)
+    fta2 = nip.extract(fta,nsz,checkComplex=False)
+    stretched1 = nip.ift(fta2)
+    print(np.min(np.imag(stretched1)))  # Problem, due to the umatching Fourier line
+    stretched2 = nip.ift(nip.fixFtAfterExtract(fta2, fta))
+    print(np.min(np.imag(stretched2)))  # No problem, due to the umatching Fourier line
 
     See also
     -------
@@ -1906,7 +1919,7 @@ def fixFtAfterExtract(res, img, ignoredim):
                 res = util.subsliceAsg(res, d, ROILeftPos + szold[d], aslice / 2.0)  # distribute it evenly, also to keep parseval happy and real arrays real
                 res = util.subsliceAsg(res, d, ROILeftPos, aslice / 2.0)  # distribute it evenly, also to keep parseval happy and real arrays real
             if (sznew[d] < szold[d]) and util.iseven(sznew[d]):  # the slice corresponds to both sides of the fourier transform as a sum
-                ROIRightPos = szold[d] - 1 - (midold[d] - midnew[d])  # position of the removed top border pixel in the old array
+                ROIRightPos = szold[d] - (midold[d] - midnew[d])  # position of the removed top border pixel in the old array
                 aslice = util.subslice(img, d, ROIRightPos)  # this is one pixel beyond what is cut out
                 res = util.subsliceCenteredAdd(res, d, 0, aslice)  # sum both
                 ROILeftPos = (midold[d] - midnew[d])  # position of the new corner start position in the old array
