@@ -15,6 +15,20 @@ Type the following inside the Anaconda prompt:
 ```
 
 
+## Using NIP inside your Anaconda enviornment
+
+In order to use the freshly installed NIP toolbox, you always need to activate it using the following comand:
+
+```
+conda activate IP
+```
+
+## NIP inside Google Colab 
+
+Open a new [Google Colab document](https://colab.research.google.com/) and add the following lines in order to make the NIP toolbox working inside the cloud-based notebook:
+
+
+
 ## NIP inside Spyder 
 
 Now you can open Spyder (or any other IDE) for programming with NIP in Python. 

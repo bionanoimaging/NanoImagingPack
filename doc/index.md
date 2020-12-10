@@ -47,7 +47,8 @@ The tutorials start from the very basics of how to read, write and display image
 
 An introduction to the NIP ecosystem can be found in a growing list of tutorials:
 
-- [Tutorial 1](tutorial_1.md)
+- [Tutorial 1](tutorial_1.md) - Introduction and generator functions
+- [Tutorial 2](tutorial_2.md) - Helper functions and Fourier transforms
 
 
 ## Origin
