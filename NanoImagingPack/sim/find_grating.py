@@ -585,7 +585,7 @@ def get_period(lam, eta, pixelpitch=8.2, NA = 1.46, magnification=76.8):
 
     
 
-def create_grating_param_file(path, start = -10, end = 50, num_dir = 3, num_phase = 3, wavelength = [488, 561, 638, 405], error_period = 0.01, error_angle = 0.1,fixed_angle=None, px_size = 8.2, w_gauss = 0.5,h =0.3, dim_slm = [1024,1024], f = 250, NA = 1.46, magnification = 76.8, BFP_filling = 83.4, period =None, fixed_angle_set = None, PhaseCheckMethod=2 ,optimize_for_unwanted_orders = True, opt_grating_sum = False, generation = 1):
+def create_grating_param_file(path, start = 10, end = 50, num_dir = 3, num_phase = 3, wavelength = [488, 561, 638, 405], error_period = 0.01, error_angle = 0.1,fixed_angle=None, px_size = 8.2, w_gauss = 0.5,h =0.3, dim_slm = [1024,1024], f = 250, NA = 1.46, magnification = 76.8, BFP_filling = 83.4, period =None, fixed_angle_set = None, PhaseCheckMethod=2 ,optimize_for_unwanted_orders = True, opt_grating_sum = False, generation = 1):
     '''
     Created on Wed Nov 16 19:26:01 2016
     
@@ -665,18 +665,7 @@ def create_grating_param_file(path, start = -10, end = 50, num_dir = 3, num_phas
         -> As soon as I have time I will make that one produce proper RepZ files for the SLMs
     
     Regards, Christian
-    Example:
-    apath='MyResultDirectory'
-    nip.sim.create_grating_param_file(apath,start=-10,end=50,
-    num_dir=3,num_phase=3,
-    wavelength=[488],error_period=.1,error_angle=1,fixed_angle=None,
-    px_size=20, w_gauss=0.5, h=0.3, dim_slm=[1024,1024], f=250,NA=1.46,magnification=76.8,
-    BFP_filling=None,
-    period=3, fixed_angle_set=None, PhaseCheckMethod=2,
-    optimize_for_unwanted_orders=True,
-    opt_grating_sum=False,
-    generation=1)
-    '''
+    ''' 
     
     lam = np.asarray(wavelength);
     if fixed_angle == None:

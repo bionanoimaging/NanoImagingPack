@@ -597,7 +597,7 @@ def irft(im, s, shift_after=False, shift_before=False, ret='complex', axes=None,
     """
     # create axis, shift_ax and real_ax
     axes = __checkAxes__(axes, im)
-    real_axis = axes[-1]  # always the last axis is the real one   as Default
+    real_axis = max(axes)  # always the last axis is the real one   as Default
 
     if shift_before == True:
         shift_ax = [i for i in axes if i != real_axis]
@@ -642,7 +642,8 @@ def rft(im, shift_after=False, shift_before=False, ret='complex', axes=None, s=N
     """
     # create axes list
     axes = __checkAxes__(axes, im)
-    real_axis = axes[-1]  # always the last axis is the real one as Default
+    real_axis = max(axes)  # always the last axis is the real one   as Default
+
     if (np.issubdtype(im.dtype, np.complexfloating)):
         raise ValueError("rft needs real-valued input")
         # warnings.warn('Input type is Complex -> using full fft');
@@ -652,7 +653,6 @@ def rft(im, shift_after=False, shift_before=False, ret='complex', axes=None, s=N
             im = ifftshift(im, axes=axes)  # mid to corner
         if (not s is None) and (not axes is None) and len(axes) < len(s):
             s = s[-len(axes):]  # it will automatically deal with the other axes
-        print(axes)
         im = rfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultCpxDataType)
         if shift_after == True:
             shift_ax = [i for i in axes if i != real_axis]
