@@ -4,6 +4,19 @@ Created on Fri Aug 10 15:45:37 2018
 
 @author: pi96doc
 Major rewrite by RH, 20.07.2019 now basing it on pythonbridge rather than pyjnius as before
+
+Javabridge installation Notes under Windows 10:
+with the environment named (for example) IP do the following
+conda activate IP
+conda install openjdk
+set "JDK_HOME=%CONDA_PREFIX%\Library
+set MSSdk=1
+set DISTUTILS_USE_SDK=1
+pip install javabridge
+pip install python-bioformats
+go the the folder
+HOME\\.conda\\envs\\NipTest\\Library\\lib
+and delete the ext folder
 """
 from pkg_resources import resource_filename
 from . import util
@@ -119,7 +132,6 @@ class View5D:
                 dc = env.make_byte_array(dc)
                 typ = "B"
                 sig = "([BIIIII)Lview5d/View5D;"
-                self.ProcessKeys('r')  # Adjust all intensities
             elif data.dtype == 'int16':
                 dc = env.make_short_array(dc)
                 typ = "S"
@@ -146,6 +158,8 @@ class View5D:
     def AddElement(self, data):
         (sig,typ,dc,sz) = self.convertDataAndSignature(data)
         javabridge.call(self.o, "AddElement", sig, dc, sz[0], sz[1], sz[2], sz[3], sz[4]);
+        if data.dtype == 'bool':
+            self.ProcessKeys("r")  # color this red by default to indicate that it is a bool
 
     def ReplaceData(self, data, e=0,t=0,title=None):
         (sig,typ,dc,sz) = self.convertDataAndSignature(data)
@@ -165,6 +179,8 @@ class View5D:
         self.ProcessKeyMainWindow('i')
         self.ProcessKeys("vv")
         self.toFront()
+        if data.dtype == 'bool':
+            self.ProcessKeys("r")  # color this red by default to indicate that it is a bool
 
     def getMarkers(self, ListNo=0, OnlyPos=True):
         env = javabridge.get_env()
