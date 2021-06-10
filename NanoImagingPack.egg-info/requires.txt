@@ -4,4 +4,4 @@ tifffile
 imageio
 matplotlib
 scikit-tensor-py3>0.2.1
-napari>=19.2.3
+napari

@@ -6,9 +6,12 @@ Created on Wed Mar 21 15:27:02 2018
 
 import numpy as np
 from scipy.interpolate import interp1d
+from scipy.ndimage.filters import gaussian_filter
+import scipy.ndimage as ndimage
 from . import util
 from .image import image, weights1D
 from .functions import coshalf, cossqr
+from .transformations import ft, ift
 
 def ramp(mysize=(256, 256), ramp_dim=-1, placement='center', freq=None, shift=False, rftdir=-1, pixelsize=None):
     """
@@ -504,13 +507,58 @@ def applyPhaseRamp(img, shiftvec, smooth=False, relwidth=0.1):
         res *= FreqRamp1D(img.shape[-d], myshifts, -d, relwidth, smooth=smooth)
     return res
 
+def shiftIndividual(im, shiftvecs):
+    """
+    shifts an image (im) multiple times to all the positions marked in the list of vectors vecs and stacks the result
+    :param im: image to place
+    :param vecs: list of vectors in pixel coordinates for the placement
+    :return: all the placed images im stacked along the outermost dimension
+    """
+    ftim = ft(im)
+    shiftvecs = np.array(shiftvecs)
+    ndims = im.ndim
+    for d in range(ndims):
+        oneDshifts = util.castdim(np.array(shiftvecs[:,-d-1]),ndims+1)
+        myRamp = FreqRamp1D(im.shape[-d-1], oneDshifts, -d-1, relwidth=0.1, smooth=False)  # no smoothing
+        ftim = ftim * myRamp
+    axes = -np.arange(ndims)-1
+    if np.isrealobj(im):
+        return np.real(ift(ftim,axes=axes))
+    else:
+        return ift(ftim,axes=axes)
+
+def shiftMulti(im, shiftvecs):
+    """
+    places (shifts) an image (im) multiple times at all the positions marked in the list of vectors vecs.
+    It achieves this by adding complex exponentials using multiPlacementMap() and applying them.
+    :param im: image to place
+    :param vecs: list of vectors with amplitude (can be complex) and pixel coordinates for the placement
+    :return: sum of all the placed im
+    """
+    ExpMap = multiPlacementMap(im, shiftvecs);
+    return np.real(ift(ft(im) * ExpMap))
+
+def multiPlacementMap(im, shiftvecs):
+    """
+    generates a map with a sum of complex exponentials leading to multiple overlapping shifts of the im
+    :param im: image to place
+    :param vecs: list of vectors with amplitude (can be complex) and pixel coordinates for the placement
+    :return: sum of all the placed im
+    """
+    allExp = util.zeros(im, dtype=np.complex)
+    for shiftvec in shiftvecs:
+        amp = shiftvec[0]
+        allExp += amp * FreqRampND(im.shape, shiftvec[1:], relwidth=0.1, smooth=False) # no smoothing
+    return allExp
+
 def FreqRamp1D(length,  k, d, relwidth=0.1, smooth=False, func = coshalf, cornerFourier=False):  # cossqr is not better
     """
-    creates a one-dimensiona frequency ramp oriented along direction d. It will be softerend at the transition region  to the nearest full pixel frequency to yield a smooth transition.
-    :param length: lengthof the image to generate
-    :param width: width of the transition region
+    creates a one-dimensional frequency ramp oriented along direction d. It can optionally be softerend at the transition region  to the nearest full pixel frequency to yield a smooth transition.
+    :param length: length of the image to generate
     :param k: k-vector along this dimension
     :param d: dimension to orient it in
+    :param relwidth: width of the transition region
+    :param smooth: flag. If True, rounding to the nearest integer pixel will be applied
     :param func: transition function
     :param cornerFourier: If True, the phase ramp will be computed for a Fourier-layout in the corner. This is important when applying it to unshifted Fourier-space
     :return: the complex valued frequency ramp
@@ -531,6 +579,19 @@ def FreqRamp1D(length,  k, d, relwidth=0.1, smooth=False, func = coshalf, corner
     else:
         myramp = ramp1D(length, ramp_dim=d, freq='ftfreq')
     return np.exp(1j * 2 * np.pi * res * myramp)
+
+
+def FreqRampND(sz, shiftvec, relwidth=0.1, smooth=False):
+    """
+    creates a multi-dimensional frequency ramp oriented along k. It can optionally be softerend at the transition region  to the nearest full pixel frequency to yield a smooth transition.
+    :param sz: shape of the image to generate
+    :param shiftvec: shiftvector in real space to apply
+    :param relwidth: width of the transition region
+    :param smooth: flag. If True, rounding to the nearest integer pixel will be applied
+    :return: the complex valued frequency ramp
+    """
+    res = util.ones(sz, dtype=np.complex)
+    return applyPhaseRamp(res,shiftvec,relwidth=relwidth, smooth=smooth)
 
 def ramp1D(mysize=256, ramp_dim=-1, placement='center', freq=None, pixelsize=None):
     """
@@ -780,3 +841,73 @@ def MakeScan(sz, myStep):
     yind = np.arange(0, sz[0], myStep[0])
     scan[np.arange(0, N), yind.repeat(NSteps[1]), NSteps[0] * list(xind)] = 1
     return scan
+
+
+def multiROIExtract(im, centers, ROIsize, origin='corner'):
+    """
+    extracts multiple ROIs indicated by a list of center corrdinates and stacks them in another dimension
+    :param im: image to extract from
+    :param centers: list or tuple of center coordinates. Leading entries are ignored in each vector if more entries than dimensions.
+    :param ROIsize: multidimensional size of the ROI to extract. If fewer dimensions are given the others are not extracted and the original size is kept.
+    :param origin: "center" or "corner" to define the origin of the coordinate space
+    :return: the stacked extractions. If the ROI overlaps the border zeros will be padded.
+    """
+    listOfROIs = []
+    for centerpos in centers:
+        if len(centerpos) > im.ndim:
+            centerpos=centerpos[-im.ndim:]
+        if origin == 'center':
+            centerpos = np.array(im.shape)//2 + centerpos
+        if len(ROIsize) < len(centerpos):
+            centerpos = centerpos[-len(ROIsize):]
+
+        myROI = image.extract(im, ROIsize=ROIsize, centerpos=centerpos)
+        listOfROIs.append(myROI)
+    return image(np.stack(listOfROIs))
+
+def localMax(img, threshold_rel=None, kernel=(3,3,3)):
+    imgMax = ndimage.maximum_filter(img, size=kernel)
+    imgMax = (imgMax == img) * img # extracts only the local maxima but leaves the values in
+    if threshold_rel is not None:
+        thresh = np.max(img) * threshold_rel
+        labels, num_labels = ndimage.label(imgMax > thresh)
+    else:
+        labels, num_labels = ndimage.label(imgMax)
+
+    # Get the positions of the maxima
+    coords = ndimage.measurements.center_of_mass(img, labels=labels, index=np.arange(1, num_labels + 1))
+
+    # Get the maximum value in the labels
+    values = ndimage.measurements.maximum(img, labels=labels, index=np.arange(1, num_labels + 1))
+    return coords, values
+
+def extractMuliPeaks(im, ROIsize, sigma=None, threshold_rel=None, alternateImg=None, kernel=(3,3,3), borderDist=None):
+    """
+    extracts ROIs around the local maxima in im after gaussian filtering
+    :param im: image to extract from
+    :param ROIsize: multidimensional size of the ROI to extract around each maximum. If fewer dimensions are given the others are not extracted and the original size is kept.
+    :param sigma: size of the Gaussian filter kernel
+    :param  threshold_abs, threshold_rel: absolute and relative thesholds to extract peaks
+    :param min_distance: minimum distance to keep around maxima
+    :return: tuple of (the n-dimensional ROIs stacked along an extra dimension and center coordinates)
+    """
+    if sigma is not None and np.linalg.norm(sigma) > 0:
+        im2 = image(gaussian_filter(im, sigma))
+    else:
+        im2 = im
+    coordinates, values = localMax(im2, threshold_rel=threshold_rel, kernel=kernel)
+    if borderDist is not None:
+        coordinates = np.array(coordinates)
+        borderDist = np.array(borderDist)
+        inBorder = np.all(coordinates-borderDist >= 0,axis=1) & np.all(im.shape - coordinates - borderDist >= 0, axis=1)
+        coordinates=coordinates[inBorder,:]
+        values=values[inBorder]
+
+    if alternateImg is not None:
+        im = alternateImg
+    centers = np.round(coordinates).astype(np.int)
+    if len(ROIsize) < centers.shape[-1]:
+        centers = centers[:,-len(ROIsize):]
+
+    ROIs = multiROIExtract(im, centers, ROIsize=ROIsize)  # , origin="center"
+    return ROIs, centers
