@@ -313,7 +313,8 @@ def readim(path=None, which=None, pixelsize=None, MatVar=None, c=None, z=None,t=
             img.set_pixelsize(pixelsize)
             # img.info = info  # probably not so useful
             return img
-    except:
+    except Exception as e:
+        print(e)
         print("WARNING: Bioformats failed loading "+path+". Reverting to other methods to load data.")
 
     if isfile(path):
