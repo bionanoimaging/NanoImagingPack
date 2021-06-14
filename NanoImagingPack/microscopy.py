@@ -1573,7 +1573,7 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
     # we need to correct it for the unbiased image
     if validRange is not None: 
         validRange = np.array(validRange)
-        validRange -= bg_total_mean
+        validRange = validRange - bg_total_mean
 
     # sCMOS brightnesses fluctuate too much, we need a filter
     # blur image, yielding better estimate for local brightness
@@ -1589,13 +1589,14 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
 
     if validmap is not None:
         # create histRange, otherwise numpy.histogram will allocate bins right up to the hot pixels
-        validMeans = fg_mean_projection[validmap]
+        # validMeans = fg_mean_projection[validmap] # now that it is applied above, we don't need to use validmap here
+        validMeans = fg_mean_projection
         histRange = np.min(validMeans), np.max(validMeans)
 
         # Automatic range feature. Validrange between 99th percentile and 5% of 99th percentile
         if validRange is None:
             validRange = np.empty(2)
-            validRange[1] = np.percentile(fg_mean_projection[validmap], 99)
+            validRange[1] = np.percentile(validMeans, 99)
             validRange[0] = 0.05*(validRange[1]-histRange[0])
 
         # correct the numBins for the validRange??. Not happy with this inconsistency @
@@ -1687,4 +1688,4 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         with open(exportpath/'calibration_results.txt', "w") as outfile:
             outfile.write(Text)
     print(Text)
-    return (bg_total_mean, gain, Readnoise, hotPixels, figures, Text)
+    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, hotPixels, figures, Text)
