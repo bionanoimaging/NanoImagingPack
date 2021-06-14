@@ -6,8 +6,8 @@ it available for a broad community.
 
  <!-- Hence its development aimed for: -->
 
-    <!-- - Make it independent from as much packages as possible -> it only requires a view Python packages. Some are provided by e.g. Anaconda (e.g. Numpy, pyPlot, inspect, scipy). Only tifffile (a 3D Tiff writer) is required as external package
-    - keep it simple to install -->
+<!-- - Make it independent from as much packages as possible -> it only requires a view Python packages. Some are provided by e.g. Anaconda (e.g. Numpy, pyPlot, inspect, scipy). Only tifffile (a 3D Tiff writer) is required as external package
+- keep it simple to install -->
 
 ## Installation
 
