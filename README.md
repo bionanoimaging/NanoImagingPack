@@ -12,7 +12,7 @@ it available for a broad community. Hence its development aimed for:
 1. Download Anaconda https://docs.anaconda.com/anaconda/install/
 1. Open an anaconda prompt and create a new environment (tested in Python 3.8)
     ```
-    conda create --name nanoimaging python=3.8 anaconda tifffile
+    conda create --name nanoimaging python=3.8 anaconda tifffile tabulate
     ```
 1. Activate 
     ```
