@@ -1659,8 +1659,8 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         plt.plot(biased_mean_mean, mean_var, 'bo', label='Brightness bins')
         # plt.errorbar(biased_binMid, myFit, myStd, label='Fit')
         plt.plot(biased_binMid, myFit, 'r', label='Linear fit')
-        plt.plot(biased_binMid, myFit+myStd, '--r', label="Error")
-        plt.plot(biased_binMid, myFit-myStd, '--r')
+        plt.plot(biased_binMid, myFit+myStd/2, '--r', label="Error")
+        plt.plot(biased_binMid, myFit-myStd/2, '--r')
         plt.legend()
 
         # secondary axes in photoelectrons
@@ -1688,4 +1688,4 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         with open(exportpath/'calibration_results.txt', "w") as outfile:
             outfile.write(Text)
     print(Text)
-    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, hotPixels, figures, Text)
+    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, Text)

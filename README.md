@@ -20,13 +20,9 @@ it available for a broad community.
     ```
     conda activate nanoimaging
     ```
-1. Install NanoImagingPack
+1. Install this feature branch of NanoImagingPack
     ```
-    pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack
-    ```
-or, if necessary,
-    ```
-    pip3 install git+https://gitlab.com/bionanoimaging/nanoimagingpack
+    pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack@feature2-calreadnoise
     ```
 	
 ## Getting started
