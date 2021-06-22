@@ -1497,7 +1497,7 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         overflow = 0
         relsat = 0
         maxvalstr = ""
-        for MaxVal in [255,4096,65536]:
+        for MaxVal in [255,1023,4095,65535]:
             if np.max(fg) == MaxVal:
                 overflow = np.sum(fg == MaxVal,(0,)) > 0
                 relsat = np.sum(overflow)
