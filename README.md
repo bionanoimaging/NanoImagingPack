@@ -12,7 +12,8 @@ it available for a broad community.
 ## Installation
 
 1. Download Anaconda https://docs.anaconda.com/anaconda/install/
-1. Open an anaconda prompt and create a new environment (tested in Python 3.8)
+1. Open an anaconda prompt
+1. create a new environment (tested in Python 3.8)
     ```
     conda create --name nanoimaging python=3.8 anaconda tifffile tabulate
     ```
@@ -24,9 +25,17 @@ it available for a broad community.
     ```
     pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack@feature2-calreadnoise
     ```
-	
+
+<!-- conda create -y --name nanoimaging python=3.8 anaconda tifffile tabulate &
+conda activate nanoimaging &
+pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack@feature2-calreadnoise -->
+
 ## Getting started
 
+Start an ipython shell
+```
+ipython
+```
 Load and view a sample image
 
 ```
