@@ -1435,7 +1435,8 @@ def removePhaseInt(pulse):
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
 def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True,
- correctOffsetDrift=True, excludeHotPixels=True, crazyPixelPercentile=98, doPlot=True, exportpath=None, plotWithBgOffset=True):
+ correctOffsetDrift=True, excludeHotPixels=True, crazyPixelPercentile=98, doPlot=True, exportpath=None,
+ brightness_blurring=True, plotWithBgOffset=True):
     """
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
@@ -1575,14 +1576,17 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         validRange = np.array(validRange)
         validRange = validRange - bg_total_mean
 
-    # sCMOS brightnesses fluctuate too much, we need a filter
-    # blur image, yielding better estimate for local brightness
-    blurred = fg_mean_projection
-    # Generate median projection to use to fill gaps from invalid pixels 2021-04 
-    median_projection = scipy.ndimage.median_filter(fg_mean_projection, size=(7,7))
-    blurred[~validmap] = median_projection[~validmap]
-    blurred = gaussf(blurred, (7,7))
-    fg_mean_projection = blurred[validmap] # Note that this also excludes the invalid pixels from the plot
+    if brightness_blurring:
+        # sCMOS brightnesses fluctuate too much, we need a filter
+        # blur image, yielding better estimate for local brightness
+        blurred = fg_mean_projection
+        # Generate median projection to use to fill gaps from invalid pixels 2021-04 
+        median_projection = scipy.ndimage.median_filter(fg_mean_projection, size=(7,7))
+        blurred[~validmap] = median_projection[~validmap]
+        blurred = gaussf(blurred, (7,7))
+        fg_mean_projection = blurred[validmap] # Note that this also excludes the invalid pixels from the plot
+    else:
+        fg_mean_projection = fg_mean_projection[validmap]
 
     fg_var_projection = fg_var_projection[validmap]
     # bg_var_projection = bg_var_projection[validmap] # this is unnecessary and would falsify the readnoise estimate
@@ -1684,6 +1688,8 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         if exportpath is not None:
             plt.savefig(exportpath/'Photon_Calibration.png')
 
+        # import pdb
+        # pdb.set_trace()
     if exportpath is not None:
         with open(exportpath/'calibration_results.txt', "w") as outfile:
             outfile.write(Text)

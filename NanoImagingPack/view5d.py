@@ -43,7 +43,8 @@ if (JVM_RUNNING==0):
         javabridge.attach()
 #        javabridge.detach()
         JVM_RUNNING = 1
-    except:
+    except Exception as e:
+        print(e)
         print("Problem setting classpath. Switching to conventional viewer by setting __DEFAULTS__['IMG_VIEWER'] = 'NIP_VIEW' ")
         config.setDefault('IMG_VIEWER', 'NAPARI') # 'NIP_VIEW'
 
