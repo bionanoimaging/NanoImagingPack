@@ -27,6 +27,8 @@ it available for a broad community.
 	
 ## Getting started
 
+Load and view a sample image
+
 ```
 import NanoImagingPack as nip
 import napari
@@ -36,6 +38,35 @@ nip.vv(img)
 ```
 
 The created image is of type "image"
+
+## Gain calibration from an inhomogenous stack
+
+Perform a gain calibration using simulated data.
+
+```
+import NanoImagingPack as nip
+import numpy as np
+
+# define the input parameters
+NPHOT = 100 # max number of photons in simulation
+OFFSET = 100 # black level offset
+READNOISE = 4 # read noise to simulate
+STACK_SIZE = 30
+
+img = nip.readim("MITO_SIM")[0] # load the first frame from the MITO_SIM sample
+
+fg = np.tile(img,(STACK_SIZE,1,1)) # make a stack of frames
+fg = nip.poisson(fg, NPhot=NPHOT) # simulate poissonian shot noise
+
+fg = fg + np.random.normal(loc=OFFSET, scale=READNOISE, size=fg.shape) # add gaussian noise
+
+bg = np.random.normal(loc=OFFSET, scale=READNOISE, size=fg.shape) # generate background stack
+
+# perform a calibration and plot the results
+nip.cal_readnoise(fg, bg, brightness_blurring=False)
+
+```
+
 
 ## Notes
     
