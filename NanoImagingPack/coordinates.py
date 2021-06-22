@@ -226,7 +226,7 @@ def cosSinTheta(im, space=None):
     myx = xx(im.shape[-2:])
     myy = yy(im.shape[-2:])
     if space is not None:
-        if space is "ftfreq":
+        if space == "ftfreq":
             FourierPix = im.px_freq_step()
             myx *= FourierPix[-1]
             myy *= FourierPix[-2]
