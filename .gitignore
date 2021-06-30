@@ -1,0 +1,7 @@
+build/
+dist/
+NanoImagingPack/__pychache__/
+*.pyc
+*.xml
+*.iml
+*.log
