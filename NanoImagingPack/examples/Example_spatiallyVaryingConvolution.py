@@ -36,6 +36,7 @@ weights[weights>1.0] = 1.0
 myPhi = np.abs(np.mod((nip.phiphi(obj)/np.pi+1.0)*2,2.0)-1.0)
 coefficientMap = weights*myPhi + (1-weights)*0.5
 
+
 coefficientMap = nip.cat((1.0-coefficientMap, coefficientMap))
 blended = k.convolve(obj2, coefficientMap)
 
