@@ -18,10 +18,12 @@ from .config import PSF_PARAMS, __DEFAULTS__
 import numbers
 import warnings
 from scipy.special import j1
-from .image import image
+from .image import image, gaussf
+import scipy.ndimage
 # from .view5d import v5 # for debugging
-from matplotlib.pyplot import plot,figure, savefig, xlabel, ylabel, text, title, xlim, ylim # rc, errorbar,
-
+import matplotlib.pyplot as plt
+import matplotlib
+import pathlib
 def getDefaultPSF_PARAMS(psf_params):
     if psf_params is None:
         return PSF_PARAMS()
@@ -1433,7 +1435,9 @@ def removePhaseInt(pulse):
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
-def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBrightness=True, correctOffsetDrift=True, excludeHotPixels=True, doPlot=True, exportpath=None):
+def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correctBrightness=True,
+ correctOffsetDrift=True, excludeHotPixels=True, crazyPixelPercentile=98, doPlot=True, exportpath=None, exportFormat="png",
+ brightness_blurring=True, plotWithBgOffset=True, plotHist=False):
     """
     calibrates detectors by fitting a straight line through a mean-variance plot
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
@@ -1444,14 +1448,27 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
     :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
     to scale your images into photons use: (image-offset) * gain
     """
-    # a_nobg = a * 1.0 - meanbg
-    AxisFontSize=16
-    TextFontSize=14
-    TitleFontSize=20
+    function_args = locals()
+
+    if exportpath is not None:
+        exportpath = pathlib.Path(exportpath)
+
+    figures = [] # collect figures for returning
+    # define plotting parameters
+    CM = 1/2.54 # centimetres for figure sizes
+    plot_figsize = 26*CM, 15*CM # works well for screens
+    AxisFontSize=12
+    TextFontSize=8
+    TitleFontSize=14
     # rc('font', size=AxisFontSize)  # controls default text sizes
     # rc('axes', titlesize=AxisFontSize, labelsize=AxisFontSize)  # fontsize of the axes title and number labels
-    fg = np.squeeze(fg)
-    bg = np.squeeze(bg)
+    
+    
+    fg = np.squeeze(fg).astype(float)
+    bg = np.squeeze(bg).astype(float)
+
+    assert check_dark(bg, threshold=4), f"Warning, dark image standard deviation is more than 4 times larger than per-pixel standard deviation. \nVerify that dark image is flat and contains no structure"
+
     didReduce = False
     if fg.ndim > 3:
         print('WARNING: Foreground data has more than 3 dimensions. Just taking the first of the series.')
@@ -1464,29 +1481,34 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
     fg = np.squeeze(fg)
     bg = np.squeeze(bg)
     if didReduce:
-        return cal_readnoise(fg,bg,numBins, validRange, CameraName, correctBrightness, correctOffsetDrift, excludeHotPixels, doPlot)
+        # return cal_readnoise(fg,bg,numBins, validRange, CameraName, correctBrightness, correctOffsetDrift, excludeHotPixels, doPlot)
+        # TODO: Needs testing
+        return cal_readnoise(fg,bg, *list(function_args.values()))
 
 
     Text = "Analysed {nb:d} bright and {nd:d} dark images:\n".format(nb=fg.shape[0],nd=bg.shape[0])
 
-    validmap = None
+    validmap = np.ones(bg.shape[-2:], dtype=bool)
+    # validmap = None
     if validRange is None:
         underflow = np.sum(fg <= 0, (0,)) > 0
-        validmap = ~ underflow
+        validmap *= ~underflow
         numUnderflow = np.sum(underflow)
         if np.min(fg) <= 0:
             print("WARNING: "+str(numUnderflow)+" pixels with at least one zero-value (value<=0) were detected but no fit range was selected. Excluded those from the fit.")
-        Text = Text + "Zero-value pixels: {zv:d}".format(zv=numUnderflow)+" excluded.\n"
-        overflow = None
-        for MaxVal in [255,4096]:
+        Text = Text + "Zero-value pixels: {zv:d} excluded.\n".format(zv=numUnderflow)
+        
+        overflow = 0
+        relsat = 0
+        maxvalstr = ""
+        for MaxVal in [255,1023,4095,65535]:
             if np.max(fg) == MaxVal:
                 overflow = np.sum(fg == MaxVal,(0,)) > 0
                 relsat = np.sum(overflow)
                 print("WARNING: "+str(relsat)+" pixels saturating at least once (value=="+str(MaxVal)+") were detected but no fit range was selected. Excluding those from the fit.")
-                Text = Text + "Overflow (=="+str(MaxVal)+") pixels: "+str(relsat)+"  excluded.\n"
                 validmap = validmap & ~ overflow
-        if overflow is None:
-            Text = Text + "No overflow pixels detected.\n"
+                maxvalstr = "(=="+str(MaxVal)+")"
+        Text = Text + "Overflow "+ maxvalstr +" pixels: "+str(relsat)+"  excluded.\n"
 
     print("Calibration results:")
     if correctOffsetDrift:
@@ -1495,101 +1517,219 @@ def cal_readnoise(fg,bg,numBins=100, validRange=None, CameraName=None, correctBr
         bg = bg - meanoffset + refOffset
         reloffset = (refOffset - meanoffset)  / np.sqrt(np.var(bg))
         if doPlot:
-            figure(figsize=(12, 6))
+            fig = plt.figure(figsize=plot_figsize)
             if CameraName is not None:
-                title("Offset Drift ("+CameraName+")", fontsize=TitleFontSize)
+                plt.title("Offset Drift ("+CameraName+")", fontsize=TitleFontSize)
             else:
-                title("Offset Drift", fontsize=TitleFontSize)
-            plot(reloffset.flat, label='Offset / Std.Dev.')
-            xlabel("frame no.", fontsize=AxisFontSize)
-            ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
+                plt.title("Offset Drift", fontsize=TitleFontSize)
+            plt.plot(reloffset.flat, label='Offset / Std.Dev.')
+            plt.xlabel("frame no.", fontsize=AxisFontSize)
+            plt.ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
 
+            figures.append(fig)
             if exportpath is not None:
-                savefig(exportpath+'/correctOffsetDrift.png')
+                plt.savefig(exportpath/f'correctOffsetDrift.{exportFormat}')
 
+    # add ability to use only one backgroound image
+    if bg.ndim == 2:
+        bg_mean_projection = np.mean(bg)
+    else:
+        bg_mean_projection = np.mean(bg, (-3))
+    bg_total_mean = float(np.mean(bg_mean_projection)) # don't want to return image type
+    plotOffset = bg_total_mean*plotWithBgOffset
+    patternVar = np.var(bg_mean_projection)
 
-    meanbg = np.mean(bg, (-3))
-    background = np.mean(meanbg)
-    patternVar = np.var(meanbg)
-
+    fg -= bg_mean_projection # pixel-wise background subtraction
     if correctBrightness:
         brightness = np.mean(fg, (-2,-1), keepdims=True)
         meanbright = np.mean(brightness)
         relbright = brightness/meanbright
         if doPlot:
-            figure(figsize=(12, 6))
+            fig = plt.figure(figsize=plot_figsize)
             if CameraName is not None:
-                title("Brightness Fluctuation ("+CameraName+")", fontsize=TitleFontSize)
+                plt.title("Brightness Fluctuation ("+CameraName+")", fontsize=TitleFontSize)
             else:
-                title("Brightness Fluctuation", fontsize=TitleFontSize)
-            plot(relbright.flat)
-            xlabel("frame no.",fontsize=AxisFontSize)
-            ylabel("relative brightness",fontsize=AxisFontSize)
-        fg = (fg - background) * relbright
+                plt.title("Brightness Fluctuation", fontsize=TitleFontSize)
+            plt.plot(relbright.flat)
+            plt.xlabel("frame no.",fontsize=AxisFontSize)
+            plt.ylabel("relative brightness",fontsize=AxisFontSize)
+            figures.append(fig)            
+            if exportpath is not None:
+                plt.savefig(exportpath/f'Brightness_Fluctuation.{exportFormat}')
+        fg = fg / relbright
         maxFluc = np.max(np.abs(1.0-relbright))
         Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
-    meanp = np.mean(fg, (-3))
-    varp = np.var(fg, (-3))
-    varbg = np.var(bg, (-3))
+    
+    fg_mean_projection = np.mean(fg, (-3)) 
+    fg_var_projection = np.var(fg, (-3))
+    # for single bg image
+    if bg.ndim ==2:
+        bg_var_projection = np.var(bg)
+    else:
+        bg_var_projection = np.var(bg, (-3))
 
     hotPixels = None
     if excludeHotPixels:
-        hotPixels = np.abs(meanbg - np.mean(meanbg)) > 4.0*np.sqrt(np.mean(varbg))
-        numHotPixels=np.sum(hotPixels)
-        Text = Text + "Hot pixels (|bg mean| > 4 StdDev): "+str(numHotPixels)+" excluded.\n"
-        if validmap is None:
-            validmap = ~hotPixels
-        else:
-            validmap = validmap & ~hotPixels
+        hotPixels = np.abs(bg_mean_projection - np.mean(bg_mean_projection)) > 4.0*np.sqrt(np.mean(bg_var_projection))
+        numHotPixels = np.sum(hotPixels)
+        Text = Text + "Hot/Cold pixels (|bg mean| > 4 StdDev): "+str(numHotPixels)+" excluded.\n"
+        validmap *= ~hotPixels
+
+
+    noisyPixelThreshold = np.percentile(bg_var_projection, crazyPixelPercentile)
+    noisyPixels = bg_var_projection > noisyPixelThreshold # need to exclude hot pixels, which skew variance
+    validmap *= ~noisyPixels
+
+    # if validRange is given, it is for for biased image
+    # we need to correct it for the unbiased image
+    if validRange is not None: 
+        validRange = np.array(validRange)
+        validRange = validRange - bg_total_mean
+
+    if brightness_blurring:
+        # sCMOS brightnesses fluctuate too much, we need a filter
+        # blur image, yielding better estimate for local brightness
+        blurred = fg_mean_projection
+        # Generate median projection to use to fill gaps from invalid pixels 2021-04 
+        median_projection = scipy.ndimage.median_filter(fg_mean_projection, size=(7,7))
+        blurred[~validmap] = median_projection[~validmap]
+        blurred = gaussf(blurred, (7,7))
+        fg_mean_projection = blurred[validmap] # Note that this also excludes the invalid pixels from the plot
+    else:
+        fg_mean_projection = fg_mean_projection[validmap]
+
+    fg_var_projection = fg_var_projection[validmap]
+    # bg_var_projection = bg_var_projection[validmap] # this is unnecessary and would falsify the readnoise estimate
 
     if validmap is not None:
-        (histNum, mybins) = np.histogram(meanp, bins=numBins, weights=validmap+0.0)
-        (histWeight, mybins) = np.histogram(meanp, bins=numBins, weights=validmap*varp)
-    else:
-        (histNum, mybins) = np.histogram(meanp, bins=numBins)
-        (histWeight, mybins) = np.histogram(meanp, bins=numBins, weights=varp)
-    binMid = (mybins[1:] + mybins[:-1]) / 2.0;
+        # create histRange, otherwise numpy.histogram will allocate bins right up to the hot pixels
+        # validMeans = fg_mean_projection[validmap] # now that it is applied above, we don't need to use validmap here
+        validMeans = fg_mean_projection
+        histRange = (np.min(validMeans), np.max(validMeans))
+        # histRange = (validMeans.min(), validMeans.max())
 
-    valid = histNum > 0
-    histWeight = histWeight[valid]
-    histNum = histNum[valid]
+        # Automatic range feature. Validrange between 99th percentile and 5% of 99th percentile
+        if validRange is None:
+            validRange = np.empty(2)
+            validRange[1] = np.percentile(validMeans, 99)
+            validRange[0] = 0.05*(validRange[1]-histRange[0])
+
+        # correct the numBins for the validRange??. Not happy with this inconsistency @
+        numBins = int(numBins*np.ptp(histRange)/np.ptp(validRange))
+        numBins = int(numBins*np.ptp(histRange)/np.ptp(validRange))
+
+
+    else:
+        histRange = None
+
+    # binning
+    # hist_num: total number of pixels in the bin
+    # hist_mean_sum: sum of all the mean values of pixels in the bin
+    # hist_var_sum: sum of all the variance values of pixels in the bin
+    (hist_num, mybins) = np.histogram(fg_mean_projection, range=histRange, bins=numBins)
+    (hist_mean_sum, mybins) = np.histogram(fg_mean_projection, range=histRange, bins=numBins, weights=fg_mean_projection)
+    (hist_var_sum, mybins) = np.histogram(fg_mean_projection, range=histRange, bins=numBins, weights=fg_var_projection)
+
+    binMid = (mybins[1:] + mybins[:-1]) / 2.0
+
+    valid = hist_num > 0
+    hist_var_sum = hist_var_sum[valid]
+    hist_mean_sum = hist_mean_sum[valid]
+    hist_num = hist_num[valid]
     binMid = binMid[valid]
 
-    meanvar = histWeight / histNum # this yields the mean variance curve
+    mean_var = hist_var_sum / hist_num # mean of variances within the bin
+    mean_mean = hist_mean_sum / hist_num # mean of means within the bin
 
-    (offset, slope, vv) = RWLSPoisson(binMid, meanvar, histNum, validRange=validRange)
+    (offset, slope, vv) = RWLSPoisson(mean_mean, mean_var, hist_num, validRange=validRange)
 
     myFit = binMid * slope + offset
     myStd = np.sqrt(vv)
-    gain = 1.0 / slope
-    Text = Text + "Background [adu]: {bg:.2f}".format(bg=background) + "\n"
-    Text = Text + "Gain [e- / adu]): {g:.4f}".format(g=gain) + "\n"
+    gain = float(1.0 / slope) # don't want to return image type
+    mean_el_per_exposure = np.sum(fg.mean((-3)))*gain
+
+    # bin_lims = binMid[[0,-1]]-bg_total_mean
+    bin_lims = binMid[[0,-1]]
+    coverage = np.float(np.ptp(bin_lims)/bin_lims[1])
+    if coverage > 1:
+        Text = Text + f"No illumination gap to dark value\n"
+    else:
+        Text = Text + f"{(1-coverage)*100:.2g}% illumination gap to dark value\n"
+
+    Text = Text + "{:.0f}% of bg Pixels have a var > {:.0f} e- and were excluded\n".format(100-crazyPixelPercentile, np.sqrt(noisyPixelThreshold)*gain)
+    Text = Text + "Background [ADU]: {bg:.2f}".format(bg=bg_total_mean) + "\n"
+    Text = Text + "Gain [e- / ADU]): {g:.4f}".format(g=gain) + "\n"
+    Readnoise = (np.sqrt(np.mean(bg_var_projection)) * gain).astype(float) # don't want to return image type
+    Text = Text + "Readnoise, gain * bg_noise: {rn:.2f} e- RMS\n".format(rn=Readnoise)
+    median_readnoise = (np.sqrt(np.median(bg_var_projection)) * gain).astype(float) # don't want to return image type
+    Text = Text + "Median readnoise, gain * bg_noise: {rn:.2f} e- median\n".format(rn=median_readnoise)
     if offset < 0.0:
         Text = Text + "Readnoise (fit): variance ({of:.2f}) below zero.".format(of=offset) + "\n"
     else:
         Text = Text + "Readnoise (fit): {rn:.2f}".format(rn=np.sqrt(offset)*gain)+"\n"
-    Text = Text + "Fixed Pattern, gain * Std.Dev. for mean_bg: {rn:.2f}".format(rn=np.sqrt(patternVar))+"e- RMS\n"
-    Readnoise = np.sqrt(np.mean(varbg)) * gain
-    Text = Text + "Readnoise, gain * bg_noise: {rn:.2f}".format(rn=Readnoise)+" e- RMS\n"
+    Text = Text + "Fixed pattern offset (gain * std. dev. for mean_bg): {rn:.2f} e- RMS\n".format(rn=np.sqrt(patternVar))
+    Text = Text + "Total electrons per exposure: {:.3E} e- \n".format(mean_el_per_exposure)
 
     if doPlot:
-        figure(figsize=(12, 8))
-        if CameraName is not None:
-            title("Photon Calibration ("+CameraName+")", fontsize=TitleFontSize)
-        else:
-            title("Photon Calibration", fontsize=TitleFontSize)
-        plot(binMid, meanvar, 'bo', label='Camera Data')
-        # errorbar(binMid, myStd, myStd, label='Fit')
-        plot(binMid, myFit, 'r', label='Fit')
-        plot(binMid, myFit+myStd, '--r')
-        plot(binMid, myFit-myStd, '--r')
-        maxx = np.max(binMid)
-        maxy = np.max(meanvar)
-        xlim(0,maxx*1.05)
-        ylim(0,maxy*1.05)
-        xlabel("mean signal / adu", fontsize=AxisFontSize)
-        ylabel("variance / adu", fontsize=AxisFontSize)
-        text(maxx/20.0, maxy*0.6, Text, fontsize=TextFontSize)
+        fig = plt.figure(figsize=plot_figsize)
 
+        if CameraName is not None:
+            plt.title("Photon transfer curve ("+CameraName+")", fontsize=TitleFontSize)
+        else:
+            plt.title("Photon transfer curve", fontsize=TitleFontSize)
+
+        # plotX = binMid + plotOffset
+        biased_binMid = binMid + plotOffset
+        biased_mean_mean = mean_mean + plotOffset
+        plt.plot(biased_mean_mean, mean_var, 'bo', label='Brightness bins')
+        # plt.errorbar(biased_binMid, myFit, myStd, label='Fit')
+        plt.plot(biased_binMid, myFit, 'r', label='Linear fit')
+        plt.plot(biased_binMid, myFit+myStd/2, '--r', label="Error")
+        plt.plot(biased_binMid, myFit-myStd/2, '--r')
+        plt.legend()
+
+        # secondary axes in photoelectrons
+        ax = plt.gca()
+        def adu2el(adu):
+            return (adu-bg_total_mean)*gain
+        def el2adu(el):
+            return el/gain+bg_total_mean
+        secax_x = ax.secondary_xaxis('top', functions=(adu2el, el2adu))
+        secax_y = ax.secondary_yaxis('right', functions=(lambda x: x*gain**2, lambda x: x/gain**2))
+        
+        secax_x.set_xlabel("Pixel brightness / $photoelectrons$", fontsize=AxisFontSize)
+        secax_y.set_ylabel("Pixel variance / $photoelectrons^2$", fontsize=AxisFontSize)
+
+        plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
+        plt.ylabel("Pixel variance / $ADU^2$", fontsize=AxisFontSize)
+        plt.grid()
+        plt.figtext(0.02, 0.05, Text, fontsize=TextFontSize)
+
+        ax.set_xlim(plotOffset-0.05*np.ptp(binMid), ax.get_xlim()[1])
+        ax.set_ylim(0, ax.get_ylim()[1])
+        
+        fig.subplots_adjust(left=0.4)
+
+        if plotHist:
+            ax_hist = ax.twinx()
+            ax_hist.bar(binMid+plotOffset, hist_num, color="gray", alpha=0.5, width=np.diff(binMid).mean()*1)
+            ax_hist.set_ylim(0, 2*np.percentile(hist_num, 95))
+            ax_hist.yaxis.set_major_locator(matplotlib.ticker.NullLocator())
+
+        figures.append(fig)
+
+        if exportpath is not None:
+            plt.savefig(exportpath/f'Photon_Calibration.{exportFormat}')
+
+        # import pdb
+        # pdb.set_trace()
+    if exportpath is not None:
+        with open(exportpath/'calibration_results.txt', "w") as outfile:
+            outfile.write(Text)
     print(Text)
-    return (background, gain, Readnoise, hotPixels)
+    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, Text)
+
+
+def check_dark(background, threshold=3):
+    dark = background.std()/np.mean(background.std((0))) < threshold
+    return dark
