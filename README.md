@@ -15,7 +15,7 @@ it available for a broad community.
 1. Open an anaconda prompt
 1. create a new environment (tested in Python 3.8)
     ```
-    conda create --name nanoimaging python=3.8 anaconda tifffile tabulate
+    conda create --name nanoimaging python=3.8 anaconda tifffile
     ```
 1. Activate 
     ```
@@ -23,12 +23,14 @@ it available for a broad community.
     ```
 1. Install this feature branch of NanoImagingPack
     ```
-    pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack@feature2-calreadnoise
+    pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack
     ```
 
-<!-- conda create -y --name nanoimaging python=3.8 anaconda tifffile tabulate &
+<!-- 
+conda create -y --name nanoimaging python=3.8 anaconda tifffile &
 conda activate nanoimaging &
-pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack@feature2-calreadnoise -->
+pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack
+ -->
 
 ## Getting started
 

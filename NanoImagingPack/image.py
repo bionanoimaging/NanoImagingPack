@@ -30,6 +30,7 @@ import imageio
 import scipy
 from scipy.ndimage import rotate
 from scipy.ndimage.measurements import center_of_mass as cm
+import pathlib
 
 from .functions import gaussian, coshalf
 from .config import DBG_MSG, __DEFAULTS__
@@ -110,14 +111,16 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         truncate - truncate values below zero
     """
 
-    folder = split(path)[0]
-    if not isdir(folder):
-        mkdir(folder)
-        print('Creating Folder ... ' + folder)
+    folder = pathlib.Path(path).parent
+    import debughelper
+    debughelper.save_to_interactive({"folder": folder, "path":path})
+    folder.mkdir(exist_ok=True)
 
-    ext = splitext(path)[-1][1:]
-    if ext == '':
-        path += '.' + form
+    if path.suffix == '':
+        path = folder/(path.name + '.' + form)
+    # ext = splitext(path)[-1][1:]
+    # if ext == '':
+    #     path += '.' + form
 
     if util.get_type(img)[1] == 'image':
         metadata = {'name': img.name, 'units': img.unit, 'info': img.info, 'colormodel': img.colormodel}
@@ -1334,7 +1337,7 @@ def __correllator__(im1, im2, axes=None, mode='convolution', phase_only=False, n
         if np.issubdtype(axes.dtype, np.integer):
             axes = [axes]
     except AttributeError:
-        pass;
+        pass
 
     if im1.dtype == np.complexfloating or im2.dtype == np.complexfloating:
         FT1 = ft(im1, shift_after=False, shift_before=False, norm=None, ret='complex', axes=axes)
@@ -2297,7 +2300,7 @@ class image(np.ndarray):
                     glob_coords += [c[1]]
             return tuple(glob_coords)
 
-    def imsave(self, path = None, form = 'tif', rescale = True, BitDepth = 16, Floating = False, truncate = True):
+    def imsave(self, path = None, form = 'tif', rescale = False, BitDepth = 16, Floating = False, truncate = True):
         """
             Like the imsave method, but:
                     - If no path given the default directory (as stated in config) will be used for directory, and the image name for the file name

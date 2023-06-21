@@ -25,6 +25,10 @@ import scipy.signal
 import matplotlib.pyplot as plt
 import matplotlib
 import pathlib
+import io
+from ruamel.yaml import YAML
+
+
 def getDefaultPSF_PARAMS(psf_params):
     if psf_params is None:
         return PSF_PARAMS()
@@ -1436,33 +1440,33 @@ def removePhaseInt(pulse):
     deltaPhase = np.angle(pulse[idx+1] / pulse[idx])
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
-DEBUG = True
-if DEBUG:
-    import types
-    debug = types.SimpleNamespace()
-    print("Debug microscopy.py")
 
-def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correctBrightness=True,
- correctOffsetDrift=True, excludeHotPixels=True, crazyPixelPercentile=98, doPlot=True, exportpath=None, exportFormat="png",
+def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, histRange=None, CameraName=None, correctBrightness=True,
+ correctOffsetDrift=True, exclude_hot_cold_pixels=True, noisy_pixel_percentile=98, doPlot=True, exportpath=None, exportFormat="png",
  brightness_blurring=True, plotWithBgOffset=True, plotHist=False, check_bg=True, saturationImage=False):
     """
     Calibrates detectors by fitting a straight line through a mean-variance plot. To scale your images into photons use: (image-offset) * gain
+
     :param fg: A series of foreground images of the same (blurry) scene. Ideally spanning the useful range of the detector. Suggested number: 20 images
     :param bg: A series of dark images under identical camera settings (integration time, temperature, etc.). Suggested number: 20 images
-    :param numBins: Number of bins for the fit
-    :param validRange: If provided, the fit will only be performed over this range (from,to) of mean values. The values are inclusived borders
+    :param numBins: Number of bins for the histogram 
+    :param histRange: If provided, the histogram will only be generated over this range.
+    :param validRange: If provided, the gain fit will only be performed over this range of mean values.
+    :param linearity_range: If provided, the linearity will only be evaluated over this range.
     :param CameraName: If provided, sets a plot title with CameraName
-    :param correctBrightness
-    :param correctOffsetDrift
-    :param excludeHotPixels: 
-    :param crazyPixelPercentile: Only include this percentile of least noisy pixels.
-                                 Useful for supressing the effect of RTS noise. 
+    :param correctBrightness: Attempt to correct the calibration for a fluctuating illumination brightness.
+    :param correctOffsetDrift:
+    :param exclude_hot_cold_pixels: Exclude hot and cold pixels from the fit
+    :param noisy_pixel_percentile: Only include this percentile of least noisy pixels.
+                                   Useful for supressing the effect of RTS noise. 
     :param doPlot: Plot the mean-variance curves
     :param exportpath: If provided, the plots will be saved to this directory.
     :param exportFormat: PNG or SVG files possible.
     :param brightness_blurring: A filter to blur the brightness estimate. Useful for sCMOS sensors
     :param plotWithBgOffset: If false, then the background value will be subtracted from the pixel ADUs in the plot.
     :param plotHist: If true, then a histogram of brightness bins will be plotted in the plot background
+    :param check_bg: If true, then the background images will be checked.
+    :param saturationImage: If true, then the peak of the photon transfer curve will be used to estimate the saturation level and calculate a dynamic range.
     :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
     """
     function_args = locals()
@@ -1484,8 +1488,11 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
     fg = np.squeeze(fg).astype(float)
     bg = np.squeeze(bg).astype(float)
 
+    total_pixels = np.product(fg.shape[1:])
+
     if check_bg:
-        assert check_dark(bg, threshold=5), f"Warning, dark image standard deviation is more than 5 times larger than per-pixel standard deviation. \nVerify that dark image is flat and contains no structure"
+        THRESHOLD = 10
+        assert check_dark(bg, threshold=THRESHOLD), f"Warning, dark image standard deviation is more than {THRESHOLD} times larger than per-pixel standard deviation. \nVerify that dark image is flat and contains no structure"
 
     didReduce = False
     if fg.ndim > 3:
@@ -1503,8 +1510,15 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
         # TODO: Needs testing
         return cal_readnoise(fg,bg, *list(function_args.values()))
 
-
-    Text = "Analysed {nb:d} bright and {nd:d} dark images:\n".format(nb=fg.shape[0],nd=bg.shape[0])
+    Text = "Calibration results:\n"
+    doc_dict = {}
+    # Text += "Analysed {nb:d} bright and {nd:d} dark images:\n".format(nb=fg.shape[0],nd=bg.shape[0])
+    doc_dict["Dark images"] = (f"{bg.shape[0]}",
+                            "Number of dark images used for calibration"
+    )      
+    doc_dict["Bright images"] = (f"{fg.shape[0]}",
+                            "Number of bright images used for calibration"
+    )      
 
     validmap = np.ones(bg.shape[-2:], dtype=bool)
     # validmap = None
@@ -1514,7 +1528,10 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
         numUnderflow = np.sum(underflow)
         if np.min(fg) <= 0:
             print("WARNING: "+str(numUnderflow)+" pixels with at least one zero-value (value<=0) were detected but no fit range was selected. Excluded those from the fit.")
-        Text = Text + "Zero-value pixels: {zv:d} excluded.\n".format(zv=numUnderflow)
+        # Text = Text + "Zero-value pixels: {zv:d} excluded.\n".format(zv=numUnderflow)
+        doc_dict["Zero-value pixels excluded"] = (f"{numUnderflow} ({numUnderflow/total_pixels:.1%})",
+                                "Pixels with at least one zero-value"
+        )          
         
         overflow = 0
         numsat = 0
@@ -1524,13 +1541,18 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
             if np.max(fg) == MaxVal:
                 overflow = np.sum(fg == MaxVal,(0,)) > 0
                 numsat = np.sum(overflow)
-                relsat = np.sum(overflow)/np.product(fg.shape[1:])
+                relsat = np.sum(overflow)/total_pixels
                 print("WARNING: "+str(numsat)+" pixels saturating at least once (value=="+str(MaxVal)+") were detected but no fit range was selected. Excluding those from the fit.")
                 validmap = validmap & ~ overflow
                 maxvalstr = "(=="+str(MaxVal)+")"
-        Text = Text + f"Overflow {maxvalstr} pixels: {numsat} ({relsat:.1%}) excluded.\n"
+        # Text = Text + f"Overflow {maxvalstr} pixels: {numsat} ({relsat:.1%}) excluded.\n"
+        doc_dict["Overflow pixels excluded"] = (f"{numsat} ({relsat:.1%})",
+                                "Max vals one of [255,1023,4095,65535]"
+        )           
 
-    print("Calibration results:")
+    # if clipRange is not None:
+    #     validmap *= (np.sum(fg >= clipRange[0], axis=0) + np.sum(fg <= clipRange[1], axis=0)) > 0
+
     if correctOffsetDrift:
         meanoffset = np.mean(bg, (-2,-1), keepdims=True)
         refOffset = np.mean(bg)
@@ -1559,6 +1581,7 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
     plotOffset = bg_total_mean*plotWithBgOffset
     patternVar = np.var(bg_mean_projection)
 
+# POTENTIAL FOR ERROR CROSSING THIS LINE
     fg -= bg_mean_projection # pixel-wise background subtraction
     if correctBrightness:
         brightness = np.mean(fg, (-2,-1), keepdims=True)
@@ -1578,7 +1601,10 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
                 plt.savefig(exportpath/f'Brightness_Fluctuation.{exportFormat}')
         fg = fg / relbright
         maxFluc = np.max(np.abs(1.0-relbright))
-        Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
+        # Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
+        doc_dict["Illumination fluctuation"] = (f"{maxFluc:.2%}",
+                                "Illumination fluctuation for bright images."
+        )        
     
     fg_mean_projection = np.mean(fg, (-3)) 
     fg_var_projection = np.var(fg, (-3), ddof=1)
@@ -1589,14 +1615,18 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
         bg_var_projection = np.var(bg, (-3), ddof=1)
 
     hotPixels = None
-    if excludeHotPixels:
+    if exclude_hot_cold_pixels:
         hotPixels = np.abs(bg_mean_projection - np.mean(bg_mean_projection)) > 4.0*np.sqrt(np.mean(bg_var_projection))
         numHotPixels = np.sum(hotPixels)
-        Text = Text + "Hot/Cold pixels (|bg mean| > 4 StdDev): "+str(numHotPixels)+" excluded.\n"
+        # Text = Text + "Hot or Cold pixels: "+str(numHotPixels)+" excluded.\n"
+
+        doc_dict["Hot or Cold pixels excluded"] = (f"{numHotPixels:d} ({numHotPixels/total_pixels:.1%})",
+                                "Total number of excluded hot or cold pixels. A pixel is hot or cold if it's mean value in the background image is more than 4 standard deviations from the background values of all background image pixels."
+        )
         validmap *= ~hotPixels
 
 
-    noisyPixelThreshold = np.percentile(bg_var_projection, crazyPixelPercentile)
+    noisyPixelThreshold = np.percentile(bg_var_projection, noisy_pixel_percentile)
     noisyPixels = bg_var_projection > noisyPixelThreshold # need to exclude hot pixels, which skew variance
     validmap *= ~noisyPixels
 
@@ -1605,6 +1635,9 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
     if validRange is not None: 
         validRange = np.array(validRange)
         validRange = validRange - bg_total_mean
+    if linearity_range is not None: 
+        linearity_range = np.array(linearity_range)
+        linearity_range = linearity_range - bg_total_mean
 
     if brightness_blurring:
         # sCMOS brightnesses fluctuate too much, we need a filter
@@ -1624,7 +1657,13 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
     # create histRange, otherwise numpy.histogram will allocate bins right up to the hot pixels
     # validMeans = fg_mean_projection[validmap] # now that it is applied above, we don't need to use validmap here
     validMeans = fg_mean_projection
-    histRange = (np.min(validMeans), np.max(validMeans))
+    if histRange is None:
+        histRange = (np.min(validMeans), np.max(validMeans))
+    elif histRange is not None:
+        histRange = np.array(histRange)
+        histRange = histRange - bg_total_mean
+
+
 
 
     # binning
@@ -1647,91 +1686,134 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
     mean_var = hist_var_sum / hist_num # mean of variances within the bin
     mean_mean = hist_mean_sum / hist_num # mean of means within the bin
 
-    if DEBUG:
-        debug.binMid = binMid
-        debug.mean_mean = mean_mean
-        debug.mean_var = mean_var
-
-
-    # # correct the numBins for the validRange??. Not happy with this inconsistency @
-    # numBins = int(numBins*np.ptp(histRange)/np.ptp(validRange))
-    # numBins = int(numBins*np.ptp(histRange)/np.ptp(validRange))
-
     
     if saturationImage:
         # var_peak_ix = scipy.signal.find_peaks(x=mean_var, distance=5, width=4)[0][0]
         var_peak_ix = np.argmax(mean_var)
         var_peak = binMid[var_peak_ix] #determine saturation capacity
 
-        
-    
-    # Automatic range feature. Validrange between 99th percentile and 5% of 99th percentile
-    if validRange is None:
-        validRange = np.empty(2)
-        if saturationImage:
-            validRange[1] = 0.7*var_peak # gain fit
-        else:
-            validRange[1] = np.percentile(validMeans, 99)
-        validRange[0] = 0 # gain fit
-
-    (offset, slope, variance_of_variances) = RWLSPoisson(mean_mean, mean_var, hist_num, validRange=validRange)
-
+    # Automatic range finding
     if saturationImage:
-        linearity_range = None
-        if linearity_range == None:
+        if validRange is None:
+            # 0-70% sat peak
+            validRange = [0, 0.7*var_peak] # gain fit
+        if linearity_range is None:
+            # 5-95% sat peak
             linearity_range = (0.05*var_peak, 0.95*var_peak) #for linearity fit
-        linearity_slice = (mean_mean > linearity_range[0]) * (mean_mean < linearity_range[1])
-        (lin_offset, lin_slope, lin_variance_of_variances) = RWLSPoisson(mean_mean, mean_var, hist_num, validRange=linearity_range)
-        linfit_x = mean_mean[linearity_slice]
-        linvar_fits = (lin_slope*linfit_x + lin_offset)
-        dev = mean_var[linearity_slice] - linvar_fits
-        rel_dev = dev/linvar_fits
-        debug.dev = dev
-        debug.rel_dev = rel_dev
+    else: # regular autofind
+        if validRange is None:
+            # percentlies
+            validRange = [0, np.percentile(validMeans, 99)]
+        if linearity_range is None:
+            # linearity_range = (0.05*validRange[0], 0.95*validRange[1]) #for linearity fit
+            linearity_range = validRange
+            # percentiles
 
+    # gain fit
+    (offset, slope, variance_of_variances) = RWLSPoisson(mean_mean, mean_var, hist_num, 
+                                                            validRange=validRange)
+
+    linearity_slice = (mean_mean > linearity_range[0]) * (mean_mean < linearity_range[1])
+    (lin_offset, lin_slope, lin_variance_of_variances) = RWLSPoisson(mean_mean, mean_var, 
+                                                            hist_num, validRange=linearity_range)
+    linfit_x = mean_mean[linearity_slice]
+    linvar_fits = (lin_slope*linfit_x + lin_offset)
+    dev = mean_var[linearity_slice] - linvar_fits
+    rel_dev = dev/linvar_fits
+    #extended linearity deviation
+    linfit_x_extended = mean_mean
+    linvar_fits_extended = (lin_slope*linfit_x_extended + lin_offset)
+    dev_extended = mean_var - linvar_fits_extended
+    rel_dev_extended = dev_extended/linvar_fits_extended
 
     myFit = binMid * slope + offset
     myStd = np.sqrt(variance_of_variances)
     gain = float(1.0 / slope) # don't want to return image type
     mean_el_per_exposure = np.sum(fg.mean((-3)))*gain
 
+    # bright image dynamic range
     # bin_lims = binMid[[0,-1]]-bg_total_mean
     bin_lims = binMid[[0,-1]]
-    coverage = np.float(np.ptp(bin_lims)/bin_lims[1])
-    if coverage > 1:
-        Text = Text + f"No illumination gap to dark value\n"
-    else:
-        Text = Text + f"{(1-coverage)*100:.2g}% illumination gap to dark value\n"
+    # we want brightest to darkest
 
-    Text = Text + "{:.0f}% of bg Pixels have a var > {:.0f} e- and were excluded\n".format(100-crazyPixelPercentile, np.sqrt(noisyPixelThreshold)*gain)
-    Text = Text + "Background [ADU]: {bg:.2f}".format(bg=bg_total_mean) + "\n"
-    doc_dict = {}
-    doc_dict["Background [ADU]"] = "Mean value from dark stack. Units are ADU."
-    Text = Text + "Gain [e- / ADU]): {g:.4f}".format(g=gain) + "\n"
-    doc_dict["Gain [e- / ADU]"] = "Conversion factor (Gain) determined by fit to photon transfer curve."
+    image_dyn_range = bin_lims[1]/bin_lims[0]
+    # image_dyn_range = np.float(np.ptp(bin_lims)/bin_lims[1])
+    # if coverage > 1:
+    #     Text = Text + f"No illumination gap to dark value\n"
+    # else:
+    # Text = Text + f"{image_dyn_range:.2g}% illumination gap to dark value\n"
+    # doc_dict["Image dynamic range"] = (f"{image_dyn_range:.1%}",
+                                    # "Dynamic range, expressed as a percentage. Above 95% is good."
+    doc_dict["Image dynamic range [factor]"] = (f"{image_dyn_range:.4g}",
+                                    "Dynamic range, expressed as a factor. Above 20 is good."
+    )
+    # Text = Text + "{:.0f}% of bg Pixels have a var > {:.0f} e- and were excluded\n".format(100-crazyPixelPercentile, np.sqrt(noisyPixelThreshold)*gain)
+    doc_dict["Noisy pixels excluded"] = (f"{100-noisy_pixel_percentile:.0f}%",
+                                    "Percentage of pixels which were excluded."
+    )
+    doc_dict["Noise exclusion threshold [e-]"] = (f"{np.sqrt(noisyPixelThreshold)*gain:.1f}",
+                                    "Threshold for exclusion for noisy pixels. Units are electrons."
+    )
+    # Text = Text + "Background [ADU]: {bg:.2f}".format(bg=bg_total_mean) + "\n"
+    doc_dict["Background [ADU]"] = ("{bg:.2f}".format(bg=bg_total_mean),
+                                    "Mean value from dark stack. Units are ADU."
+    )
+    # Text = Text + "Gain [e- / ADU]): {g:.4f}".format(g=gain) + "\n"
+    doc_dict["Gain [e- / ADU]"] = (f"{gain:.4f}",
+                                    "Conversion factor (Gain) determined by fit to photon transfer curve."
+    )
     Readnoise = (np.sqrt(np.mean(bg_var_projection)) * gain).astype(float) # don't want to return image type
-    Text = Text + f"Readnoise, gain * bg_noise: {Readnoise:.2f} e- RMS\n"
-    doc_dict["Readnoise, gain * bg_noise"] = "Mean per-pixel standard deviation from dark stack. Units are electrons."
+    Readnoise = (np.mean(np.sqrt(bg_var_projection)) * gain).astype(float) # new version try
+    Readnoise = (np.std(bg, (-3), ddof=1).mean() * gain).astype(float) # new version try
+    # Text = Text + f"Readnoise, gain * bg_noise: {Readnoise:.2f} e- RMS\n"
+    doc_dict["Readnoise RMS [e-]"] = (f"{Readnoise:.2f}",
+                                        "Mean per-pixel standard deviation from dark stack. gain * bg_noise. Units are electrons."
+    )
     median_readnoise = (np.sqrt(np.median(bg_var_projection)) * gain).astype(float) # don't want to return image type
-    Text = Text + "Median readnoise, gain * bg_noise: {rn:.2f} e- median\n".format(rn=median_readnoise)
-    doc_dict["Median readnoise, gain * bg_noise"] = "Median per-pixel standard deviation from dark stack. Units are electrons."
+    median_readnoise = (np.median(np.std(bg, (-3), ddof=1)) * gain).astype(float) # new version try
+    # Text = Text + "Median readnoise, gain * bg_noise: {rn:.2f} e- median\n".format(rn=median_readnoise)
+    doc_dict["Median readnoise [e-]"] = (f"{median_readnoise:.2f}",
+                                        "Median per-pixel standard deviation from dark stack. gain * bg_noise. Units are electrons."
+    )
     if offset < 0.0:
         Text = Text + "Readnoise (fit): variance ({of:.2f}) below zero.".format(of=offset) + "\n"
     else:
         Text = Text + "Readnoise (fit): {rn:.2f}".format(rn=np.sqrt(offset)*gain)+"\n"
     if saturationImage:
         snr = var_peak/np.sqrt(np.mean(bg_var_projection))
-        Text = Text + f"Dynamic range (e-): {snr:.0f}, {np.log10(snr)*10:.1f} dB\n"
-        doc_dict["Dynamic range (e-)"] = "Electron dynamic range of the sensor (Jannesick, Photon transfer, p. 50). Dimensionless."
-        Text = Text + f"Saturation value [ADU]: {var_peak+plotOffset:.0f}\n"
-        doc_dict["Saturation value [ADU]"] = "Value at peak of photon transfer curve. Units are ADU"
-        Text = Text + f"Saturation capacity: {var_peak*gain:.0f} e-\n"
-        doc_dict["Saturation capacity"] = "Saturation capacity in units of electrons"
-        Text = Text + f"Linearity Error: {np.mean(np.abs(rel_dev)):.1%}\n"
-        doc_dict["Linearity Error"] = "Mean absolute deviation from fit within linearity fit range."
-    Text = Text + f"Fixed pattern offset (gain * std. dev. for mean_bg): {np.sqrt(patternVar):.2f} e- RMS\n"
-    Text = Text + f"Total electrons per exposure: {mean_el_per_exposure:.3E} e- \n"
-    doc_dict["Total electrons per exposure"] = "Gain times total signal per exposure. Incorrect if a significant number of pixels are saturated."
+        # Text = Text + f"Dynamic range (e-): {snr:.0f}, {np.log10(snr)*10:.1f} dB\n"
+        doc_dict["Detector dynamic range [factor, dB]"] = (f"{snr:.0f}, {np.log10(snr)*10:.1f}",
+        "Electron dynamic range of the detector (Jannesick, Photon transfer, p. 50). Dimensionless."
+        )
+        # Text = Text + f"Saturation value [ADU]: {var_peak+plotOffset:.0f}\n"
+        doc_dict["Saturation value [ADU]"] = (f"{var_peak+plotOffset:.0f}",
+        "Value at peak of photon transfer curve. Units are ADU"
+        )
+        # Text = Text + f"Saturation capacity: {var_peak*gain:.0f} e-\n"
+        doc_dict["Saturation capacity [e-]"] = (f"{var_peak*gain:.0f}",
+        "Saturation capacity in units of electrons"
+        )
+    # Text = Text + f"Linearity Error: {np.mean(np.abs(rel_dev)):.1%}\n"
+    doc_dict["Linearity Error"] = (f"{np.mean(np.abs(rel_dev)):.1%}",
+                                    "Mean absolute deviation from fit within linearity fit range."
+    )
+    # Text = Text + f"Fixed pattern offset: {np.sqrt(patternVar):.2f} e- RMS\n"
+    doc_dict["Fixed pattern offset std. [e-]"] = (f"{np.sqrt(patternVar):.2f}",
+                                        "Gain multiplied with standard deviation of the background mean projection. Units are electrons."
+    )
+    # Text = Text + f"Total electrons per exposure: {mean_el_per_exposure:.3E} e- \n"
+    doc_dict["Total electrons per exposure [e-]"] = (f"{mean_el_per_exposure:.3E}",
+                                        "Gain multiplied by the total signal per exposure. Incorrect if a significant number of pixels are saturated."
+    )
+
+    doc_dict_vals = {k:v[0] for k, v in doc_dict.items()}
+    strio = io.StringIO("")
+    yaml = YAML()
+    yaml.dump(doc_dict_vals,  strio)
+    strio.seek(0)
+    fig_string = strio.read()
+    # import debughelper
+    # debughelper.save_to_interactive({"fig_string": fig_string})
 
     if doPlot:
         fig = plt.figure(figsize=plot_figsize)
@@ -1750,6 +1832,7 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
         plt.plot(biased_binMid, myFit-myStd/2, '--r')
         if saturationImage:
             plt.axvline(var_peak + plotOffset, 0, 1, color="tab:purple", label="Saturation capacity")
+        if saturationImage: # otherwise, linearity fit is the same as gain fit, and we don't want to plot it twice
             plt.plot(linfit_x + plotOffset, linvar_fits, color="tab:green", label='Linearity fit')
         plt.legend()
 
@@ -1768,7 +1851,7 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
         plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
         plt.ylabel("Pixel variance / $ADU^2$", fontsize=AxisFontSize)
         plt.grid()
-        plt.figtext(0.02, 0.05, Text, fontsize=TextFontSize)
+        plt.figtext(0.02, 0.05, fig_string, fontsize=TextFontSize)
 
         ax.set_xlim(plotOffset-0.05*np.ptp(binMid), ax.get_xlim()[1])
         ax.set_ylim(0, ax.get_ylim()[1])
@@ -1784,9 +1867,12 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
         showRanges = True
         if showRanges:
             ax2 = ax.twinx()
-            gainrange_rectangle = matplotlib.patches.Rectangle((validRange[0]+plotOffset, 0.9), 
+            gainrange_rectangle = matplotlib.patches.Rectangle((validRange[0]+plotOffset, 0.0), 
                 np.ptp(validRange), 1e-2, facecolor="tab:red", alpha=0.5)
+            linrange_rectangle = matplotlib.patches.Rectangle((linearity_range[0]+plotOffset, 1e-2), 
+                np.ptp(linearity_range), 1e-2, facecolor="tab:green", alpha=0.5)
             ax2.add_patch(gainrange_rectangle)
+            ax2.add_patch(linrange_rectangle)
             ax2.set_navigate(False)
             ax2.set_yticks([])
 
@@ -1796,33 +1882,37 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, CameraName=None, correct
             plt.savefig(exportpath/f'Photon_Calibration.{exportFormat}')
 
         # linearity error plot
-        if saturationImage:
-            fig = plt.figure(figsize=plot_figsize)
-            if CameraName is not None:
-                plt.title("Deviation from linearity ("+CameraName+")", fontsize=TitleFontSize)
-            else:
-                plt.title("Deviation from linearity", fontsize=TitleFontSize)
-            plt.plot(linfit_x + plotOffset, rel_dev*100)
-            plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
-            plt.ylabel('Deviation / %.', fontsize=AxisFontSize)
+        fig = plt.figure(figsize=plot_figsize)
+        if CameraName is not None:
+            plt.title("Deviation from linearity ("+CameraName+")", fontsize=TitleFontSize)
+        else:
+            plt.title("Deviation from linearity", fontsize=TitleFontSize)
+        plt.plot(linfit_x_extended + plotOffset, rel_dev_extended*100)
+        plt.ylim(min(rel_dev*100)*1.5, max(rel_dev*100)*1.5)
+        plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
+        plt.ylabel('Deviation / %.', fontsize=AxisFontSize)
 
-            # secondary acis again
-            ax = plt.gca()
-            secax_x = ax.secondary_xaxis('top', functions=(adu2el, el2adu))
-            
-            secax_x.set_xlabel("Pixel brightness / $photoelectrons$", fontsize=AxisFontSize)
+        # secondary acis again
+        ax = plt.gca()
+        secax_x = ax.secondary_xaxis('top', functions=(adu2el, el2adu))
+        
+        secax_x.set_xlabel("Pixel brightness / $photoelectrons$", fontsize=AxisFontSize)
 
-            figures.append(fig)
-            if exportpath is not None:
-                plt.savefig(exportpath/f'correctOffsetDrift.{exportFormat}')
+        figures.append(fig)
+        if exportpath is not None:
+            plt.savefig(exportpath/f'linearityError.{exportFormat}')
     if exportpath is not None:
-        with open(exportpath/'calibration_results.txt', "w") as outfile:
-            outfile.write(Text)
-    print(Text)
+        # with open(exportpath/'calibration_results.txt', "w") as outfile:
+        #     outfile.write(Text)
+        results_dict = {k:v[0] for k, v in doc_dict.items()}
+        yaml.dump(results_dict, exportpath/'calibration_results.txt')
+        doc_dict_dict = {k:v[1] for k, v in doc_dict.items()}
+        yaml.dump(doc_dict_dict, exportpath/'definitions.txt')
+    # print(Text)
     return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, Text)
 
 
-def check_dark(background, threshold=5):
+def check_dark(background, threshold=10):
     """Checks if a dark frame stack is truly dark, or if there is some global structure.
         Used to identify if a frame was incorrectly passed as a dark calibration frame.
 

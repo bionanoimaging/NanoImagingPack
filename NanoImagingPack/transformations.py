@@ -652,7 +652,6 @@ def rft(im, shift_after=False, shift_before=False, ret='complex', axes=None, s=N
             im = ifftshift(im, axes=axes)  # mid to corner
         if (not s is None) and (not axes is None) and len(axes) < len(s):
             s = s[-len(axes):]  # it will automatically deal with the other axes
-        print(axes)
         im = rfftn(im, axes=axes, s=s, norm=norm).astype(image.defaultCpxDataType)
         if shift_after == True:
             shift_ax = [i for i in axes if i != real_axis]
