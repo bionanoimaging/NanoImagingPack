@@ -11,7 +11,7 @@ from .image import image
 from .util import ones, repToList, castdim, expanddim
 from .image import extract
 import scipy
-from sktensor import dtensor, cp_als  # from https://github.com/evertrol/scikit-tensor-py3/blob/master/examples/cp_sensory_bread_data.py
+# from sktensor import dtensor, cp_als  # from https://github.com/evertrol/scikit-tensor-py3/blob/master/examples/cp_sensory_bread_data.py
 
 class separable():
     """
