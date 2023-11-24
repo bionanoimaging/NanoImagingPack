@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pathlib
 import io
-from ruamel.yaml import YAML
+import ruamel.yaml
 
 
 def getDefaultPSF_PARAMS(psf_params):
@@ -1441,9 +1441,9 @@ def removePhaseInt(pulse):
     return pulse * np.exp(-1j * (phase0 + deltaPhase*(np.arange(pulse.size)-idx)))
 
 
-def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, histRange=None, CameraName=None, correctBrightness=True,
- correctOffsetDrift=True, exclude_hot_cold_pixels=True, noisy_pixel_percentile=98, doPlot=True, exportpath=None, exportFormat="png",
- brightness_blurring=True, plotWithBgOffset=True, plotHist=False, check_bg=True, saturationImage=False):
+def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None, histRange=None, CameraName=None, correctBrightness:bool=True,
+ correctOffsetDrift:bool=True, exclude_hot_cold_pixels:bool=True, noisy_pixel_percentile:float=98, doPlot:bool=True, exportpath:pathlib.Path=None, exportFormat:str="png",
+ brightness_blurring:bool=True, plotWithBgOffset:bool=True, plotHist:bool=False, check_bg:bool=False, saturationImage:bool=False):
     """
     Calibrates detectors by fitting a straight line through a mean-variance plot. To scale your images into photons use: (image-offset) * gain
 
@@ -1490,6 +1490,8 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
 
     total_pixels = np.product(fg.shape[1:])
 
+    assert fg.sum() > bg.sum(), "Error, background image is brighter than foreground image.\nAnalysis will fail"
+
     if check_bg:
         THRESHOLD = 10
         assert check_dark(bg, threshold=THRESHOLD), f"Warning, dark image standard deviation is more than {THRESHOLD} times larger than per-pixel standard deviation. \nVerify that dark image is flat and contains no structure"
@@ -1523,32 +1525,37 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
     validmap = np.ones(bg.shape[-2:], dtype=bool)
     # validmap = None
     if validRange is None:
-        underflow = np.sum(fg <= 0, (0,)) > 0
-        validmap *= ~underflow
-        numUnderflow = np.sum(underflow)
-        if np.min(fg) <= 0:
-            print("WARNING: "+str(numUnderflow)+" pixels with at least one zero-value (value<=0) were detected but no fit range was selected. Excluded those from the fit.")
-        # Text = Text + "Zero-value pixels: {zv:d} excluded.\n".format(zv=numUnderflow)
-        doc_dict["Zero-value pixels excluded"] = (f"{numUnderflow} ({numUnderflow/total_pixels:.1%})",
-                                "Pixels with at least one zero-value"
-        )          
-        
-        overflow = 0
-        numsat = 0
-        relsat = 0
-        maxvalstr = ""
-        for MaxVal in [255,1023,4095,65535]: #TODO: not robust. Many cameras saturate at some other value
-            if np.max(fg) == MaxVal:
-                overflow = np.sum(fg == MaxVal,(0,)) > 0
-                numsat = np.sum(overflow)
-                relsat = np.sum(overflow)/total_pixels
-                print("WARNING: "+str(numsat)+" pixels saturating at least once (value=="+str(MaxVal)+") were detected but no fit range was selected. Excluding those from the fit.")
-                validmap = validmap & ~ overflow
-                maxvalstr = "(=="+str(MaxVal)+")"
-        # Text = Text + f"Overflow {maxvalstr} pixels: {numsat} ({relsat:.1%}) excluded.\n"
-        doc_dict["Overflow pixels excluded"] = (f"{numsat} ({relsat:.1%})",
-                                "Max vals one of [255,1023,4095,65535]"
-        )           
+        # Underflow
+        tmp_bypass = True
+
+        if not tmp_bypass:
+            print("FooFoo")
+            underflow = np.sum(fg <= 0, (0,)) > 0
+            validmap *= ~underflow
+            numUnderflow = np.sum(underflow)
+            if np.min(fg) <= 0:
+                print("WARNING: "+str(numUnderflow)+" pixels with at least one zero-value (value<=0) were detected but no fit range was selected. Excluded those from the fit.")
+            # Text = Text + "Zero-value pixels: {zv:d} excluded.\n".format(zv=numUnderflow)
+            doc_dict["Zero-value pixels excluded"] = (f"{numUnderflow} ({numUnderflow/total_pixels:.1%})",
+                                    "Pixels with at least one zero-value. Zero-valued pixels should not occur in the data, as it suggests clipped results. If any pixel has a zero-valued sample, the entire pixel is excluded from the analysis. If this value is high, the black level offset should be adjusted."
+            )          
+            
+            overflow = 0
+            numsat = 0
+            relsat = 0
+            maxvalstr = ""
+            for MaxVal in [255,1023,4095,65535]: #TODO: not robust. Many cameras saturate at some other value
+                if np.max(fg) == MaxVal:
+                    overflow = np.sum(fg == MaxVal,(0,)) > 0
+                    numsat = np.sum(overflow)
+                    relsat = np.sum(overflow)/total_pixels
+                    print("WARNING: "+str(numsat)+" pixels saturating at least once (value=="+str(MaxVal)+") were detected but no fit range was selected. Excluding those from the fit.")
+                    validmap = validmap & ~ overflow
+                    maxvalstr = "(=="+str(MaxVal)+")"
+            # Text = Text + f"Overflow {maxvalstr} pixels: {numsat} ({relsat:.1%}) excluded.\n"
+            doc_dict["Overflow pixels excluded"] = (f"{numsat} ({relsat:.1%})",
+                                    "Max vals one of [255,1023,4095,65535]"
+            )           
 
     # if clipRange is not None:
     #     validmap *= (np.sum(fg >= clipRange[0], axis=0) + np.sum(fg <= clipRange[1], axis=0)) > 0
@@ -1603,9 +1610,8 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
         maxFluc = np.max(np.abs(1.0-relbright))
         # Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
         doc_dict["Illumination fluctuation"] = (f"{maxFluc:.2%}",
-                                "Illumination fluctuation for bright images."
+                                "Illumination fluctuation for bright images. The fluctuation in the total amount of light between the bright frames. If this value is high, it suggests an unstable light source or possibly problems with the detector's acquisition. "
         )        
-    
     fg_mean_projection = np.mean(fg, (-3)) 
     fg_var_projection = np.var(fg, (-3), ddof=1)
     # for single bg image
@@ -1621,7 +1627,7 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
         # Text = Text + "Hot or Cold pixels: "+str(numHotPixels)+" excluded.\n"
 
         doc_dict["Hot or Cold pixels excluded"] = (f"{numHotPixels:d} ({numHotPixels/total_pixels:.1%})",
-                                "Total number of excluded hot or cold pixels. A pixel is hot or cold if it's mean value in the background image is more than 4 standard deviations from the background values of all background image pixels."
+                                "Total number of excluded hot or cold pixels. Pixels are considered hot or cold if their mean value in the background image is more than 4 standard deviations removed from the background values of all background image pixels."
         )
         validmap *= ~hotPixels
 
@@ -1666,7 +1672,8 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
 
 
 
-    # binning
+    # Bin and create histograms.
+    # 
     # hist_num: total number of pixels in the bin
     # hist_mean_sum: sum of all the mean values of pixels in the bin
     # hist_var_sum: sum of all the variance values of pixels in the bin
@@ -1694,12 +1701,12 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
 
     # Automatic range finding
     if saturationImage:
+        # EMVA uses 0-70% of sat peak for gain fit and 5-95% sat peak for linearity fit. But measurement is different.
+        # For unified range, 0-95% seems sensible
         if validRange is None:
-            # 0-70% sat peak
-            validRange = [0, 0.7*var_peak] # gain fit
+            validRange = (0, 0.95*var_peak) # gain fit
         if linearity_range is None:
-            # 5-95% sat peak
-            linearity_range = (0.05*var_peak, 0.95*var_peak) #for linearity fit
+            linearity_range = (0, 0.95*var_peak) #for linearity fit
     else: # regular autofind
         if validRange is None:
             # percentlies
@@ -1744,19 +1751,19 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
     # Text = Text + f"{image_dyn_range:.2g}% illumination gap to dark value\n"
     # doc_dict["Image dynamic range"] = (f"{image_dyn_range:.1%}",
                                     # "Dynamic range, expressed as a percentage. Above 95% is good."
-    doc_dict["Image dynamic range [factor]"] = (f"{image_dyn_range:.4g}",
-                                    "Dynamic range, expressed as a factor. Above 20 is good."
+    doc_dict["Bright image dynamic range [factor]"] = (f"{image_dyn_range:.4g}",
+                                    "Bright image dynamic range, expressed as a factor. It represents the difference between the darkest and brightest parts of the bright calibration images. Above 20 is good."
     )
     # Text = Text + "{:.0f}% of bg Pixels have a var > {:.0f} e- and were excluded\n".format(100-crazyPixelPercentile, np.sqrt(noisyPixelThreshold)*gain)
     doc_dict["Noisy pixels excluded"] = (f"{100-noisy_pixel_percentile:.0f}%",
-                                    "Percentage of pixels which were excluded."
+                                    "Percentage of pixels which were excluded. By default, 2% of the noisiest background pixels are excluded from the analysis. This deals with RTS noise in CMOS cameras. CCD and scanning imagers should be unaffected."
     )
     doc_dict["Noise exclusion threshold [e-]"] = (f"{np.sqrt(noisyPixelThreshold)*gain:.1f}",
                                     "Threshold for exclusion for noisy pixels. Units are electrons."
     )
     # Text = Text + "Background [ADU]: {bg:.2f}".format(bg=bg_total_mean) + "\n"
     doc_dict["Background [ADU]"] = ("{bg:.2f}".format(bg=bg_total_mean),
-                                    "Mean value from dark stack. Units are ADU."
+                                    "The background, or black level of the signal, obtained by the mean pixel value of the dark exposures. Units are ADU."
     )
     # Text = Text + "Gain [e- / ADU]): {g:.4f}".format(g=gain) + "\n"
     doc_dict["Gain [e- / ADU]"] = (f"{gain:.4f}",
@@ -1766,14 +1773,14 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
     Readnoise = (np.mean(np.sqrt(bg_var_projection)) * gain).astype(float) # new version try
     Readnoise = (np.std(bg, (-3), ddof=1).mean() * gain).astype(float) # new version try
     # Text = Text + f"Readnoise, gain * bg_noise: {Readnoise:.2f} e- RMS\n"
-    doc_dict["Readnoise RMS [e-]"] = (f"{Readnoise:.2f}",
-                                        "Mean per-pixel standard deviation from dark stack. gain * bg_noise. Units are electrons."
+    doc_dict["Readnoise, RMS [e-]"] = (f"{Readnoise:.2f}",
+                                        "The mean readnoise, calculated by multiplying the mean of the individual pixel standard deviations with the gain. Units are photoelectrons."
     )
     median_readnoise = (np.sqrt(np.median(bg_var_projection)) * gain).astype(float) # don't want to return image type
     median_readnoise = (np.median(np.std(bg, (-3), ddof=1)) * gain).astype(float) # new version try
     # Text = Text + "Median readnoise, gain * bg_noise: {rn:.2f} e- median\n".format(rn=median_readnoise)
-    doc_dict["Median readnoise [e-]"] = (f"{median_readnoise:.2f}",
-                                        "Median per-pixel standard deviation from dark stack. gain * bg_noise. Units are electrons."
+    doc_dict["Readnoise, median  [e-]"] = (f"{median_readnoise:.2f}",
+                                        "The median readnoise, which is a commonly quoted metric for CMOS cameras. Units are electrons."
     )
     if offset < 0.0:
         Text = Text + "Readnoise (fit): variance ({of:.2f}) below zero.".format(of=offset) + "\n"
@@ -1782,8 +1789,14 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
     if saturationImage:
         snr = var_peak/np.sqrt(np.mean(bg_var_projection))
         # Text = Text + f"Dynamic range (e-): {snr:.0f}, {np.log10(snr)*10:.1f} dB\n"
-        doc_dict["Detector dynamic range [factor, dB]"] = (f"{snr:.0f}, {np.log10(snr)*10:.1f}",
-        "Electron dynamic range of the detector (Jannesick, Photon transfer, p. 50). Dimensionless."
+        doc_dict["Detector dynamic range [factor]"] = (f"{snr:.0f}, {np.log10(snr)*10:.1f}",
+        "Electron dynamic range of the detector (Jannesick, Photon transfer, p. 50). Expressed as a dimensionless factor."
+        )
+        doc_dict["Detector dynamic range [power dB]"] = (f"{np.log10(snr)*10:.1f}",
+        "Electron dynamic range of the detector. Expressed power dB"
+        )
+        doc_dict["Detector dynamic range [root-power dB]"] = (f"{2*np.log10(snr)*10:.1f}",
+        "Electron dynamic range of the detector. Expressed as root-power dB, which is twice the power dB value. Commonly used for video cameras."
         )
         # Text = Text + f"Saturation value [ADU]: {var_peak+plotOffset:.0f}\n"
         doc_dict["Saturation value [ADU]"] = (f"{var_peak+plotOffset:.0f}",
@@ -1802,13 +1815,14 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
                                         "Gain multiplied with standard deviation of the background mean projection. Units are electrons."
     )
     # Text = Text + f"Total electrons per exposure: {mean_el_per_exposure:.3E} e- \n"
-    doc_dict["Total electrons per exposure [e-]"] = (f"{mean_el_per_exposure:.3E}",
-                                        "Gain multiplied by the total signal per exposure. Incorrect if a significant number of pixels are saturated."
-    )
+    if not saturationImage:
+        doc_dict["Total electrons per exposure [e-]"] = (f"{mean_el_per_exposure:.3E}",
+                                        "The mean number of photoelectrons per exposure. The background is subtracted from the signal, and the sum is multiplied by the gain estimate. Incorrect if a significant number of pixels are saturated."
+        )
 
     doc_dict_vals = {k:v[0] for k, v in doc_dict.items()}
     strio = io.StringIO("")
-    yaml = YAML()
+    yaml = ruamel.yaml.YAML()
     yaml.dump(doc_dict_vals,  strio)
     strio.seek(0)
     fig_string = strio.read()
@@ -1904,10 +1918,28 @@ def cal_readnoise(fg, bg, numBins=100, validRange=None, linearity_range=None, hi
     if exportpath is not None:
         # with open(exportpath/'calibration_results.txt', "w") as outfile:
         #     outfile.write(Text)
-        results_dict = {k:v[0] for k, v in doc_dict.items()}
-        yaml.dump(results_dict, exportpath/'calibration_results.txt')
-        doc_dict_dict = {k:v[1] for k, v in doc_dict.items()}
-        yaml.dump(doc_dict_dict, exportpath/'definitions.txt')
+
+        results_dict = ruamel.yaml.comments.CommentedMap({k:v[0] for k, v in doc_dict.items()})
+        results_topline_comment = """Results from calibration tool for inhomogenous image stacks.
+See definitions.txt for extended definitions.
+The results are in the YAML format, readbale by humans and machines
+Written by David McFadden, FSU Jena
+NanoImagingPack library: https://gitlab.com/bionanoimaging/nanoimagingpack/
+Questions, bugs and requests to: david.mcfadden777@gmail.com
+heintzmann@gmail.com
+        """
+        results_dict.yaml_set_start_comment(results_topline_comment)
+        yaml.dump(results_dict, open(exportpath/'calibration_results.txt', "w"))
+        doc_dict_dict = ruamel.yaml.comments.CommentedMap({k:v[1] for k, v in doc_dict.items()})
+        docs_topline_comment = """Extended definitions for calibration results.
+Written in the YAML format, readbale by humans and machines
+Written by David McFadden, FSU Jena
+NanoImagingPack library: https://gitlab.com/bionanoimaging/nanoimagingpack/
+Questions, bugs and requests to: david.mcfadden777@gmail.com
+heintzmann@gmail.com
+        """        
+        doc_dict_dict.yaml_set_start_comment(docs_topline_comment)
+        yaml.dump(doc_dict_dict, open(exportpath/'definitions.txt', "w"))
     # print(Text)
     return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, Text)
 

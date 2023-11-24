@@ -111,9 +111,8 @@ def imsave(img, path, form='tif', rescale=True, BitDepth=16, Floating=False, tru
         truncate - truncate values below zero
     """
 
-    folder = pathlib.Path(path).parent
-    import debughelper
-    debughelper.save_to_interactive({"folder": folder, "path":path})
+    path = pathlib.Path(path)
+    folder = path.parent
     folder.mkdir(exist_ok=True)
 
     if path.suffix == '':
