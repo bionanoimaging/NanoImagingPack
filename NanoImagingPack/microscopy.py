@@ -1473,6 +1473,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
 
     if exportpath is not None:
         exportpath = pathlib.Path(exportpath)
+        exportpath.mkdir(parents=True, exist_ok=True)
 
     figures = [] # collect figures for returning
     # define plotting parameters
@@ -1484,11 +1485,22 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     # rc('font', size=AxisFontSize)  # controls default text sizes
     # rc('axes', titlesize=AxisFontSize, labelsize=AxisFontSize)  # fontsize of the axes title and number labels
     
+    #-----------------------------
+    # before converting to floats, generate histograms. Not needed for gain calculation, but useful diagnosis information
+    fg_max_ADU = fg.max()
+    hist_bins = range(0, int(bg.max()))
+    dark_counts, dark_hist_bin_edges = np.histogram(bg, bins=hist_bins)
+    dark_counts = dark_counts/bg.shape[0]
+    hist_bins = range(0, int(fg.max()))
+    bright_counts, bright_hist_bin_edges = np.histogram(fg, bins=hist_bins)
+    bright_counts = bright_counts/fg.shape[0]
+    #-----------------------------
+
     
     fg = np.squeeze(fg).astype(float)
     bg = np.squeeze(bg).astype(float)
 
-    total_pixels = np.product(fg.shape[1:])
+    total_pixels = np.prod(fg.shape[1:])
 
     assert fg.sum() > bg.sum(), "Error, background image is brighter than foreground image.\nAnalysis will fail"
 
@@ -1512,9 +1524,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
         # TODO: Needs testing
         return cal_readnoise(fg,bg, *list(function_args.values()))
 
-    Text = "Calibration results:\n"
     doc_dict = {}
-    # Text += "Analysed {nb:d} bright and {nd:d} dark images:\n".format(nb=fg.shape[0],nd=bg.shape[0])
     doc_dict["Dark images"] = (f"{bg.shape[0]}",
                             "Number of dark images used for calibration"
     )      
@@ -1535,7 +1545,6 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             numUnderflow = np.sum(underflow)
             if np.min(fg) <= 0:
                 print("WARNING: "+str(numUnderflow)+" pixels with at least one zero-value (value<=0) were detected but no fit range was selected. Excluded those from the fit.")
-            # Text = Text + "Zero-value pixels: {zv:d} excluded.\n".format(zv=numUnderflow)
             doc_dict["Zero-value pixels excluded"] = (f"{numUnderflow} ({numUnderflow/total_pixels:.1%})",
                                     "Pixels with at least one zero-value. Zero-valued pixels should not occur in the data, as it suggests clipped results. If any pixel has a zero-valued sample, the entire pixel is excluded from the analysis. If this value is high, the black level offset should be adjusted."
             )          
@@ -1552,7 +1561,6 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
                     print("WARNING: "+str(numsat)+" pixels saturating at least once (value=="+str(MaxVal)+") were detected but no fit range was selected. Excluding those from the fit.")
                     validmap = validmap & ~ overflow
                     maxvalstr = "(=="+str(MaxVal)+")"
-            # Text = Text + f"Overflow {maxvalstr} pixels: {numsat} ({relsat:.1%}) excluded.\n"
             doc_dict["Overflow pixels excluded"] = (f"{numsat} ({relsat:.1%})",
                                     "Max vals one of [255,1023,4095,65535]"
             )           
@@ -1575,9 +1583,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             plt.xlabel("frame no.", fontsize=AxisFontSize)
             plt.ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
 
-            figures.append(fig)
-            if exportpath is not None:
-                plt.savefig(exportpath/f'correctOffsetDrift.{exportFormat}')
+            figures.append((fig, "correctOffsetDrift"))
 
     # add ability to use only one backgroound image
     if bg.ndim == 2:
@@ -1603,12 +1609,9 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             plt.plot(relbright.flat)
             plt.xlabel("frame no.",fontsize=AxisFontSize)
             plt.ylabel("relative brightness",fontsize=AxisFontSize)
-            figures.append(fig)            
-            if exportpath is not None:
-                plt.savefig(exportpath/f'Brightness_Fluctuation.{exportFormat}')
+            figures.append((fig, 'Brightness_Fluctuation'))
         fg = fg / relbright
         maxFluc = np.max(np.abs(1.0-relbright))
-        # Text = Text + "Illumination fluctuation: {bf:.2f}".format(bf=maxFluc * 100.0)+"%\n"
         doc_dict["Illumination fluctuation"] = (f"{maxFluc:.2%}",
                                 "Illumination fluctuation for bright images. The fluctuation in the total amount of light between the bright frames. If this value is high, it suggests an unstable light source or possibly problems with the detector's acquisition. "
         )        
@@ -1624,8 +1627,6 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     if exclude_hot_cold_pixels:
         hotPixels = np.abs(bg_mean_projection - np.mean(bg_mean_projection)) > 4.0*np.sqrt(np.mean(bg_var_projection))
         numHotPixels = np.sum(hotPixels)
-        # Text = Text + "Hot or Cold pixels: "+str(numHotPixels)+" excluded.\n"
-
         doc_dict["Hot or Cold pixels excluded"] = (f"{numHotPixels:d} ({numHotPixels/total_pixels:.1%})",
                                 "Total number of excluded hot or cold pixels. Pixels are considered hot or cold if their mean value in the background image is more than 4 standard deviations removed from the background values of all background image pixels."
         )
@@ -1668,8 +1669,6 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     elif histRange is not None:
         histRange = np.array(histRange)
         histRange = histRange - bg_total_mean
-
-
 
 
     # Bin and create histograms.
@@ -1744,51 +1743,32 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     # we want brightest to darkest
 
     image_dyn_range = bin_lims[1]/bin_lims[0]
-    # image_dyn_range = np.float(np.ptp(bin_lims)/bin_lims[1])
-    # if coverage > 1:
-    #     Text = Text + f"No illumination gap to dark value\n"
-    # else:
-    # Text = Text + f"{image_dyn_range:.2g}% illumination gap to dark value\n"
-    # doc_dict["Image dynamic range"] = (f"{image_dyn_range:.1%}",
-                                    # "Dynamic range, expressed as a percentage. Above 95% is good."
     doc_dict["Bright image dynamic range [factor]"] = (f"{image_dyn_range:.4g}",
                                     "Bright image dynamic range, expressed as a factor. It represents the difference between the darkest and brightest parts of the bright calibration images. Above 20 is good."
     )
-    # Text = Text + "{:.0f}% of bg Pixels have a var > {:.0f} e- and were excluded\n".format(100-crazyPixelPercentile, np.sqrt(noisyPixelThreshold)*gain)
     doc_dict["Noisy pixels excluded"] = (f"{100-noisy_pixel_percentile:.0f}%",
                                     "Percentage of pixels which were excluded. By default, 2% of the noisiest background pixels are excluded from the analysis. This deals with RTS noise in CMOS cameras. CCD and scanning imagers should be unaffected."
     )
     doc_dict["Noise exclusion threshold [e-]"] = (f"{np.sqrt(noisyPixelThreshold)*gain:.1f}",
                                     "Threshold for exclusion for noisy pixels. Units are electrons."
     )
-    # Text = Text + "Background [ADU]: {bg:.2f}".format(bg=bg_total_mean) + "\n"
     doc_dict["Background [ADU]"] = ("{bg:.2f}".format(bg=bg_total_mean),
                                     "The background, or black level of the signal, obtained by the mean pixel value of the dark exposures. Units are ADU."
     )
-    # Text = Text + "Gain [e- / ADU]): {g:.4f}".format(g=gain) + "\n"
     doc_dict["Gain [e- / ADU]"] = (f"{gain:.4f}",
                                     "Conversion factor (Gain) determined by fit to photon transfer curve."
     )
-    Readnoise = (np.sqrt(np.mean(bg_var_projection)) * gain).astype(float) # don't want to return image type
-    Readnoise = (np.mean(np.sqrt(bg_var_projection)) * gain).astype(float) # new version try
-    Readnoise = (np.std(bg, (-3), ddof=1).mean() * gain).astype(float) # new version try
-    # Text = Text + f"Readnoise, gain * bg_noise: {Readnoise:.2f} e- RMS\n"
+    Readnoise = (np.std(bg, (-3), ddof=1).mean() * gain).astype(float) # DDOF necessary, Bessel's correction
     doc_dict["Readnoise, RMS [e-]"] = (f"{Readnoise:.2f}",
                                         "The mean readnoise, calculated by multiplying the mean of the individual pixel standard deviations with the gain. Units are photoelectrons."
     )
     median_readnoise = (np.sqrt(np.median(bg_var_projection)) * gain).astype(float) # don't want to return image type
     median_readnoise = (np.median(np.std(bg, (-3), ddof=1)) * gain).astype(float) # new version try
-    # Text = Text + "Median readnoise, gain * bg_noise: {rn:.2f} e- median\n".format(rn=median_readnoise)
     doc_dict["Readnoise, median  [e-]"] = (f"{median_readnoise:.2f}",
                                         "The median readnoise, which is a commonly quoted metric for CMOS cameras. Units are electrons."
     )
-    if offset < 0.0:
-        Text = Text + "Readnoise (fit): variance ({of:.2f}) below zero.".format(of=offset) + "\n"
-    else:
-        Text = Text + "Readnoise (fit): {rn:.2f}".format(rn=np.sqrt(offset)*gain)+"\n"
     if saturationImage:
         snr = var_peak/np.sqrt(np.mean(bg_var_projection))
-        # Text = Text + f"Dynamic range (e-): {snr:.0f}, {np.log10(snr)*10:.1f} dB\n"
         doc_dict["Detector dynamic range [factor]"] = (f"{snr:.0f}, {np.log10(snr)*10:.1f}",
         "Electron dynamic range of the detector (Jannesick, Photon transfer, p. 50). Expressed as a dimensionless factor."
         )
@@ -1798,23 +1778,18 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
         doc_dict["Detector dynamic range [root-power dB]"] = (f"{2*np.log10(snr)*10:.1f}",
         "Electron dynamic range of the detector. Expressed as root-power dB, which is twice the power dB value. Commonly used for video cameras."
         )
-        # Text = Text + f"Saturation value [ADU]: {var_peak+plotOffset:.0f}\n"
         doc_dict["Saturation value [ADU]"] = (f"{var_peak+plotOffset:.0f}",
         "Value at peak of photon transfer curve. Units are ADU"
         )
-        # Text = Text + f"Saturation capacity: {var_peak*gain:.0f} e-\n"
         doc_dict["Saturation capacity [e-]"] = (f"{var_peak*gain:.0f}",
         "Saturation capacity in units of electrons"
         )
-    # Text = Text + f"Linearity Error: {np.mean(np.abs(rel_dev)):.1%}\n"
     doc_dict["Linearity Error"] = (f"{np.mean(np.abs(rel_dev)):.1%}",
                                     "Mean absolute deviation from fit within linearity fit range."
     )
-    # Text = Text + f"Fixed pattern offset: {np.sqrt(patternVar):.2f} e- RMS\n"
     doc_dict["Fixed pattern offset std. [e-]"] = (f"{np.sqrt(patternVar):.2f}",
                                         "Gain multiplied with standard deviation of the background mean projection. Units are electrons."
     )
-    # Text = Text + f"Total electrons per exposure: {mean_el_per_exposure:.3E} e- \n"
     if not saturationImage:
         doc_dict["Total electrons per exposure [e-]"] = (f"{mean_el_per_exposure:.3E}",
                                         "The mean number of photoelectrons per exposure. The background is subtracted from the signal, and the sum is multiplied by the gain estimate. Incorrect if a significant number of pixels are saturated."
@@ -1830,6 +1805,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     # debughelper.save_to_interactive({"fig_string": fig_string})
 
     if doPlot:
+          
         fig = plt.figure(figsize=plot_figsize)
 
         if CameraName is not None:
@@ -1890,11 +1866,47 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             ax2.set_navigate(False)
             ax2.set_yticks([])
 
-        figures.append(fig)
+        figures.append((fig, "Photon_Calibration"))
 
-        if exportpath is not None:
-            plt.savefig(exportpath/f'Photon_Calibration.{exportFormat}')
 
+        plotADUhistograms = True
+        if plotADUhistograms:
+        
+            # Dark Histogram
+            fig = plt.figure(figsize=plot_figsize)
+            plt.fill_between(dark_hist_bin_edges[:-1], dark_counts, 0, step="mid", alpha=1, color="tab:gray", label="Dark series")
+            plt.yscale("log")
+            plt.xlim(-bg_total_mean/2, 2.5*bg_total_mean)
+            plt.ylim(0, dark_counts.max()**1.5)
+            plt.xlabel("Signal intensity / ADU")
+            plt.ylabel("Counts")
+            plt.title("Dark histogram")
+            figures.append((fig, "dark_histogram"))
+
+            # Bright Histogram
+            fig = plt.figure(figsize=plot_figsize)
+            plt.fill_between(bright_hist_bin_edges[:-1], bright_counts, 0, step="mid", alpha=1, color="tab:gray", label="Bright series")
+            plt.yscale("log")   
+            plt.xlim(-bg_total_mean/2, fg_max_ADU + bg_total_mean/2)
+            plt.ylim(0, bright_counts.max()**1.5)
+            plt.xlabel("Signal intensity / ADU")
+            plt.ylabel("Counts")
+            plt.title("Bright histogram")
+            figures.append((fig, "bright_histogram"))
+
+            # Conbined Histogram
+            fig = plt.figure(figsize=plot_figsize)
+            plt.fill_between(bright_hist_bin_edges[:-1], bright_counts, 0, step="mid", alpha=0.5, color="tab:green", label="Bright series")
+            plt.fill_between(dark_hist_bin_edges[:-1], dark_counts, 0, step="mid", alpha=0.8, color="tab:gray", label="Dark series")
+            plt.yscale("log")   
+            plt.xlim(-bg_total_mean/2, fg_max_ADU + bg_total_mean/2)
+            plt.ylim(0, dark_counts.max()**1.5)
+            plt.title("Combined histograms")
+            plt.xlabel("Signal intensity / ADU")
+            plt.ylabel("Counts")
+            plt.legend()
+            figures.append((fig, "combined_histograms"))
+        
         # linearity error plot
         fig = plt.figure(figsize=plot_figsize)
         if CameraName is not None:
@@ -1906,19 +1918,19 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
         plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
         plt.ylabel('Deviation / %.', fontsize=AxisFontSize)
 
-        # secondary acis again
+        # secondary axis again
         ax = plt.gca()
         secax_x = ax.secondary_xaxis('top', functions=(adu2el, el2adu))
-        
         secax_x.set_xlabel("Pixel brightness / $photoelectrons$", fontsize=AxisFontSize)
 
-        figures.append(fig)
-        if exportpath is not None:
-            plt.savefig(exportpath/f'linearityError.{exportFormat}')
-    if exportpath is not None:
-        # with open(exportpath/'calibration_results.txt', "w") as outfile:
-        #     outfile.write(Text)
+        figures.append((fig, "linearity_error"))
+            
 
+        if exportpath is not None:
+            for fig, figname in figures:
+                fig.savefig(exportpath/f'{figname}.{exportFormat}')
+
+    if exportpath is not None:
         results_dict = ruamel.yaml.comments.CommentedMap({k:v[0] for k, v in doc_dict.items()})
         results_topline_comment = """Results from calibration tool for inhomogenous image stacks.
 See definitions.txt for extended definitions.
@@ -1940,8 +1952,8 @@ heintzmann@gmail.com
         """        
         doc_dict_dict.yaml_set_start_comment(docs_topline_comment)
         yaml.dump(doc_dict_dict, open(exportpath/'definitions.txt', "w"))
-    # print(Text)
-    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, Text)
+    # TODO: print the yaml text to terminal?
+    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, doc_dict_dict)
 
 
 def check_dark(background, threshold=10):
