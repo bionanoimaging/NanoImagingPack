@@ -1879,7 +1879,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             plt.xlim(-bg_total_mean/2, 2.5*bg_total_mean)
             plt.ylim(0, dark_counts.max()**1.5)
             plt.xlabel("Signal intensity / ADU")
-            plt.ylabel("Counts")
+            plt.ylabel("Counts / frame")
             plt.title("Dark histogram")
             figures.append((fig, "dark_histogram"))
 
@@ -1890,7 +1890,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             plt.xlim(-bg_total_mean/2, fg_max_ADU + bg_total_mean/2)
             plt.ylim(0, bright_counts.max()**1.5)
             plt.xlabel("Signal intensity / ADU")
-            plt.ylabel("Counts")
+            plt.ylabel("Counts / frame")
             plt.title("Bright histogram")
             figures.append((fig, "bright_histogram"))
 
@@ -1903,7 +1903,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             plt.ylim(0, dark_counts.max()**1.5)
             plt.title("Combined histograms")
             plt.xlabel("Signal intensity / ADU")
-            plt.ylabel("Counts")
+            plt.ylabel("Counts / frame")
             plt.legend()
             figures.append((fig, "combined_histograms"))
         
@@ -1953,7 +1953,7 @@ heintzmann@gmail.com
         doc_dict_dict.yaml_set_start_comment(docs_topline_comment)
         yaml.dump(doc_dict_dict, open(exportpath/'definitions.txt', "w"))
     # TODO: print the yaml text to terminal?
-    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, doc_dict_dict)
+    return (bg_total_mean, gain, Readnoise, mean_el_per_exposure, validmap, figures, doc_dict)
 
 
 def check_dark(background, threshold=10):

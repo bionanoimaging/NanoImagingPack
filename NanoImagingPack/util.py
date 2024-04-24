@@ -1196,7 +1196,7 @@ def GLS(x,y,v):
     return res
 
 
-def RWLSPoisson(x,y,N=1, ignoreNan=True, validRange=None):
+def RWLSPoisson(x, y, N=1, ignoreNan=True, validRange=None):
     """ [o,s]=RWLSPoisson(x,y,N)  : Poisson Reweighted Least Square fit, linear regression with error according to the Poisson distribution. Fits a straight line with offset.
      x : vector of x-values, known postions at which was measured.
      y : vector y-values, measurements.
