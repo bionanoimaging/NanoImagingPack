@@ -36,6 +36,8 @@ setuptools.setup(
         'matplotlib',
         'napari',
         'ruamel.yaml',
+        'tkinterdnd2',
+        'clize',
                     ],
     # 'python-bioformats', 'javabridge'  are removed from the requirements to make the basic installation simple.
     #dependency_links=['https://github.com/blink1073/tifffile'],

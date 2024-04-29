@@ -1,0 +1,20 @@
+Build standalone tools for Windows using pyinstaller.
+
+# Prerequisites
+1. Make sure you have a python environment that can run the scripts.
+1. Install anaconda
+1. Create a conda environment including pip
+conda create --name calibration-tools pip 
+1. Open an anaconda terminal and activate the environment
+conda activate calibration-tools
+1. Install pyinstaller using pip
+pip install pyinstaller
+1. Install nanoimagingpack
+pip install -e "PATH_TO_NANOIMAGINGPACK"
+
+# Build command
+1. Open a terminal
+1. Change into the "calibration_tools" directory containing the scripts.
+cd /d nanoimagingpack\Scripts\calibration_tools
+1. Run the pyinstaller build command
+pyinstaller --workpath <WORK_PATH> --distpath <OUTPUT_PATH> --noconfirm spec.spec

@@ -1230,11 +1230,11 @@ def RWLSPoisson(x, y, N=1, ignoreNan=True, validRange=None):
     NumIter = 5
     v = y  # variances of data is equal (or proportional) to the measured variances
     for n in range(NumIter):
-        vv = v**2 / N; # Variance of the variance. The error of the variance is proportional to the square of the variance, see http://math.stackexchange.com/questions/1015215/standard-error-of-sample-variance
+        vv = v**2 / N # Variance of the variance. The error of the variance is proportional to the square of the variance, see http://math.stackexchange.com/questions/1015215/standard-error-of-sample-variance
         if any(v<myThresh):
-            vv[v<myThresh]=myThresh;  # This is to protect agains ADU-caused bias, which is NOT reduced by averaging
+            vv[v<myThresh]=myThresh  # This is to protect agains ADU-caused bias, which is NOT reduced by averaging
             if n == 1:
-                print('WARNING RWLSPoisson: The data has a variance below 2 ADUs at low signal level. This leads to unwanted biases. Increasing the variance estimation for the fit.\n');
+                print('WARNING RWLSPoisson: The data has a variance below 2 ADUs at low signal level. This leads to unwanted biases. Increasing the variance estimation for the fit.\n')
         (o,s) = GLS(x, y, vv)
         v = o+s*x # predict variances from the fit for the next round
         # print('RWLSPoisson Iteration %d, o: %g, s: %g\n',n,o,s);
