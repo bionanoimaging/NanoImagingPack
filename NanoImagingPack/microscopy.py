@@ -1934,9 +1934,9 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
         results_dict = ruamel.yaml.comments.CommentedMap({k:v[0] for k, v in doc_dict.items()})
         results_topline_comment = """Results from calibration tool for inhomogenous image stacks.
 See definitions.txt for extended definitions.
-The results are in the YAML format, readbale by humans and machines
+The results are in the YAML format, readable by humans and machines
 Written by David McFadden, FSU Jena
-NanoImagingPack library: https://gitlab.com/bionanoimaging/nanoimagingpack/
+NanoImagingPack library: https://github.com/bionanoimaging/NanoImagingPack
 Questions, bugs and requests to: david.mcfadden777@gmail.com
 heintzmann@gmail.com
         """
@@ -1944,9 +1944,9 @@ heintzmann@gmail.com
         yaml.dump(results_dict, open(exportpath/'calibration_results.txt', "w"))
         doc_dict_dict = ruamel.yaml.comments.CommentedMap({k:v[1] for k, v in doc_dict.items()})
         docs_topline_comment = """Extended definitions for calibration results.
-Written in the YAML format, readbale by humans and machines
+Written in the YAML format, readable by humans and machines
 Written by David McFadden, FSU Jena
-NanoImagingPack library: https://gitlab.com/bionanoimaging/nanoimagingpack/
+NanoImagingPack library: https://github.com/bionanoimaging/NanoImagingPack
 Questions, bugs and requests to: david.mcfadden777@gmail.com
 heintzmann@gmail.com
         """        
