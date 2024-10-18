@@ -1464,7 +1464,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     :param exportFormat: PNG or SVG files possible.
     :param brightness_blurring: A filter to blur the brightness estimate. Useful for sCMOS sensors
     :param plotWithBgOffset: If false, then the background value will be subtracted from the pixel ADUs in the plot.
-    :param plotHist: If true, then a histogram of brightness bins will be plotted in the plot background
+    :param plotHist: If true, then a histogram of gray level bins will be plotted in the plot background
     :param check_bg: If true, then the background images will be checked.
     :param saturationImage: If true, then the peak of the photon transfer curve will be used to estimate the saturation level and calculate a dynamic range.
     :return: tuple of fit results (offset [adu], gain [electrons / adu], readnoise [e- RMS])
@@ -1580,8 +1580,8 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             else:
                 plt.title("Offset Drift", fontsize=TitleFontSize)
             plt.plot(reloffset.flat, label='Offset / Std.Dev.')
-            plt.xlabel("frame no.", fontsize=AxisFontSize)
-            plt.ylabel("mean offset / Std.Dev.", fontsize=AxisFontSize)
+            plt.xlabel("Frame number", fontsize=AxisFontSize)
+            plt.ylabel("Mean offset / Std.Dev.", fontsize=AxisFontSize)
 
             figures.append((fig, "correctOffsetDrift"))
 
@@ -1594,7 +1594,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
     plotOffset = bg_total_mean*plotWithBgOffset
     patternVar = np.var(bg_mean_projection)
 
-# POTENTIAL FOR ERROR CROSSING THIS LINE
+# POTENTIAL FOR ERROR CROSSING THIS LINE. fg is now background subtracted 
     fg -= bg_mean_projection # pixel-wise background subtraction
     if correctBrightness:
         brightness = np.mean(fg, (-2,-1), keepdims=True)
@@ -1607,8 +1607,8 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             else:
                 plt.title("Brightness Fluctuation", fontsize=TitleFontSize)
             plt.plot(relbright.flat)
-            plt.xlabel("frame no.",fontsize=AxisFontSize)
-            plt.ylabel("relative brightness",fontsize=AxisFontSize)
+            plt.xlabel("Frame number",fontsize=AxisFontSize)
+            plt.ylabel("Relative brightness",fontsize=AxisFontSize)
             figures.append((fig, 'Brightness_Fluctuation'))
         fg = fg / relbright
         maxFluc = np.max(np.abs(1.0-relbright))
@@ -1815,7 +1815,7 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
 
         biased_binMid = binMid + plotOffset
         biased_mean_mean = mean_mean + plotOffset
-        plt.plot(biased_mean_mean, mean_var, 'bo', label='Brightness bins')
+        plt.plot(biased_mean_mean, mean_var, 'bo', label='Gray level bins')
         # plt.errorbar(biased_binMid, myFit, myStd, label='Fit')
         plt.plot(biased_binMid, myFit, color="tab:red", label='Gain fit')
         plt.plot(biased_binMid, myFit+myStd/2, '--r', label="Error")
@@ -1835,10 +1835,10 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
         secax_x = ax.secondary_xaxis('top', functions=(adu2el, el2adu))
         secax_y = ax.secondary_yaxis('right', functions=(lambda x: x*gain**2, lambda x: x/gain**2))
         
-        secax_x.set_xlabel("Pixel brightness / $photoelectrons$", fontsize=AxisFontSize)
+        secax_x.set_xlabel("Pixel gray level / $photoelectrons$", fontsize=AxisFontSize)
         secax_y.set_ylabel("Pixel variance / $photoelectrons^2$", fontsize=AxisFontSize)
 
-        plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
+        plt.xlabel("Pixel gray level / $ADU$", fontsize=AxisFontSize)
         plt.ylabel("Pixel variance / $ADU^2$", fontsize=AxisFontSize)
         plt.grid()
         plt.figtext(0.02, 0.05, fig_string, fontsize=TextFontSize)
@@ -1915,13 +1915,13 @@ def cal_readnoise(fg, bg, numBins:int=100, validRange=None, linearity_range=None
             plt.title("Deviation from linearity", fontsize=TitleFontSize)
         plt.plot(linfit_x_extended + plotOffset, rel_dev_extended*100)
         plt.ylim(min(rel_dev*100)*1.5, max(rel_dev*100)*1.5)
-        plt.xlabel("Pixel brightness / $ADU$", fontsize=AxisFontSize)
+        plt.xlabel("Pixel gray level / $ADU$", fontsize=AxisFontSize)
         plt.ylabel('Deviation / %.', fontsize=AxisFontSize)
 
         # secondary axis again
         ax = plt.gca()
         secax_x = ax.secondary_xaxis('top', functions=(adu2el, el2adu))
-        secax_x.set_xlabel("Pixel brightness / $photoelectrons$", fontsize=AxisFontSize)
+        secax_x.set_xlabel("Pixel gray level / $photoelectrons$", fontsize=AxisFontSize)
 
         figures.append((fig, "linearity_error"))
             
