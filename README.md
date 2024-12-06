@@ -13,9 +13,9 @@ it available for a broad community.
 
 1. Download Anaconda https://docs.anaconda.com/anaconda/install/
 1. Open an anaconda prompt
-1. create a new environment (tested in Python 3.8)
+1. create a new environment
     ```
-    conda create --name nanoimaging python=3.8 anaconda tifffile
+    conda create --name nanoimaging anaconda tifffile
     ```
 1. Activate 
     ```
@@ -23,13 +23,13 @@ it available for a broad community.
     ```
 1. Install this feature branch of NanoImagingPack
     ```
-    pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack
+    pip install git+https://github.com/bionanoimaging/NanoImagingPack.git
     ```
 
 <!-- 
-conda create -y --name nanoimaging python=3.8 anaconda tifffile &
+conda create -y --name nanoimaging anaconda tifffile &
 conda activate nanoimaging &
-pip install git+https://gitlab.com/bionanoimaging/nanoimagingpack
+pip install git+https://github.com/bionanoimaging/NanoImagingPack.git
  -->
 
 ## Getting started
@@ -45,10 +45,10 @@ import NanoImagingPack as nip
 import napari
 
 img = nip.readim("erika")
-nip.vv(img)
+viewer = napari.view_image(img)
 ```
 
-The created image is of type "image"
+The created image is of type "image".
 
 ## Gain calibration from an inhomogenous stack
 
