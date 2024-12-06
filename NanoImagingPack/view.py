@@ -121,7 +121,7 @@ class view:
                 self.image = image.astype(np.complex64)
             elif np.issubdtype(image.dtype, np.floating):
                 self.image = image.astype(np.float32)
-            elif np.issubdtype(image.dtype, np.bool):
+            elif np.issubdtype(image.dtype, bool):
                 self.image = image.astype(np.uint8)
             else:
                 self.image = image
@@ -143,7 +143,7 @@ class view:
             self.title =title
         self.curr_title = title
 
-        if image.dtype is np.bool:
+        if image.dtype is bool:
             self.image = image.astype(np.uint8)
         self.image = self.image.transpose()
         self.image = self.image.swapaxes(0,1)
@@ -175,7 +175,7 @@ class view:
         self.current_sheet = 0  # 5th Dimension
         self.current_book = 0  # 6th Dimension
         self.click_time =0
-        self.fig.canvas.set_window_title(self.__make_title__())
+        self.fig.canvas.manager.set_window_title(self.__make_title__())
         if np.ndim(self.image) == 2:
             self.im_to_draw = self.image
         elif np.ndim(self.image) == 3:
@@ -295,7 +295,7 @@ class view:
                 self.image = image.astype(np.complex64)
             elif np.issubdtype(image.dtype, np.floating):
                 self.image = image.astype(np.float32)
-            elif np.issubdtype(image.dtype, np.bool):
+            elif np.issubdtype(image.dtype, bool):
                 self.image = image.astype(np.uint8)
             else:
                 self.image = image

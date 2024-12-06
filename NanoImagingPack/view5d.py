@@ -26,7 +26,7 @@ from . import config
 from . import image
 
 global JVM_RUNNING
-if ~('JVM_RUNNING' in globals()):
+if not ('JVM_RUNNING' in globals()):
     JVM_RUNNING=0
 
 if (JVM_RUNNING==0):
