@@ -97,12 +97,9 @@ class PARA_SET:
         print('Creating Illumination pattern and masks ...')
         MyIllu = gauss2D(sigma_x = w_gauss[0]*1E4/(2*px_size), sigma_y = w_gauss[1]*1E4/(2*px_size))(xx(dim_slm), yy(dim_slm));
         #compute the fouriermask for the given angle 
-        #MyMasks[0] the wanted direction
-        #MyMasks[1] the unwanted directon
+        #MyMasks[0]: the wanted direction
+        #MyMasks[1]: the unwanted direction
         MyMasks = generate_mask(num_dir, self.angle, dim_slm, h,self.wavelength,self.get_first_period(),px_size, f);
-        # there is a small difference here to the Julia code:
-        # print(np.sum(MyMasks[0]))
-        # print(np.sum(MyMasks[1]))
 
         print('Generating Gratings and computing FT')
         if self.para_list.ndim == 1:                # this is necessary to exploit numpy broadcasting: in order to compute 3Dim and 2Dim array, Dim1 and 2 must be equal
