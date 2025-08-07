@@ -10,7 +10,7 @@ import numpy as np;
 import PIL;
 from ..util import get_type, adjust_lists;
 #import matplotlib.pyplot as plt
-def generate_grating(grating_para,phase_nr, num_phases,dim_slm= [1280, 1024],method = 'binary', blaze = 0,  periods = 1, binary_threshold = 0):
+def generate_grating(grating_para, phase_nr, num_phases,dim_slm= [1280, 1024],method = 'binary', blaze = 0,  periods = 1, binary_threshold = 0):
     """
     Generate the grating from the given Grating paramters according to SLM dimension
 

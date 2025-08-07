@@ -50,6 +50,46 @@ viewer = napari.view_image(img)
 
 The created image is of type "image".
 
+## How to be able to use View5D (and python-bioformats)
+To be able to use View5D as a viewer (eg. using nip.vv(mydata)) you need a Java installation in your system.
+Here are the installation instructions based on a (recommended) tool called "uv".
+This installation was tested (Aug. 2025) for Windows 11, 64 bit:
+- Unpack a recent java JDK installation. Note that a JRE (as shipped with Fiji or ImageJ) is not sufficient. You can obtain an installation from [java]
+(https://www.java.com/en/download/manual.jsp ) or from [openJdk](https://openjdk.org/)
+- Go to your system path definition and add the variable `JDK_HOME` to you user variables with the path of the java installation (e.g. `C:\NoBackup\java\jdk-24.0.2`) and add the corresponding `bin` folder (e.g. `C:\NoBackup\java\jdk-24.0.2\bin`) as one entry to the `PATH` variable. Be sure to use `JDK_HOME` and NOT `JAVA_HOME`.
+- Install vsBuildTools 2022 (17.14.11) from `https://visualstudio.microsoft.com/de/downloads/?q=build+tools`. You need to select `Desktopdevelopment with C++` (top left) but it sufficient to select only the first three `optional` choices. This is needed to hava a working `cl.exe` to compile C code, which `javabridge` (see later) needs. I wonder, if there is a less heavy version via VSCode today. Let me know if you know one and tried it successfully via raising an issue.
+- make a folder (e.g. uv-environments)  where you keep all your uv environments.
+- open powershell (or cmd) and cd into this folder where you store the uv environments.
+- Install uv via the powershell: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
+- create a new environment: `uv venv --python=3.11 nip-py11`. Be sure to use pyhton 3.11 and NOT python 3.12 or later.
+- cd into this environment: `cd nip-py11`
+- activate that environment: `.\Scripts\activate`
+- install numpy into this environment: `uv pip install "numpy<1.24"`. Be sure to limit the numpy version to below 1.24
+- verify that the environment is set correctly: `echo $env:JDK_HOME`should show you the corresponding path in that powershell. If not, you may need to restart the powershell.
+- activate the cl environment `. "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"`. Note that this works in the powershell only if you have activated a uv environment. Otherwise you may need to use a cmd environment for the next steps.
+- verify that cl is working now: `cl`  should result in a reply by the compiler.
+- install python-bioformats: `uv pip install python-bioformats`. It is essential that you do it this way. Do NOT try to install `javabridge` as this leads to lots of version trouble. The python-bioformats package seems to use matching versions here.
+- install NanoImagingPack: `uv pip install  git+https://github.com/bionanoimaging/NanoImagingPack.git`. Note that the `git+` in the beginning is essential. Of course you can also clone the git repo and use the -e flag for pip and state only the local folder, if you plan to modify NanoImagingPack.
+- install setuptools: `uv pip install setuptools`. This is needed to prevent an error in NanoImagingPack in the newer Python versions. Eventually this should be revised.
+- Optionally you may want to install ipython: `uv pip install ipython`
+
+You are now ready to go and do a fist test: e.g. type `uv run python` or `uv run ipython`
+Here is a little test script to see if the viewer starts corretly:
+```
+nip.setDefault('IMG_VIEWER','VIEW5D') # set default viewer to View5D()
+q = nip.xx() # generate a ramp along x
+v = nip.vv(q) # display the image in the Java viewer View5D.
+v.setColormap(13, 0) # change colormap to RdBu
+v.SetGamma(0, 0.3) # set the gamma of the colormap of element 0 to 0.3
+```
+Type `?` in the viewer to find more information on View5D or look [here](https://nanoimaging.de/View5D) or at the [videos](https://www.youtube.com/watch?v=fqa82MmJlAA&list=PL3LueK3ij6Wm2VjaaibNdulxFvA6VhVRv).
+
+
+
+
+
+
+
 ## Gain calibration from an inhomogenous stack
 
 Perform a gain calibration using simulated data.

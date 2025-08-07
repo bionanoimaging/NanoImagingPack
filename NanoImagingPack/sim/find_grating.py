@@ -97,17 +97,19 @@ class PARA_SET:
         print('Creating Illumination pattern and masks ...')
         MyIllu = gauss2D(sigma_x = w_gauss[0]*1E4/(2*px_size), sigma_y = w_gauss[1]*1E4/(2*px_size))(xx(dim_slm), yy(dim_slm));
         #compute the fouriermask for the given angle 
-        #MyMasks[0] the wanted direction
-        #MyMasks[1] the unwanted directon
+        #MyMasks[0]: the wanted direction
+        #MyMasks[1]: the unwanted direction
         MyMasks = generate_mask(num_dir, self.angle, dim_slm, h,self.wavelength,self.get_first_period(),px_size, f);
+
         print('Generating Gratings and computing FT')
         if self.para_list.ndim == 1:                # this is necessary to exploit numpy broadcasting: in order to compute 3Dim and 2Dim array, Dim1 and 2 must be equal
-            grats = generate_grating(self.para_list,0, num_phase,dim_slm)*MyIllu;
+            grats = generate_grating(self.para_list,0, num_phase,dim_slm)* MyIllu;
             MyFT = ft(grats, axes = (0,1), ret = 'abs');
         else:
-            grats = np.rollaxis(generate_grating(self.para_list,0, num_phase,dim_slm),2)*MyIllu;
+            grats = np.rollaxis(generate_grating(self.para_list,0, num_phase,dim_slm),2)* MyIllu;
             MyFT = ft(grats, axes = (1,2), ret = 'abs');
-        print('Computing Rations...')        
+
+        print('Computing Ratios...')        
         Wanted = np.abs(MyFT)*MyMasks[0];
         Unwanted = np.abs(MyFT)*MyMasks[1];
         if self.para_list.ndim == 1:
@@ -302,10 +304,11 @@ def search_for_matching_k(start, end, num_phases, k, dk, fixed_angle_set = None,
     '''
      find parameter combinations, that produce the correct grating period
     '''
- 
+
     condition= (np.abs(period) > (k-dk/2))*(np.abs(period)<(k+dk/2));
     
     index_list = np.squeeze(np.asarray(condition.nonzero()))    #gibt alle indizes zurück, bei denen die Bedinung, in dem Fall die Passende Gitterkosntante, erfüllt ist
+   
     ahx = ahx[index_list]
     ahy = ahy[index_list]
     apx = apx[index_list]
@@ -363,26 +366,27 @@ def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, 
     from ..mask import create_circle_mask;
     from ..coordinates import bfp_coords;
     import numpy as np;
-    bfp_xx = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 0);           # coordinates in back focal plane
-    bfp_yy = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 1);
+    bfp_xx = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 1);           # coordinates in back focal plane
+    bfp_yy = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 0); 
     # pixelsize in the BackfocalPlane in mm    
-    bfp_px_size = ((np.max(bfp_xx)-np.min(bfp_xx))/bfp_xx.shape[0],(np.max(bfp_yy)-np.min(bfp_yy))/bfp_yy.shape[1]);
+    bfp_px_size = ((np.max(bfp_xx)-np.min(bfp_xx))/bfp_xx.shape[1],(np.max(bfp_yy)-np.min(bfp_yy))/bfp_yy.shape[0]);
     d= wl/1000*f/(period*pixelsize);                #distance in the backfocal plane in mm
     
     # compute part of the mask for the wanted transmissions 
-    x_pos = d*np.sin(wanted_dir*np.pi/180)/bfp_px_size[1]         # indexes changed due to new indexing
-    y_pos = d*np.cos(wanted_dir*np.pi/180)/bfp_px_size[0]
-    mask_wanted_dir  = create_circle_mask(dim_slm, maskpos = (x_pos,y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
-    mask_wanted_dir += create_circle_mask(dim_slm, maskpos = (-x_pos,-y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
+    x_pos = d*np.sin(wanted_dir*np.pi/180)/bfp_px_size[0]         # indexes changed due to new indexing
+    y_pos = d*np.cos(wanted_dir*np.pi/180)/bfp_px_size[1]
+    myradius = (h_diameter/(2*bfp_px_size[0]), h_diameter/(2*bfp_px_size[1]));
+    mask_wanted_dir  = create_circle_mask(dim_slm, maskpos = (x_pos,y_pos), radius = myradius);
+    mask_wanted_dir += create_circle_mask(dim_slm, maskpos = (-x_pos,-y_pos), radius = myradius);
     # compute the mask for the unwanted transmission
     mask_unwanted_dir = np.zeros(dim_slm);
     for i in range(1,num_dir):
         x_pos = d*np.sin((wanted_dir+180/num_dir*i)*np.pi/180)/bfp_px_size[0]
         y_pos = d*np.cos((wanted_dir+180/num_dir*i)*np.pi/180)/bfp_px_size[1]
-        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (x_pos,y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
-        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (-x_pos,-y_pos), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
+        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (x_pos,y_pos), radius = myradius);
+        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (-x_pos,-y_pos), radius = myradius);
     if zero:
-        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (0,0), radius = (h_diameter/(2*bfp_px_size[0]),h_diameter/(2*bfp_px_size[1])));
+        mask_unwanted_dir += create_circle_mask(dim_slm, maskpos = (0,0), radius = myradius);
     return([mask_wanted_dir, mask_unwanted_dir])
 
 def clear_para_list(pl, al, n_dir,lam):
@@ -714,7 +718,7 @@ def create_grating_param_file(path, start = -10, end = 50, num_dir = 3, num_phas
       
         name='para_'+str(np.round(period,3))+'_'+str(num_phase)+'phases_'+str(num_dir)+'Dir.txt';
         #name='QXGA_TEST_PARA.txt';
-        para_list, angle_array,error = create_para_list(start, end, period, error_period, error_angle, lam, num_dir, num_phase,dim_slm,h,generation,px_size,f,opt_grating_sum, fixed_angle, fixed_angle_set = fixed_angle_set, PhaseCheckMethod=PhaseCheckMethod);
+        para_list, angle_array, error = create_para_list(start, end, period, error_period, error_angle, lam, num_dir, num_phase,dim_slm,h,generation,px_size,f,opt_grating_sum, fixed_angle, fixed_angle_set = fixed_angle_set, PhaseCheckMethod=PhaseCheckMethod);
         #return(para_list,angle_array)
         if opt_grating_sum:
             para_list = optimize_grating_sum(para_list, num_phase, num_dir, dim_slm,h,generation, px_size, f);
