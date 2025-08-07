@@ -369,8 +369,8 @@ def generate_mask(num_dir, wanted_dir, dim_slm, h_diameter,wl,period,pixelsize, 
     from ..mask import create_circle_mask;
     from ..coordinates import bfp_coords;
     import numpy as np;
-    bfp_xx = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 0);           # coordinates in back focal plane
-    bfp_yy = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 1);
+    bfp_xx = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 1);           # coordinates in back focal plane
+    bfp_yy = bfp_coords(dim_slm,pxs = pixelsize, wavelength = wl/1000, focal_length = f, axis = 0); 
     # pixelsize in the BackfocalPlane in mm    
     bfp_px_size = ((np.max(bfp_xx)-np.min(bfp_xx))/bfp_xx.shape[1],(np.max(bfp_yy)-np.min(bfp_yy))/bfp_yy.shape[0]);
     d= wl/1000*f/(period*pixelsize);                #distance in the backfocal plane in mm

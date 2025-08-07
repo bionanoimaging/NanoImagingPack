@@ -71,6 +71,7 @@ class View5D:
         setFontSize = javabridge.make_method("setFontSize","(I)V")
         setUnit = javabridge.make_method("setUnit","(ILjava/lang/String;)V")
         SetGamma = javabridge.make_method("SetGamma","(ID)V")
+        setColormap = javabridge.make_method("set_colormap_no","(II)V")
         setMinMaxThresh = javabridge.make_method("setMinMaxThresh","(IFF)V")
         ProcessKeyMainWindow = javabridge.make_method("ProcessKeyMainWindow","(C)V")
         ProcessKeyElementWindow = javabridge.make_method("ProcessKeyElementWindow","(C)V")

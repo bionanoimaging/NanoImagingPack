@@ -57,11 +57,11 @@ def get_Folderlist(directory, exclude_list = ()):
 
         Example
 
-        dir = nip.str_to_path(r'C:\MyFiles')
+        dir = nip.str_to_path('C:\\MyFiles')
         Excludelist = ['timeser488', 'BPAE_Example']
         get_Folderlist(dir, Excludelist):
 
-            You get all Subdirectories in C:\MyFiles except those containing 'timeser488' and 'BPAE_Example'
+            You get all Subdirectories in C:\\MyFiles except those containing 'timeser488' and 'BPAE_Example'
     """
     import os
     dirs= [x[0] for x in os.walk(directory)]
@@ -123,7 +123,7 @@ def str_to_path(name):
 
         note: the path string should start with an r such as:
 
-            s = r'C:\hello_kitty\'
+            s = 'C:\\hello_kitty\\'
 
         since this disables the usage of  '\' as controll character
 
