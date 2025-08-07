@@ -55,27 +55,29 @@ To be able to use View5D as a viewer (eg. using nip.vv(mydata)) you need a Java 
 Here are the installation instructions based on a (recommended) tool called "uv".
 This installation was tested (Aug. 2025) for Windows 11, 64 bit:
 - Unpack a recent java JDK installation. Note that a JRE (as shipped with Fiji or ImageJ) is not sufficient. You can obtain an installation from [java]
-(https://www.java.com/en/download/manual.jsp ) or from [openJdk](https://openjdk.org/)
+(https://download.oracle.com/java/24/latest/jdk-24_windows-x64_bin.zip) or from [openJdk](https://openjdk.org/)
 - Go to your system path definition and add the variable `JDK_HOME` to you user variables with the path of the java installation (e.g. `C:\NoBackup\java\jdk-24.0.2`) and add the corresponding `bin` folder (e.g. `C:\NoBackup\java\jdk-24.0.2\bin`) as one entry to the `PATH` variable. Be sure to use `JDK_HOME` and NOT `JAVA_HOME`.
-- Install vsBuildTools 2022 (17.14.11) from `https://visualstudio.microsoft.com/de/downloads/?q=build+tools`. You need to select `Desktopdevelopment with C++` (top left) but it sufficient to select only the first three `optional` choices. This is needed to hava a working `cl.exe` to compile C code, which `javabridge` (see later) needs. I wonder, if there is a less heavy version via VSCode today. Let me know if you know one and tried it successfully via raising an issue.
+- Install vsBuildTools 2022 (17.14.11) from `https://aka.ms/vs/17/release/vs_BuildTools.exe`. You need to select `Desktopdevelopment with C++` (top left) but it sufficient to select only the first two `optional` choices (up to Windows_11_SDK which is required!). This is needed to hava a working `cl.exe` to compile C code, which `javabridge` (see later) needs. I wonder, if there is a less heavy version via VSCode today. Let me know if you know one and tried it successfully via raising an issue.
 - make a folder (e.g. uv-environments)  where you keep all your uv environments.
 - open powershell (or cmd) and cd into this folder where you store the uv environments.
 - Install uv via the powershell: `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
 - create a new environment: `uv venv --python=3.11 nip-py11`. Be sure to use pyhton 3.11 and NOT python 3.12 or later.
 - cd into this environment: `cd nip-py11`
+- if you have not already done so allow script execution via: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
 - activate that environment: `.\Scripts\activate`
 - install numpy into this environment: `uv pip install "numpy<1.24"`. Be sure to limit the numpy version to below 1.24
 - verify that the environment is set correctly: `echo $env:JDK_HOME`should show you the corresponding path in that powershell. If not, you may need to restart the powershell.
 - activate the cl environment `. "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"`. Note that this works in the powershell only if you have activated a uv environment. Otherwise you may need to use a cmd environment for the next steps.
-- verify that cl is working now: `cl`  should result in a reply by the compiler.
+- verify that cl is working now: `cl`  should result in a reply by the compiler. If this does not work, you may have to use a `cmd` environment for the next steps.
+- install setuptools: `uv pip install setuptools`. This is needed to prevent an error in NanoImagingPack in the newer Python versions. Eventually this should be revised.
 - install python-bioformats: `uv pip install python-bioformats`. It is essential that you do it this way. Do NOT try to install `javabridge` as this leads to lots of version trouble. The python-bioformats package seems to use matching versions here.
 - install NanoImagingPack: `uv pip install  git+https://github.com/bionanoimaging/NanoImagingPack.git`. Note that the `git+` in the beginning is essential. Of course you can also clone the git repo and use the -e flag for pip and state only the local folder, if you plan to modify NanoImagingPack.
-- install setuptools: `uv pip install setuptools`. This is needed to prevent an error in NanoImagingPack in the newer Python versions. Eventually this should be revised.
 - Optionally you may want to install ipython: `uv pip install ipython`
 
 You are now ready to go and do a fist test: e.g. type `uv run python` or `uv run ipython`
 Here is a little test script to see if the viewer starts corretly:
 ```
+import NanoImagingPack as nip
 nip.setDefault('IMG_VIEWER','VIEW5D') # set default viewer to View5D()
 q = nip.xx() # generate a ramp along x
 v = nip.vv(q) # display the image in the Java viewer View5D.
